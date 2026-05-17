@@ -60,6 +60,24 @@ export class UnsupportedAssetError extends WalletError {
 }
 
 /**
+ * Vault decryption failed: wrong unlock credential, or a tampered/corrupt
+ * blob (AES-GCM auth tag mismatch). Deliberately does not echo the cause —
+ * callers should treat every failure as "wrong passphrase / corrupt vault".
+ */
+export class VaultDecryptError extends WalletError {
+  constructor() {
+    super("could not decrypt the vault: wrong unlock credential or corrupt data");
+  }
+}
+
+/** The stored vault blob is not in a format this build understands. */
+export class VaultFormatError extends WalletError {
+  constructor() {
+    super("vault blob is malformed or has an unsupported version");
+  }
+}
+
+/**
  * A method that is part of the frozen public contract but is delivered in a
  * later phase. The contract is intentionally complete from day one so apps can
  * compile against it; this error makes the phase boundary explicit at runtime
