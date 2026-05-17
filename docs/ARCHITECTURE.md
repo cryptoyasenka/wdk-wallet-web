@@ -59,3 +59,64 @@ scattered.
   Next.js onboarding/unlock/portfolio/receive. Irreducible "real wallet".
 - **P2** send + activity + WebAuthn unlock + tx confirmation UI + e2e send test.
 - **P3** svelte-proof + full test/CI matrix + polish + docs finalisation.
+
+## ADR-001: P1 ships no Web Worker — seed isolation co-designs with signing (P2)
+
+**Status:** accepted (P1). **Supersedes nothing.** Revisited in P2.
+
+The `CryptoWorker` port frozen in `packages/wallet-core/src/types.ts` is
+`deriveAddress` / `signTransaction` / `lock` — and deliberately has **no
+seed-provisioning method**. The engine never hands a decrypted seed across that
+boundary; a real worker would have to *own* the seed and expose only derive/sign.
+
+P1 delivers onboarding / unlock / portfolio / receive — **no signing path**, so no
+private key is ever derived in the running app. Building a Web Worker in P1 whose
+only live method is `lock()` would move *no secret* off the main thread: an
+isolation boundary with nothing to isolate is security theatre, and theatre is
+exactly what SECURITY.md forbids us from shipping.
+
+So P1 is honest about its boundary instead of faking one:
+
+- The vault is decrypted **in-process** (main thread) with the non-extractable
+  WebCrypto AES-GCM key returned by `UnlockProvider.unlock()` (PBKDF2-over-passphrase
+  in P1; WebAuthn-gated in P2). The key object is non-extractable; the plaintext
+  seed exists only transiently inside the engine, never in React state or storage.
+- `apps/next/src/lib/cryptoWorker.ts` is a `StubCryptoWorker`: `lock()` is a real
+  resolve (a genuine no-op — there is no worker state to zero yet, and saying so is
+  the honest description, not a silenced crypto primitive); `deriveAddress` /
+  `signTransaction` **reject** with an explicit Phase-2 message and are never
+  reached on any P1 screen.
+- The engine still routes `lock()` through `deps.crypto.lock()`. That call is inert
+  in P1 but the wiring is load-bearing: when P2 swaps in the real Web-Worker
+  `CryptoWorker`, lock already flows into the worker — the contract does not change,
+  only the implementation behind it does. **P1 builds the seam; P2 fills it.**
+
+The real seed-isolation boundary (worker owns the decrypted seed; main thread holds
+only opaque handles; derive/sign cross the postMessage edge) is introduced in P2
+**together with** signing, because that is the first moment a secret actually exists
+to isolate. The `RN-TO-WEB-MAP.md` "Crypto isolation" row already states the honest
+ceiling: a Web Worker is defence-in-depth, not an XSS-proof separate runtime like
+the RN starter's BareKit worklet.
+
+## ADR-002: the P1 web bundle is EVM-only (alpha-WDK native deps)
+
+**Status:** accepted (P1). Bitcoin-on-web is a P2 investigation.
+
+`@tetherto/wdk-wallet-btc` (and the EVM package's memory-safe key modules) reach
+`sodium-universal`, a CJS `module.exports = require('sodium-native')` — a Node
+N-API native addon — plus Bare-runtime modules that cannot bundle for a browser.
+Two webpack-level resolutions, both honest, both **scoped to this app's browser
+bundle only** (`wallet-core` is untouched, so Node/RN consumers keep real BTC and
+the real native sodium):
+
+- `sodium-universal` → `apps/next/src/lib/sodiumUniversalShim.ts`, which re-exports
+  the **real** pure-JS `sodium_memzero` from `sodium-javascript` (exactly what
+  `sodium-universal`'s own `browser` field targets) as a proper static ESM named
+  export webpack can analyse. No crypto behaviour is faked or no-op'd — private-key
+  buffers are still genuinely zeroised in the browser.
+- `@tetherto/wdk-wallet-btc` → `apps/next/src/lib/wdkBtcBrowserStub.ts`, a typed
+  stub that **throws** on construction. P1's web scope is EVM (ETH + USDT/XAUT on
+  Ethereum); the BTC path is unreachable in P1 screens, so a loud throwing stub is
+  honest (it cannot silently pretend to be a wallet) and keeps the EVM bundle clean.
+
+See `RN-TO-WEB-MAP.md` for the Bitcoin-on-web delta and the P2 plan.
