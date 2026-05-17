@@ -16,9 +16,10 @@
  *    pass a fake adapter and never load real WDK.
  *
  * Phase 1 surface: create / import / hasWallet / unlock / lock / getAddress /
- * getBalances. `getActivity` / `quoteSend` / `send` are part of the frozen
- * contract but raise `PhaseNotImplementedError` until Phase 2 — the boundary is
- * explicit at runtime instead of returning empty/wrong data.
+ * getBalances. Phase 2 adds `quoteSend` / `send` / `getActivity`. Activity is
+ * backed by a local outgoing send-log (see activity-log.ts → ADR-003): WDK has
+ * no history API, so the engine records its own sends and refreshes their
+ * status from the on-chain receipt rather than fabricating history.
  *
  * Honest crypto-worker note (P1 vs P2): the frozen `CryptoWorker` port has no
  * seed-provisioning method, so true Web-Worker seed isolation lands in Phase 2
@@ -28,19 +29,23 @@
  * documents this as defense-in-depth, not faked native parity.
  */
 import type {
+  ActivityItem,
   Asset,
   Balance,
   ChainId,
+  FeeQuote,
+  TxIntent,
+  TxResult,
   WalletEngine,
   WalletEngineDeps,
 } from "../types.js";
 import type { ChainRegistry, WdkAdapter, WdkBalanceReader, WdkSigner } from "../wdk/types.js";
 import { DEFAULT_ASSETS, DEFAULT_CHAINS } from "../chains/index.js";
 import { openSeed, sealSeed } from "../secrets/index.js";
+import { appendSend, readLog, writeLog } from "./activity-log.js";
 import {
   InvalidSeedPhraseError,
   NoWalletError,
-  PhaseNotImplementedError,
   UnsupportedChainError,
   WalletExistsError,
   WalletLockedError,
@@ -161,16 +166,78 @@ function buildEngine(
       return balances;
     },
 
-    async getActivity(): Promise<never> {
-      throw new PhaseNotImplementedError("getActivity", 2);
+    async getActivity(asset?: Asset): Promise<readonly ActivityItem[]> {
+      const items = await readLog(deps.storage);
+      // Refresh pending entries only when unlocked (the seedless reader is
+      // built at unlock). Locked → return last-known statuses, never guessed;
+      // a flaky RPC on one entry must not fail the whole activity read.
+      if (balanceReader) {
+        const r = balanceReader;
+        let changed = false;
+        await Promise.all(
+          items.map(async (it, i) => {
+            if (it.status !== "pending") return;
+            try {
+              const next = await r.getTransactionStatus(it.asset.chain, it.hash, it.from);
+              if (next !== it.status) {
+                items[i] = { ...it, status: next };
+                changed = true;
+              }
+            } catch {
+              /* keep last-known status */
+            }
+          }),
+        );
+        if (changed) await writeLog(deps.storage, items);
+      }
+      const filtered =
+        asset === undefined
+          ? items
+          : items.filter(
+              (it) =>
+                it.asset.symbol === asset.symbol &&
+                it.asset.chain === asset.chain &&
+                it.asset.token === asset.token,
+            );
+      // Newest first; project to the frozen public shape (drop internal `from`).
+      return filtered
+        .slice()
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .map(
+          (it): ActivityItem => ({
+            hash: it.hash,
+            asset: it.asset,
+            amount: it.amount,
+            direction: it.direction,
+            timestamp: it.timestamp,
+            status: it.status,
+          }),
+        );
     },
 
-    async quoteSend(): Promise<never> {
-      throw new PhaseNotImplementedError("quoteSend", 2);
+    async quoteSend(intent: TxIntent): Promise<FeeQuote> {
+      const { signer: s } = ensureUnlocked();
+      if (!chains[intent.asset.chain]) throw new UnsupportedChainError(intent.asset.chain);
+      return s.quoteSend(intent);
     },
 
-    async send(): Promise<never> {
-      throw new PhaseNotImplementedError("send", 2);
+    async send(intent: TxIntent): Promise<TxResult> {
+      const { signer: s } = ensureUnlocked();
+      if (!chains[intent.asset.chain]) throw new UnsupportedChainError(intent.asset.chain);
+      // The sender address is recorded so a Bitcoin tx's status can later be
+      // refreshed (WDK's BTC receipt lookup is address-scoped, not global).
+      const from = await s.deriveAddress(intent.asset.chain, 0);
+      const result = await s.send(intent);
+      await appendSend(deps.storage, {
+        hash: result.hash,
+        asset: intent.asset,
+        amount: intent.amount,
+        direction: "out",
+        timestamp: Date.now(),
+        status: "pending",
+        from,
+      });
+      return result;
     },
   };
 }
