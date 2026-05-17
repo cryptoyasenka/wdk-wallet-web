@@ -49,7 +49,7 @@ describe("wallet engine — lifecycle", () => {
   it("creates a wallet, persists it, and stays locked", async () => {
     expect(await engine.hasWallet()).toBe(false);
     const { seedPhrase } = await engine.createWallet();
-    expect(adapter.isValidSeedPhrase(seedPhrase)).toBe(true);
+    expect(await adapter.isValidSeedPhrase(seedPhrase)).toBe(true);
     expect(await engine.hasWallet()).toBe(true);
     // Locked until an explicit unlock() (symmetric with importWallet).
     await expect(engine.getAddress("ethereum")).rejects.toBeInstanceOf(WalletLockedError);

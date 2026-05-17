@@ -22,7 +22,7 @@ import type {
   WdkBalanceReader,
   WdkSigner,
 } from "../src/wdk/types.js";
-import { deriveAesGcmKey } from "../src/secrets/index.js";
+import { deriveAesGcmKey, openSeed } from "../src/secrets/index.js";
 import { BTC_NATIVE, ETH_NATIVE } from "../src/chains/index.js";
 
 type TxStatus = "pending" | "confirmed" | "failed";
@@ -152,12 +152,12 @@ export class FakeWdkAdapter implements WdkAdapter {
   readonly readers: FakeBalanceReader[] = [];
   constructor(private readonly balances: FakeBalances = {}) {}
 
-  generateSeedPhrase(words: 12 | 24 = 12): string {
+  async generateSeedPhrase(words: 12 | 24 = 12): Promise<string> {
     const tail = words === 24 ? "art" : "about";
     return `${Array<string>(words - 1).fill("abandon").join(" ")} ${tail}`;
   }
 
-  isValidSeedPhrase(seedPhrase: string): boolean {
+  async isValidSeedPhrase(seedPhrase: string): Promise<boolean> {
     const words = seedPhrase.trim().split(/\s+/);
     return (
       (words.length === 12 || words.length === 24) &&
@@ -165,13 +165,23 @@ export class FakeWdkAdapter implements WdkAdapter {
     );
   }
 
-  createSigner(seedPhrase: string, _chains: ChainRegistry): WdkSigner {
+  /**
+   * Decrypts the sealed vault for real (like `PassphraseUnlock` derives a real
+   * key) — so the same wrong-passphrase GCM failure surfaces as
+   * `VaultDecryptError`, and the fake signer is bound to the genuine seed.
+   */
+  async createSigner(
+    sealed: Uint8Array,
+    key: CryptoKey,
+    _chains: ChainRegistry,
+  ): Promise<WdkSigner> {
+    const seedPhrase = await openSeed(sealed, key);
     const s = new FakeSigner(seedPhrase);
     this.signers.push(s);
     return s;
   }
 
-  createBalanceReader(_chains: ChainRegistry): WdkBalanceReader {
+  async createBalanceReader(_chains: ChainRegistry): Promise<WdkBalanceReader> {
     const r = new FakeBalanceReader(
       this.balances.native ?? {},
       this.balances.token ?? {},

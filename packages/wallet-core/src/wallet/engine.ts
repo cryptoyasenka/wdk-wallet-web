@@ -41,7 +41,7 @@ import type {
 } from "../types.js";
 import type { ChainRegistry, WdkAdapter, WdkBalanceReader, WdkSigner } from "../wdk/types.js";
 import { DEFAULT_ASSETS, DEFAULT_CHAINS } from "../chains/index.js";
-import { openSeed, sealSeed } from "../secrets/index.js";
+import { sealSeed } from "../secrets/index.js";
 import { appendSend, readLog, writeLog } from "./activity-log.js";
 import {
   InvalidSeedPhraseError,
@@ -95,7 +95,7 @@ function buildEngine(
     async createWallet(): Promise<{ seedPhrase: string }> {
       if (await this.hasWallet()) throw new WalletExistsError();
       const adapter = await adapterReady();
-      const seedPhrase = adapter.generateSeedPhrase();
+      const seedPhrase = await adapter.generateSeedPhrase();
       await persistSeed(seedPhrase);
       // Stays locked: the app shows a backup screen, then calls unlock().
       return { seedPhrase };
@@ -104,7 +104,7 @@ function buildEngine(
     async importWallet(seedPhrase: string): Promise<void> {
       if (await this.hasWallet()) throw new WalletExistsError();
       const adapter = await adapterReady();
-      if (!adapter.isValidSeedPhrase(seedPhrase)) throw new InvalidSeedPhraseError();
+      if (!(await adapter.isValidSeedPhrase(seedPhrase))) throw new InvalidSeedPhraseError();
       await persistSeed(seedPhrase);
     },
 
@@ -118,23 +118,28 @@ function buildEngine(
       if (blob === null) throw new NoWalletError();
       const adapter = await adapterReady();
       const key = await deps.unlock.unlock();
-      // openSeed throws VaultFormatError / VaultDecryptError on bad key/blob.
-      const seedPhrase = await openSeed(blob, key);
-      // The seed lives only long enough to build the signer; the JS string
-      // cannot be zeroised (see docs/SECURITY.md) so we keep its scope minimal
-      // and drop the reference immediately after.
-      const nextSigner = adapter.createSigner(seedPhrase, chains);
-      const nextReader = adapter.createBalanceReader(chains);
+      // The adapter decrypts the sealed vault itself — worker-side for the
+      // real impl (ADR-004), so the plaintext seed never materialises on this
+      // thread. Only the opaque blob + the non-extractable CryptoKey handle
+      // cross the postMessage edge. createSigner rejects with
+      // VaultFormatError / VaultDecryptError on a bad key/blob.
+      const nextSigner = await adapter.createSigner(blob, key, chains);
+      const nextReader = await adapter.createBalanceReader(chains);
       signer = nextSigner;
       balanceReader = nextReader;
     },
 
     async lock(): Promise<void> {
-      signer?.dispose();
-      balanceReader?.dispose();
+      // Await disposal: for the worker-backed proxy this resolves only after
+      // the worker has zeroised the seed + WDK manager, so reporting "locked"
+      // is truthful, not optimistic.
+      await signer?.dispose();
+      await balanceReader?.dispose();
       signer = null;
       balanceReader = null;
-      // Forward-compat with the Phase-2 Web-Worker seed isolation.
+      // deps.crypto is the engine-level lock signal, not the seed boundary
+      // (the WDK adapter worker is — ADR-004). Kept as a defense-in-depth
+      // hook the host can wire to also hard-stop any auxiliary worker.
       await deps.crypto.lock();
     },
 
