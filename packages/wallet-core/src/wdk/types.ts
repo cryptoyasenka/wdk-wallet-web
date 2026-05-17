@@ -40,11 +40,14 @@ export type ChainConfig = EvmChainConfig | BtcChainConfig;
 export type ChainRegistry = Partial<Record<ChainId, ChainConfig>>;
 
 /**
- * Holds a decrypted seed and derives addresses from it. Disposing erases the
- * seed from memory (WDK zeroises on `dispose()`).
+ * Holds a decrypted seed and derives addresses / signs from it.
  *
- * Phase 2 adds transaction quoting + signing/broadcast here, together with the
- * Web-Worker isolation of this object (see ARCHITECTURE.md).
+ * Phase 2 (ADR-004): for the real adapter this object lives **inside a
+ * Dedicated Web Worker** — the main thread holds only a postMessage proxy, so
+ * every method is async (it always was) and `dispose()` may resolve
+ * asynchronously once the worker has zeroised the seed + WDK manager. Awaiting
+ * disposal is what lets the engine report "locked" only after the worker has
+ * actually wiped.
  */
 export interface WdkSigner {
   deriveAddress(chain: ChainId, index: number): Promise<string>;
@@ -52,7 +55,8 @@ export interface WdkSigner {
   quoteSend(intent: TxIntent): Promise<FeeQuote>;
   /** Sign and broadcast `intent`; resolves once accepted by the network. */
   send(intent: TxIntent): Promise<TxResult>;
-  dispose(): void;
+  /** Zeroise the seed + WDK manager. Async for the worker-backed proxy. */
+  dispose(): void | Promise<void>;
 }
 
 /**
@@ -84,16 +88,37 @@ export interface WdkBalanceReader {
     hash: string,
     address: string,
   ): Promise<"pending" | "confirmed" | "failed">;
-  dispose(): void;
+  /** Close any sockets (BTC Electrum). Async for the worker-backed proxy. */
+  dispose(): void | Promise<void>;
 }
 
-/** The whole WDK surface this codebase is allowed to know about. */
+/**
+ * The whole WDK surface this codebase is allowed to know about.
+ *
+ * Every method is async because the real adapter (ADR-004) is a postMessage
+ * proxy in front of a Dedicated Web Worker that owns the seed + WDK manager.
+ * Crucially `createSigner` takes the **sealed vault blob + the AES-GCM
+ * CryptoKey**, not a plaintext seed: the adapter decrypts internally
+ * (worker-side for the real impl), so the decrypted seed never materialises on
+ * the main thread during the operational unlock→sign path. A non-extractable
+ * `CryptoKey` is structured-cloneable, so only an opaque handle crosses the
+ * postMessage edge — the raw key bytes stay in the browser key store.
+ */
 export interface WdkAdapter {
   /** BIP-39 phrase generation (defaults to 12 words). */
-  generateSeedPhrase(words?: 12 | 24): string;
-  isValidSeedPhrase(seedPhrase: string): boolean;
-  /** Build a seed-bound signer for the given chain registry. */
-  createSigner(seedPhrase: string, chains: ChainRegistry): WdkSigner;
+  generateSeedPhrase(words?: 12 | 24): Promise<string>;
+  isValidSeedPhrase(seedPhrase: string): Promise<boolean>;
+  /**
+   * Build a seed-bound signer by decrypting the sealed vault inside the
+   * adapter. `sealed` is the blob from storage; `key` the AES-GCM wrapping key
+   * from the `UnlockProvider`. The plaintext seed is never returned and (real
+   * adapter) never leaves the Web Worker.
+   */
+  createSigner(
+    sealed: Uint8Array,
+    key: CryptoKey,
+    chains: ChainRegistry,
+  ): Promise<WdkSigner>;
   /** Build a seedless balance reader for the given chain registry. */
-  createBalanceReader(chains: ChainRegistry): WdkBalanceReader;
+  createBalanceReader(chains: ChainRegistry): Promise<WdkBalanceReader>;
 }

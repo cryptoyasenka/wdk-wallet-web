@@ -1,0 +1,101 @@
+/**
+ * The postMessage contract between the main-thread proxy (`worker-proxy.ts`)
+ * and the Dedicated Web Worker (`crypto.worker.ts`). No `@tetherto/*` here —
+ * these are plain, structured-clone-safe shapes.
+ *
+ * What crosses the edge: `Uint8Array` (sealed blob), a non-extractable
+ * `CryptoKey` *handle* (raw bytes stay in the browser key store), `bigint`
+ * amounts, and plain config/intents. The plaintext seed never appears in any
+ * message in either direction — that is the whole point (ADR-004).
+ */
+import type { ChainId, FeeQuote, TxIntent, TxResult } from "../types.js";
+import type { ChainRegistry } from "./types.js";
+import {
+  InvalidSeedPhraseError,
+  UnsupportedAssetError,
+  UnsupportedChainError,
+  VaultDecryptError,
+  VaultFormatError,
+  WalletError,
+} from "../errors.js";
+
+export type TxStatus = "pending" | "confirmed" | "failed";
+
+/** Main → worker. `id` correlates the reply; `handle` ids scope signer/reader. */
+export type WorkerRequest =
+  | { id: number; kind: "generateSeedPhrase"; words: 12 | 24 }
+  | { id: number; kind: "isValidSeedPhrase"; seedPhrase: string }
+  | {
+      id: number;
+      kind: "createSigner";
+      sealed: Uint8Array;
+      key: CryptoKey;
+      chains: ChainRegistry;
+    }
+  | { id: number; kind: "signer.deriveAddress"; handle: number; chain: ChainId; index: number }
+  | { id: number; kind: "signer.quoteSend"; handle: number; intent: TxIntent }
+  | { id: number; kind: "signer.send"; handle: number; intent: TxIntent }
+  | { id: number; kind: "signer.dispose"; handle: number }
+  | { id: number; kind: "createBalanceReader"; chains: ChainRegistry }
+  | { id: number; kind: "reader.getNativeBalance"; handle: number; chain: ChainId; address: string }
+  | {
+      id: number;
+      kind: "reader.getTokenBalance";
+      handle: number;
+      chain: ChainId;
+      token: string;
+      address: string;
+    }
+  | {
+      id: number;
+      kind: "reader.getTransactionStatus";
+      handle: number;
+      chain: ChainId;
+      hash: string;
+      address: string;
+    }
+  | { id: number; kind: "reader.dispose"; handle: number };
+
+/** A WalletError flattened for structured clone (class identity does not survive). */
+export interface SerializedError {
+  readonly name: string;
+  readonly message: string;
+}
+
+/** Worker → main. `result` is `unknown`; the proxy knows the expected shape. */
+export type WorkerResponse =
+  | { id: number; ok: true; result: unknown }
+  | { id: number; ok: false; error: SerializedError };
+
+/** Flatten an error for the postMessage reply (no class identity over clone). */
+export function serializeError(e: unknown): SerializedError {
+  if (e instanceof Error) return { name: e.name, message: e.message };
+  return { name: "Error", message: String(e) };
+}
+
+/**
+ * Rebuild the typed error on the main side so callers' `instanceof
+ * WalletLockedError`-style branches keep working across the worker edge. Only
+ * the no-arg / single-string typed errors the adapter can actually throw are
+ * mapped; anything else becomes a generic `Error` with the original name kept
+ * (honest: we do not invent a typed error we cannot reconstruct).
+ */
+export function rehydrateError({ name, message }: SerializedError): Error {
+  switch (name) {
+    case "VaultDecryptError":
+      return new VaultDecryptError();
+    case "VaultFormatError":
+      return new VaultFormatError();
+    case "InvalidSeedPhraseError":
+      return new InvalidSeedPhraseError();
+    case "UnsupportedChainError":
+      return new UnsupportedChainError(message);
+    case "UnsupportedAssetError":
+      return new UnsupportedAssetError(message);
+    default: {
+      const err = name.endsWith("Error") && message ? new WalletError(message) : new Error(message);
+      err.name = name;
+      return err;
+    }
+  }
+}
