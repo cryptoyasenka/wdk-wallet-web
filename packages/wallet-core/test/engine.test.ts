@@ -10,7 +10,6 @@ import { DEFAULT_ASSETS, USDT_ETHEREUM, buildChainRegistry } from "../src/chains
 import {
   InvalidSeedPhraseError,
   NoWalletError,
-  PhaseNotImplementedError,
   UnsupportedChainError,
   VaultDecryptError,
   WalletExistsError,
@@ -156,29 +155,101 @@ describe("wallet engine — portfolio", () => {
   });
 });
 
-describe("wallet engine — frozen-but-Phase-2 surface", () => {
+describe("wallet engine — send / quote / activity (Phase 2)", () => {
+  const USDT = { symbol: "USDT", chain: "ethereum", token: USDT_ETHEREUM, decimals: 6 } as const;
+  const XAUT = {
+    symbol: "XAUT",
+    chain: "ethereum",
+    token: "0x68749665FF8D2d112Fa859AA293F07A622782F38",
+    decimals: 6,
+  } as const;
+  const BTC = { symbol: "BTC", chain: "bitcoin", decimals: 8 } as const;
+
+  let txStatus: Map<string, "pending" | "confirmed" | "failed">;
+  let storage: MemoryStorage;
   let engine: WalletEngine;
+
   beforeEach(async () => {
-    const { deps } = makeDeps();
-    engine = createWalletEngineWithAdapter(new FakeWdkAdapter(), deps);
+    txStatus = new Map();
+    const m = makeDeps();
+    storage = m.storage;
+    engine = createWalletEngineWithAdapter(new FakeWdkAdapter({ txStatus }), m.deps);
     await engine.createWallet();
     await engine.unlock();
   });
 
-  it("getActivity / quoteSend / send raise PhaseNotImplementedError(_, 2)", async () => {
-    const intent = {
-      asset: { symbol: "USDT", chain: "ethereum", token: USDT_ETHEREUM, decimals: 6 },
-      to: "0xrecipient",
-      amount: 1n,
-    } as const;
-    for (const op of [
-      engine.getActivity(),
-      engine.quoteSend(intent),
-      engine.send(intent),
-    ]) {
-      await expect(op).rejects.toSatisfy(
-        (e: unknown) => e instanceof PhaseNotImplementedError && e.phase === 2,
-      );
-    }
+  it("quoteSend returns a fee labelled in the chain's native coin", async () => {
+    const q = await engine.quoteSend({ asset: USDT, to: "0xrecipient", amount: 1_000n });
+    expect(q.fee).toBe(21_000n);
+    // Gas for an ERC-20 transfer is paid in ETH, not in USDT.
+    expect(q.feeAsset.symbol).toBe("ETH");
+    expect(q.feeAsset.chain).toBe("ethereum");
+  });
+
+  it("send broadcasts and records one pending outgoing entry", async () => {
+    const res = await engine.send({ asset: USDT, to: "0xrecipient", amount: 1_000n });
+    expect(res.hash).toMatch(/^0x[0-9a-f]{8}$/);
+    expect(res.chain).toBe("ethereum");
+
+    const activity = await engine.getActivity();
+    expect(activity).toHaveLength(1);
+    expect(activity[0]).toMatchObject({
+      hash: res.hash,
+      direction: "out",
+      status: "pending",
+      amount: 1_000n,
+    });
+    expect(activity[0]?.asset.symbol).toBe("USDT");
+  });
+
+  it("getActivity refreshes a pending entry to confirmed and persists it", async () => {
+    const res = await engine.send({ asset: USDT, to: "0xrecipient", amount: 7n });
+    expect((await engine.getActivity())[0]?.status).toBe("pending");
+
+    // Simulate the tx being mined (same Map instance the reader holds).
+    txStatus.set(res.hash, "confirmed");
+    expect((await engine.getActivity())[0]?.status).toBe("confirmed");
+
+    // Persisted: a fresh, still-locked engine over the same storage (no
+    // status refresh path) must still see "confirmed" — proving it was
+    // written back, not recomputed.
+    const locked = createWalletEngineWithAdapter(
+      new FakeWdkAdapter(),
+      makeDeps(storage).deps,
+    );
+    const persisted = await locked.getActivity();
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0]?.status).toBe("confirmed");
+  });
+
+  it("getActivity filters by asset (symbol + chain + token)", async () => {
+    await engine.send({ asset: USDT, to: "0xa", amount: 1n });
+    await engine.send({ asset: XAUT, to: "0xb", amount: 2n });
+
+    expect(await engine.getActivity()).toHaveLength(2);
+    const usdtOnly = await engine.getActivity(USDT);
+    expect(usdtOnly).toHaveLength(1);
+    expect(usdtOnly[0]?.asset.symbol).toBe("USDT");
+  });
+
+  it("send/quoteSend on an unconfigured chain raise UnsupportedChainError", async () => {
+    // Default registry is Ethereum-only → Bitcoin is unconfigured.
+    await expect(
+      engine.send({ asset: BTC, to: "bc1qrecipient", amount: 1n }),
+    ).rejects.toBeInstanceOf(UnsupportedChainError);
+    await expect(
+      engine.quoteSend({ asset: BTC, to: "bc1qrecipient", amount: 1n }),
+    ).rejects.toBeInstanceOf(UnsupportedChainError);
+    // Nothing was logged for the rejected send.
+    expect(await engine.getActivity()).toHaveLength(0);
+  });
+
+  it("send requires an unlocked wallet", async () => {
+    const m = makeDeps();
+    const fresh = createWalletEngineWithAdapter(new FakeWdkAdapter(), m.deps);
+    await fresh.createWallet();
+    await expect(
+      fresh.send({ asset: USDT, to: "0xrecipient", amount: 1n }),
+    ).rejects.toBeInstanceOf(WalletLockedError);
   });
 });
