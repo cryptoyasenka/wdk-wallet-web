@@ -1,0 +1,15 @@
+{
+  "name": "wdk-wallet-web",
+  "private": true,
+  "description": "Self-custodial multi-chain WDK wallet starter for the web (Next.js). Web counterpart to tetherto/wdk-starter-react-native.",
+  "license": "MIT",
+  "packageManager": "pnpm@9.12.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "dev": "pnpm --filter next dev"
+  }
+}
