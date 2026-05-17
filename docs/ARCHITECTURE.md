@@ -245,3 +245,58 @@ real, repeated win is the **operational steady state** (every unlock → derive
 **only inside the worker**. And a Web Worker is **defense-in-depth, not an XSS
 boundary** (unlike RN BareKit's separate runtime) — reinforced in SECURITY.md
 and the RN-TO-WEB-MAP "Crypto isolation" row.
+
+## ADR-005: WebAuthn-PRF unlock is a host port (apps/next), HKDF not PBKDF2
+
+**Status:** accepted (P2). Realises the frozen contract's *preferred*
+`UnlockProvider`; does not amend an earlier ADR.
+
+`UnlockProvider` is an **injected host port**, so the WebAuthn implementation
+belongs in `apps/next/src/lib/` next to `PassphraseUnlock` and
+`IndexedDbStorage` — **not** in `wallet-core`. Keeping it out of the core is
+what lets the core stay host-agnostic (a Node/CLI/extension consumer brings its
+own provider). The earlier scope note that read "wallet-core: WebAuthnUnlock"
+is superseded by this: wallet-core contributes only a **reusable, host-neutral
+KDF primitive**, never the browser ceremony.
+
+**A passkey signature cannot be a key — PRF is the mechanism.** WebAuthn
+assertions are non-deterministic, so `WebAuthnUnlock` uses the **PRF extension**
+(the WebAuthn surfacing of CTAP2 `hmac-secret`): the authenticator HMACs a
+fixed app salt under a key sealed in the secure element, yielding a stable,
+32-byte, full-entropy secret. The two-ceremony split is **required, not
+redundant**: PRF is guaranteed only at *assertion* time, so we enrol at
+`create()` (persisting only the public credential id + the non-secret salt — we
+refuse enrolment if the authenticator reports `prf.enabled === false`, so
+selection keeps falling back honestly) and *derive* at `get()`.
+
+**KDF = HKDF, deliberately not the passphrase path's PBKDF2.** The PRF output
+is already full-entropy, so `wallet-core/secrets` gained an **additive**
+`deriveAesGcmKeyFromEntropy` (HKDF-SHA256 → non-extractable AES-GCM-256). Iter-
+ation stretching a 256-bit secret is pure cost with zero security gain; the
+passphrase path keeps its 600k-iter PBKDF2 because *that* input is low-entropy.
+The frozen `src/types.ts` is **untouched** — the change is one new function plus
+its public re-export; the `UnlockProvider` shape (`unlock()`/`isEnrolled()`) is
+unchanged, and both providers yield the same `CryptoKey` the vault expects, so
+the seal/open roundtrip is identical regardless of credential.
+
+**Wiring keeps `getWalletApp()` synchronous.** `SelectingUnlockProvider` (the
+engine-injected provider) holds *persistent* passphrase + WebAuthn instances
+and routes each `unlock()` to the passkey when one is enrolled here, else to
+the unchanged Phase-1 passphrase path. The Phase-1 flow
+(`setPassphrase` → `engine.unlock()`) is **byte-for-byte unchanged** when no
+passkey is enrolled, so the existing UI state machine did not move. The
+documented stateless `chooseUnlockProvider(storage)` selector exists alongside
+it for one-shot selection and reasoning. If an assertion succeeds but yields no
+PRF result, `unlock()` throws a *typed* error the UI can surface ("use your
+passphrase") — it never silently no-ops.
+
+**Honest test scope.** The deterministic core — HKDF: same IKM+salt
+round-trips a real seal/open, different salt/IKM/info fails the GCM tag — is
+unit-tested in `packages/wallet-core/test/vault.test.ts` (29 green). The
+`navigator.credentials` create/get ceremony is browser-only and verified
+manually; it is **never** exercised with a faked assertion, and `apps/next`
+has no unit harness, so the selection/fallback wiring is covered by
+typecheck + lint + production build only. The PRF extension types are not yet
+in TS 5.6.3's `lib.dom`; we declare the used slice as **subtypes** of the DOM
+extension types (no `any`/`unknown` escape hatch), so type-checking on the
+`prf` shape is retained.

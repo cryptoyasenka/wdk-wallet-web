@@ -20,11 +20,20 @@ state the real model and its limits rather than imply parity.
   same property. Sealing happens there too (the seed is already present); it is
   never written to component state or `localStorage`, only AES-GCM ciphertext
   reaches IndexedDB.
-- **At rest:** seed encrypted with **AES-GCM (WebCrypto)**; the wrapping key is
-  derived from a **WebAuthn/passkey** assertion (preferred) or a strong passphrase
-  (PBKDF2/Argon2 fallback). Only ciphertext is stored, in **IndexedDB**.
-- **Unlock** is gated by WebAuthn (hardware-backed where the authenticator supports
-  it). Session locks on tab hide/idle.
+- **At rest:** seed encrypted with **AES-GCM-256 (WebCrypto)**. The wrapping
+  key comes from one of two paths, preferred-when-enrolled, never both at once:
+  a **WebAuthn passkey's PRF extension** (CTAP2 `hmac-secret`) → a 32-byte
+  full-entropy secret → **HKDF-SHA256**; or a passphrase → **PBKDF2-SHA256,
+  600k iterations** (the entropy difference is *why* the KDFs differ — HKDF is
+  correct and PBKDF2 stretching would be pure cost for the high-entropy PRF
+  input; see ARCHITECTURE.md → ADR-005). A passkey *signature* is never used as
+  a key — it is non-deterministic. Only ciphertext is stored, in **IndexedDB**.
+- **Unlock** uses the passkey when one has been enrolled in this wallet
+  (hardware-backed where the authenticator supports it), otherwise the
+  passphrase — selection is honest, not assumed: WebAuthn has no offline
+  "PRF will work" probe, so enrolment is the real test and an assertion that
+  yields no PRF result surfaces a typed error, not a silent failure. Session
+  locks on tab hide/idle.
 - **Every transaction requires explicit, itemised user confirmation** (amount, asset,
   chain, recipient, fee) rendered from decoded tx data, not opaque hex.
 - **Optional hardware-wallet path** for users who want keys off the browser entirely.
