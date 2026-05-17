@@ -22,7 +22,17 @@ const TETHER_BAN = {
 };
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**", "**/coverage/**"] },
+  {
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/.next/**",
+      "**/coverage/**",
+      // Next-generated, "should not be edited"; it carries a triple-slash
+      // path reference that @typescript-eslint/triple-slash-reference flags.
+      "**/next-env.d.ts",
+    ],
+  },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,

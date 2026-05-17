@@ -28,6 +28,10 @@ const nextConfig = {
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
       "@tetherto/wdk-wallet-btc": resolve(__dirname, "src/lib/wdkBtcBrowserStub.ts"),
+      // WDK's memory-safe key modules import { sodium_memzero } from
+      // 'sodium-universal' (CJS re-export of the Node-native sodium-native).
+      // Back it with real pure-JS libsodium as proper ESM — no faked crypto.
+      "sodium-universal": resolve(__dirname, "src/lib/sodiumUniversalShim.ts"),
     };
 
     // The vault uses the WebCrypto global, never Node `crypto`; stub the Node
