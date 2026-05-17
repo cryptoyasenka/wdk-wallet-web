@@ -3,6 +3,7 @@ export {
   sealSeed,
   openSeed,
   deriveAesGcmKey,
+  deriveAesGcmKeyFromEntropy,
   generateSalt,
   randomBytes,
   VAULT_BLOB_VERSION,

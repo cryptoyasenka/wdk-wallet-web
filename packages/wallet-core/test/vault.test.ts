@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   deriveAesGcmKey,
+  deriveAesGcmKeyFromEntropy,
   generateSalt,
   openSeed,
   randomBytes,
@@ -79,5 +80,40 @@ describe("seed vault", () => {
   it("randomBytes / generateSalt return the requested length", () => {
     expect(randomBytes(24)).toHaveLength(24);
     expect(generateSalt()).toHaveLength(16);
+  });
+});
+
+describe("deriveAesGcmKeyFromEntropy (HKDF — WebAuthn PRF path)", () => {
+  it("is deterministic: same ikm+salt round-trips a seal/open", async () => {
+    const ikm = randomBytes(32); // stands in for a 32-byte PRF output
+    const salt = generateSalt();
+    const blob = await sealSeed(SEED, await deriveAesGcmKeyFromEntropy(ikm, salt));
+    // A freshly derived key from the same ikm+salt must open the blob.
+    expect(await openSeed(blob, await deriveAesGcmKeyFromEntropy(ikm, salt))).toBe(SEED);
+  });
+
+  it("a different salt yields a different key (VaultDecryptError)", async () => {
+    const ikm = randomBytes(32);
+    const blob = await sealSeed(SEED, await deriveAesGcmKeyFromEntropy(ikm, generateSalt()));
+    await expect(
+      openSeed(blob, await deriveAesGcmKeyFromEntropy(ikm, generateSalt())),
+    ).rejects.toBeInstanceOf(VaultDecryptError);
+  });
+
+  it("a different ikm yields a different key (VaultDecryptError)", async () => {
+    const salt = generateSalt();
+    const blob = await sealSeed(SEED, await deriveAesGcmKeyFromEntropy(randomBytes(32), salt));
+    await expect(
+      openSeed(blob, await deriveAesGcmKeyFromEntropy(randomBytes(32), salt)),
+    ).rejects.toBeInstanceOf(VaultDecryptError);
+  });
+
+  it("the HKDF info label domain-separates (different info → different key)", async () => {
+    const ikm = randomBytes(32);
+    const salt = generateSalt();
+    const blob = await sealSeed(SEED, await deriveAesGcmKeyFromEntropy(ikm, salt, "ctx-a"));
+    await expect(
+      openSeed(blob, await deriveAesGcmKeyFromEntropy(ikm, salt, "ctx-b")),
+    ).rejects.toBeInstanceOf(VaultDecryptError);
   });
 });

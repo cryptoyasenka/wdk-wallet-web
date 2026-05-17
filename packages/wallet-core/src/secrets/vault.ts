@@ -75,6 +75,47 @@ export async function deriveAesGcmKey(
 }
 
 /**
+ * Derive a non-extractable AES-GCM-256 key from **already-high-entropy** input
+ * key material via HKDF-SHA256. This is the correct KDF when the input is a
+ * uniformly random secret (e.g. a 32-byte WebAuthn PRF / `hmac-secret`
+ * output): PBKDF2's iteration count exists only to slow brute-force of
+ * low-entropy passphrases, so stretching a 256-bit random secret with it would
+ * be pure cost for no security gain. `deriveAesGcmKey` (PBKDF2) stays the right
+ * tool for passphrases; this is its sibling for entropy.
+ *
+ * `salt` is a per-vault random value, not secret — store it beside the blob
+ * exactly like the PBKDF2 salt. `info` is an HKDF domain-separation label so
+ * the same IKM cannot derive a colliding key across different uses. The caller
+ * owns `ikm` and should zeroise it after this resolves (WebCrypto copies it in
+ * on `importKey`; we cannot zeroise a buffer we did not allocate).
+ */
+export async function deriveAesGcmKeyFromEntropy(
+  ikm: Uint8Array,
+  salt: Uint8Array,
+  info: string = "wdk-web/vault/aes-gcm/v1",
+): Promise<CryptoKey> {
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    ikm as BufferSource,
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: salt as BufferSource,
+      info: new TextEncoder().encode(info) as BufferSource,
+    },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false, // non-extractable
+    ["encrypt", "decrypt"],
+  );
+}
+
+/**
  * Encrypt a seed phrase under an AES-GCM key. Returns a self-describing blob
  * (magic + version + random IV + ciphertext) safe to hand to a
  * `StorageAdapter`. The UTF-8 plaintext buffer is zeroised before returning.
