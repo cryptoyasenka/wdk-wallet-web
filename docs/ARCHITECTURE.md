@@ -62,7 +62,10 @@ scattered.
 
 ## ADR-001: P1 ships no Web Worker — seed isolation co-designs with signing (P2)
 
-**Status:** accepted (P1). **Supersedes nothing.** Revisited in P2.
+**Status:** accepted (P1). **Supersedes nothing.** **Amended by ADR-004** on
+*where* the P2 isolation boundary lands (the seam turned out to be the WDK
+adapter, not the `CryptoWorker` port). The P1 reasoning below — refuse to ship
+a worker that isolates nothing — stands unchanged.
 
 The `CryptoWorker` port frozen in `packages/wallet-core/src/types.ts` is
 `deriveAddress` / `signTransaction` / `lock` — and deliberately has **no
@@ -97,6 +100,14 @@ only opaque handles; derive/sign cross the postMessage edge) is introduced in P2
 to isolate. The `RN-TO-WEB-MAP.md` "Crypto isolation" row already states the honest
 ceiling: a Web Worker is defence-in-depth, not an XSS-proof separate runtime like
 the RN starter's BareKit worklet.
+
+> **Correction (ADR-004, P2).** This ADR anticipated that P2 would "swap in the
+> real Web-Worker `CryptoWorker`" behind `deps.crypto`. That prediction was
+> wrong about the *location*: the engine's signing path runs through
+> `WdkSigner` (the adapter), never through `deps.crypto`, so the load-bearing
+> seam is the **WDK adapter**, not the `CryptoWorker` port. ADR-004 records the
+> design as built. The instinct here — "P1 builds a seam, P2 fills it; don't
+> ship a worker that isolates nothing" — held; only the seam's identity moved.
 
 ## ADR-002: the P1 web bundle is EVM-only (alpha-WDK native deps)
 
@@ -163,3 +174,74 @@ switch on the union, so widening is backward-compatible with the P1 surface.
 
 Full history (incl. inbound) is deferred to a later phase, gated on the WDK
 Indexer; the contract does not change when it lands — only this backing does.
+
+## ADR-004: seed isolation lives behind the WDK adapter, not `deps.crypto`
+
+**Status:** accepted (P2). Amends ADR-001 on *where* the boundary lands.
+
+P2 fills ADR-001's "seam" — but not where ADR-001 guessed. A **Dedicated Web
+Worker** owns `openSeed` (vault decryption) plus the WDK manager and signer;
+the main thread holds only an opaque postMessage proxy that *implements*
+`WdkAdapter`. After the vault is sealed, the plaintext seed and the WDK signer
+**never exist on the main thread again** in the operational steady state.
+
+**Why the boundary is the WDK adapter and not `deps.crypto`.** The engine's
+signing path goes through `WdkSigner` (the containment adapter) — it never
+calls `deriveAddress`/`signTransaction` on the frozen `CryptoWorker` port. The
+engine only ever calls `deps.crypto.lock()`. A Web Worker placed behind
+`deps.crypto` would therefore isolate *nothing the engine drives* — exactly the
+security theatre ADR-001 refused to ship in P1. So the worker sits where the
+secret actually flows: behind `WdkAdapter`. `deps.crypto.lock()` is retained as
+the engine-level lock signal — a defense-in-depth hook a host can wire to also
+hard-stop any auxiliary worker — and `apps/next`'s `StubCryptoWorker` is
+re-documented as intentional architecture, not a pending Phase-2 stub.
+
+**Frozen-contract guarantee.** `src/types.ts` (public surface: `WalletEngine`,
+`WalletEngineDeps`, `CryptoWorker`, `createWalletEngine(deps, config?)`) is
+**unchanged**. Only the internal `src/wdk/` containment interface changed — it
+was always internal and never re-exported as the public contract. The seam
+moved entirely inside the alpha-churn containment module.
+
+**Mechanism.** The non-extractable AES-GCM `CryptoKey` from
+`UnlockProvider.unlock()` is structured-cloneable: it ships to the worker as a
+*handle* while its raw bytes stay in the browser key store, unreadable even by
+our own code. `openSeed(sealed, key)` therefore runs **inside the worker**; the
+plaintext seed string only ever materialises there. Module layout under
+`packages/wallet-core/src/wdk/` (the only `@tetherto/*` site):
+
+- `wdk-core.ts` — the real WDK logic (`WdkSignerImpl`/`WdkBalanceReaderImpl`/
+  `WdkCoreAdapter`); imports `@tetherto/*` + `secrets/openSeed`. Reused by the
+  worker and by a Node/SSR in-process fallback (same behaviour, no isolation —
+  stated, not faked).
+- `worker-protocol.ts` — typed request/response union + error
+  (de)serialisation (no `@tetherto/*`).
+- `crypto.worker.ts` — Dedicated Worker entry: a `WdkCoreAdapter`, signer/
+  reader registries keyed by handle, `self.onmessage` dispatch.
+- `worker-proxy.ts` — `WorkerWdkAdapter implements WdkAdapter`: correlation-id
+  RPC; rehydrates typed errors by `name` so callers' `instanceof` branches
+  survive the postMessage edge.
+- `adapter.ts` — `createWdkAdapter()`: browser → spawn the worker +
+  `WorkerWdkAdapter`; Node/SSR/vitest-of-the-real-adapter → in-process
+  `WdkCoreAdapter`.
+
+**Bundling (verified empirically, not assumed).** The adapter spawns the
+worker with `new Worker(new URL("./crypto.worker.js", import.meta.url),
+{ type: "module" })` from inside the compiled workspace package. With
+`transpilePackages: ["@wdk-web/wallet-core"]`, webpack 5's native worker
+support emits it as a **separate chunk**, and `next.config.mjs`'s
+`resolve.alias`/`resolve.fallback` (BTC stub + sodium shim, see ADR-002) apply
+to that worker chunk too. `next build` was inspected: the worker chunk carries
+the WDK manager *and* the seed-owning `onmessage` dispatch, while the main
+First Load chunks contain **zero** `@tetherto/*` (First Load JS ≈ 109 kB).
+Net effect: WDK moved entirely out of the main bundle into the worker chunk.
+
+**Honest scope (the delta a reviewer must see).** At **create / import** the
+seed phrase *necessarily* transits the main thread — it is shown on a backup
+screen (create) or typed by the user (import), and the DOM is main-thread. No
+browser wallet can avoid this; the RN starter has the same property, and
+sealing happens main-thread-side here too (the seed is already there). The
+real, repeated win is the **operational steady state** (every unlock → derive
+→ quote → send → lock): there the seed plaintext and the WDK signer exist
+**only inside the worker**. And a Web Worker is **defense-in-depth, not an XSS
+boundary** (unlike RN BareKit's separate runtime) — reinforced in SECURITY.md
+and the RN-TO-WEB-MAP "Crypto isolation" row.

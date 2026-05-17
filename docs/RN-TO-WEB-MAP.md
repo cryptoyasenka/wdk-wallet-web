@@ -7,7 +7,7 @@ that separates a port from a paste.)
 
 | Concern | RN starter | Web replacement | Honest delta |
 |---|---|---|---|
-| Crypto isolation | BareKit worklet (separate runtime) | Dedicated crypto module in a **Web Worker** | A Web Worker is **not** an XSS boundary like a separate runtime. Defense-in-depth only — stated in SECURITY.md. |
+| Crypto isolation | BareKit worklet (separate runtime) | Dedicated **Web Worker** owns `openSeed` + the WDK signer; main thread holds an opaque `WdkAdapter` postMessage proxy (ADR-004) | Steady state (unlock → sign → lock) is worker-only; **create/import unavoidably touch the main thread** (backup screen / user input — DOM is main-thread; RN starter has the same property). A Web Worker is **not** an XSS boundary like a separate runtime — defense-in-depth only, stated in SECURITY.md. |
 | Key storage at rest | iOS Keychain / Android KeyStore | **WebCrypto** (AES-GCM) + key from WebAuthn/passphrase, ciphertext in **encrypted IndexedDB** | No hardware-backed keystore in-browser by default; passkey/WebAuthn gives hardware-backed *unlock*, not at-rest HSM. |
 | Unlock / auth | Face ID / Touch ID | **WebAuthn / passkey**; passphrase fallback | Equivalent UX, stronger phishing resistance; availability varies by browser. |
 | QR scan | native camera | `getUserMedia()` + `zxing`/`jsQR` | Requires HTTPS + camera permission; otherwise equivalent. |
