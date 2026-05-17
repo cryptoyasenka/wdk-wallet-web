@@ -12,7 +12,14 @@
 export type ChainId = "bitcoin" | "ethereum" | "polygon" | "arbitrum" | "tron";
 
 export interface Asset {
-  readonly symbol: "BTC" | "USDT" | "XAUT";
+  /**
+   * Phase-2 contract refinement (additive, backward-compatible): `"ETH"` was
+   * added so EVM gas is representable honestly in `FeeQuote.feeAsset` — gas
+   * for a USDT/XAU₮ transfer is paid in ETH, not in the token. No consumer
+   * does an exhaustive switch on this union, so widening it does not break
+   * apps compiled against the Phase-1 surface.
+   */
+  readonly symbol: "BTC" | "USDT" | "XAUT" | "ETH";
   readonly chain: ChainId;
   /** Contract address for tokens; undefined for native BTC. */
   readonly token?: string;

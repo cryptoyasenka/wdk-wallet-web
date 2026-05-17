@@ -21,6 +21,8 @@ export {
   USDT_ETHEREUM,
   XAUT_ETHEREUM,
   ETHEREUM_PUBLIC_RPCS,
+  ETH_NATIVE,
+  BTC_NATIVE,
 } from "./chains/index.js";
 export type { BuildChainsOptions } from "./chains/index.js";
 

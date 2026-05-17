@@ -10,7 +10,10 @@
 import type {
   ChainId,
   CryptoWorker,
+  FeeQuote,
   StorageAdapter,
+  TxIntent,
+  TxResult,
   UnlockProvider,
 } from "../src/types.js";
 import type {
@@ -20,6 +23,9 @@ import type {
   WdkSigner,
 } from "../src/wdk/types.js";
 import { deriveAesGcmKey } from "../src/secrets/index.js";
+import { BTC_NATIVE, ETH_NATIVE } from "../src/chains/index.js";
+
+type TxStatus = "pending" | "confirmed" | "failed";
 
 /** Deterministic 32-bit FNV-1a → hex, so a fake address is seed-bound. */
 function fnv1aHex(input: string): string {
@@ -81,10 +87,26 @@ export class SpyCryptoWorker implements CryptoWorker {
 
 class FakeSigner implements WdkSigner {
   disposed = false;
+  /** Every send() recorded, so tests can assert what was broadcast. */
+  readonly sent: TxIntent[] = [];
   constructor(readonly seedPhrase: string) {}
   async deriveAddress(chain: ChainId, index: number): Promise<string> {
     if (this.disposed) throw new Error("signer disposed");
     return `0x${fnv1aHex(`${this.seedPhrase}|${chain}|${index}`)}`;
+  }
+  async quoteSend(intent: TxIntent): Promise<FeeQuote> {
+    if (this.disposed) throw new Error("signer disposed");
+    // Deterministic, plausible: a fixed gas units count, asset-labelled in
+    // the chain's native coin (ETH for ethereum, BTC for bitcoin).
+    return { fee: 21_000n, feeAsset: intent.asset.chain === "bitcoin" ? BTC_NATIVE : ETH_NATIVE };
+  }
+  async send(intent: TxIntent): Promise<TxResult> {
+    if (this.disposed) throw new Error("signer disposed");
+    this.sent.push(intent);
+    const hash = `0x${fnv1aHex(
+      `${this.seedPhrase}|${intent.asset.chain}|${intent.to}|${intent.amount}`,
+    )}`;
+    return { hash, chain: intent.asset.chain };
   }
   dispose(): void {
     this.disposed = true;
@@ -96,6 +118,8 @@ class FakeBalanceReader implements WdkBalanceReader {
   constructor(
     private readonly native: Record<string, bigint>,
     private readonly token: Record<string, bigint>,
+    /** Mutable hash→status map; a test flips an entry to simulate mining. */
+    readonly txStatus: Map<string, TxStatus>,
   ) {}
   async getNativeBalance(chain: ChainId): Promise<bigint> {
     if (this.disposed) throw new Error("reader disposed");
@@ -105,6 +129,11 @@ class FakeBalanceReader implements WdkBalanceReader {
     if (this.disposed) throw new Error("reader disposed");
     return this.token[`${chain}:${token}`] ?? 0n;
   }
+  async getTransactionStatus(_chain: ChainId, hash: string): Promise<TxStatus> {
+    if (this.disposed) throw new Error("reader disposed");
+    // Unknown hash defaults to "pending" (just-broadcast, not yet mined).
+    return this.txStatus.get(hash) ?? "pending";
+  }
   dispose(): void {
     this.disposed = true;
   }
@@ -113,6 +142,8 @@ class FakeBalanceReader implements WdkBalanceReader {
 export interface FakeBalances {
   native?: Record<string, bigint>;
   token?: Record<string, bigint>;
+  /** Seed transaction statuses; the engine reads these via getActivity. */
+  txStatus?: Map<string, TxStatus>;
 }
 
 /** Fake `WdkAdapter`: deterministic, seed-bound, never loads real WDK. */
@@ -141,7 +172,11 @@ export class FakeWdkAdapter implements WdkAdapter {
   }
 
   createBalanceReader(_chains: ChainRegistry): WdkBalanceReader {
-    const r = new FakeBalanceReader(this.balances.native ?? {}, this.balances.token ?? {});
+    const r = new FakeBalanceReader(
+      this.balances.native ?? {},
+      this.balances.token ?? {},
+      this.balances.txStatus ?? new Map(),
+    );
     this.readers.push(r);
     return r;
   }

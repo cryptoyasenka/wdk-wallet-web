@@ -10,7 +10,7 @@
  * against a hand-written fake `WdkAdapter`.
  */
 
-import type { ChainId } from "../types.js";
+import type { ChainId, FeeQuote, TxIntent, TxResult } from "../types.js";
 
 /** EVM chains share one WDK manager; they differ only by chainId + RPC list. */
 export interface EvmChainConfig {
@@ -43,11 +43,15 @@ export type ChainRegistry = Partial<Record<ChainId, ChainConfig>>;
  * Holds a decrypted seed and derives addresses from it. Disposing erases the
  * seed from memory (WDK zeroises on `dispose()`).
  *
- * Phase 1 surface is derivation only. Transaction signing is added in Phase 2
- * together with the Web-Worker isolation of this object (see ARCHITECTURE.md).
+ * Phase 2 adds transaction quoting + signing/broadcast here, together with the
+ * Web-Worker isolation of this object (see ARCHITECTURE.md).
  */
 export interface WdkSigner {
   deriveAddress(chain: ChainId, index: number): Promise<string>;
+  /** Estimate the fee for `intent` without broadcasting. */
+  quoteSend(intent: TxIntent): Promise<FeeQuote>;
+  /** Sign and broadcast `intent`; resolves once accepted by the network. */
+  send(intent: TxIntent): Promise<TxResult>;
   dispose(): void;
 }
 
@@ -61,6 +65,25 @@ export interface WdkBalanceReader {
   getNativeBalance(chain: ChainId, address: string): Promise<bigint>;
   /** ERC-20-style token balance in the token's base units. */
   getTokenBalance(chain: ChainId, token: string, address: string): Promise<bigint>;
+  /**
+   * Status of a previously-broadcast transaction. `"pending"` until mined;
+   * `"confirmed"` once it has a receipt. `"failed"` only when the chain
+   * reports an explicit failure — never inferred (e.g. EVM reads ethers'
+   * `receipt.status === 0`, an explicit on-chain revert flag; we never
+   * fabricate a failure we cannot verify, and Bitcoin has no revert concept
+   * so a mined tx is `"confirmed"`, full stop).
+   *
+   * `address` is the sender's address. It is required because WDK's Bitcoin
+   * `getTransactionReceipt` is address-scoped (it scans that address's
+   * history), so an address-less lookup would dishonestly report a confirmed
+   * BTC tx as forever `"pending"`. EVM resolves the receipt via the provider
+   * and ignores `address`; passing it is harmless and keeps one signature.
+   */
+  getTransactionStatus(
+    chain: ChainId,
+    hash: string,
+    address: string,
+  ): Promise<"pending" | "confirmed" | "failed">;
   dispose(): void;
 }
 

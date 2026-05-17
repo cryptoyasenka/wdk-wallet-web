@@ -53,6 +53,14 @@ export const DEFAULT_ASSETS: readonly Asset[] = [
   { symbol: "XAUT", chain: "ethereum", token: XAUT_ETHEREUM, decimals: 6 },
 ];
 
+/**
+ * Native gas/fee assets — NOT holdable portfolio balances; used only to label
+ * `FeeQuote.feeAsset`. EVM gas (incl. for a USDT/XAU₮ transfer) is paid in ETH
+ * (18 decimals); a Bitcoin transaction fee is paid in BTC (8 decimals).
+ */
+export const ETH_NATIVE: Asset = { symbol: "ETH", chain: "ethereum", decimals: 18 };
+export const BTC_NATIVE: Asset = { symbol: "BTC", chain: "bitcoin", decimals: 8 };
+
 /* ---- Chain registry ---------------------------------------------------- */
 
 export interface BuildChainsOptions {
