@@ -90,10 +90,12 @@ export class WorkerWdkAdapter implements WdkAdapter {
 }
 
 class WorkerSigner implements WdkSigner {
-  constructor(
-    readonly #a: WorkerWdkAdapter,
-    readonly #h: number,
-  ) {}
+  readonly #a: WorkerWdkAdapter;
+  readonly #h: number;
+  constructor(adapter: WorkerWdkAdapter, handle: number) {
+    this.#a = adapter;
+    this.#h = handle;
+  }
 
   async deriveAddress(chain: ChainId, index: number): Promise<string> {
     const { address } = await this.#a.rpc<{ address: string }>((id) => ({
@@ -132,10 +134,12 @@ class WorkerSigner implements WdkSigner {
 }
 
 class WorkerBalanceReader implements WdkBalanceReader {
-  constructor(
-    readonly #a: WorkerWdkAdapter,
-    readonly #h: number,
-  ) {}
+  readonly #a: WorkerWdkAdapter;
+  readonly #h: number;
+  constructor(adapter: WorkerWdkAdapter, handle: number) {
+    this.#a = adapter;
+    this.#h = handle;
+  }
 
   async getNativeBalance(chain: ChainId, address: string): Promise<bigint> {
     const { amount } = await this.#a.rpc<{ amount: bigint }>((id) => ({

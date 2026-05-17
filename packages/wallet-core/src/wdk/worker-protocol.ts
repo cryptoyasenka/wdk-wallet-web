@@ -8,7 +8,7 @@
  * amounts, and plain config/intents. The plaintext seed never appears in any
  * message in either direction — that is the whole point (ADR-004).
  */
-import type { ChainId, FeeQuote, TxIntent, TxResult } from "../types.js";
+import type { ChainId, TxIntent } from "../types.js";
 import type { ChainRegistry } from "./types.js";
 import {
   InvalidSeedPhraseError,
