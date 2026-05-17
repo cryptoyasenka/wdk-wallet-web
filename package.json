@@ -9,12 +9,14 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck",
+    "//typecheck": "The Next app type-checks against @wdk-web/wallet-core's emitted dist/*.d.ts (its package exports point at dist), so the core must be built before any consumer's tsc runs. pnpm -r build is topological; build the core first, then type-check the workspace.",
+    "typecheck": "pnpm --filter @wdk-web/wallet-core build && pnpm -r typecheck",
     "dev": "pnpm --filter next dev"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "eslint": "10.4.0",
+    "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.6.0",
     "typescript-eslint": "8.59.3"
   }

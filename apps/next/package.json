@@ -3,21 +3,27 @@
   "version": "0.1.0",
   "private": true,
   "description": "Reference web wallet. Consumes @wdk-web/wallet-core. No @tetherto/* import allowed here.",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "start": "next start",
     "typecheck": "tsc --noEmit",
-    "lint": "next lint",
-    "test": "vitest run"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@wdk-web/wallet-core": "workspace:*",
-    "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "next": "15.5.18",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "@tailwindcss/postcss": "4.3.0",
+    "@types/node": "20.19.41",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "postcss": "8.5.14",
+    "tailwindcss": "4.3.0",
+    "typescript": "5.6.3"
   }
 }

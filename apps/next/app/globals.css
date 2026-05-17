@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+/* Tailwind v4: design tokens live in CSS, not a JS config file. */
+@theme {
+  --color-bg: #0b0f17;
+  --color-surface: #131a26;
+  --color-border: #233044;
+  --color-accent: #26a17b; /* Tether green */
+  --color-accent-fg: #ffffff;
+  --color-muted: #8a97ab;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: #e7edf5;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}
+
+/* Long seed phrases / addresses must wrap, never overflow the card. */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

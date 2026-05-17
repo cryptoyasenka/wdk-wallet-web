@@ -8,6 +8,7 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import globals from "globals";
+import reactHooks from "eslint-plugin-react-hooks";
 
 const TETHER_BAN = {
   patterns: [
@@ -53,6 +54,17 @@ export default tseslint.config(
     rules: {
       "no-restricted-imports": "off",
       "@typescript-eslint/no-restricted-imports": "off",
+    },
+  },
+
+  // React hooks correctness for the Next.js app (catches real bugs:
+  // conditional hooks, stale-closure dep arrays).
+  {
+    files: ["apps/next/**/*.{ts,tsx}"],
+    plugins: { "react-hooks": reactHooks },
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
     },
   },
 );
