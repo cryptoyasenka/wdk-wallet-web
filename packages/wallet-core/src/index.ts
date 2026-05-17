@@ -24,6 +24,11 @@ export {
 } from "./chains/index.js";
 export type { BuildChainsOptions } from "./chains/index.js";
 
+// Passphrase key-derivation (pure WebCrypto, no @tetherto): the building
+// blocks for an app's Phase-1 passphrase `UnlockProvider`. seal/open stay
+// engine-internal — an app never touches the raw vault blob.
+export { deriveAesGcmKey, generateSalt } from "./secrets/index.js";
+
 // Typed error surface — apps switch on these (e.g. show the unlock UI on
 // WalletLockedError, a phase banner on PhaseNotImplementedError).
 export {
