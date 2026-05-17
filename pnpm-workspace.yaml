@@ -1,3 +1,7 @@
 packages:
   - "packages/*"
-  - "apps/*"
+  # apps/* is added back in P1.7 when the Next.js app has real source.
+  # Until then `apps/next` is a structure-only stub: keeping it a workspace
+  # member would make `pnpm -r {lint,typecheck,test,build}` fail on scripts
+  # that point at an app that does not exist yet.
+  # - "apps/*"
