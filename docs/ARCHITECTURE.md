@@ -120,3 +120,46 @@ the real native sodium):
   honest (it cannot silently pretend to be a wallet) and keeps the EVM bundle clean.
 
 See `RN-TO-WEB-MAP.md` for the Bitcoin-on-web delta and the P2 plan.
+
+## ADR-003: getActivity is a local outgoing send-log (alpha WDK has no history API)
+
+**Status:** accepted (P2).
+
+`getActivity()` is in the frozen contract, but alpha WDK exposes only
+`getTransactionReceipt(hash)` — there is no list/history/indexer call to
+enumerate a wallet's transactions (verified against the published `.d.ts`,
+2026-05-17). Rather than fabricate history or silently return empty, the engine
+records every send it performs into a versioned, storage-persisted log
+(`wdk:activity:v1`, `src/wallet/activity-log.ts`) and refreshes each pending
+entry's status from the on-chain receipt.
+
+**Honest limit (the delta a reviewer must see):** this covers only sends made
+*by this wallet through this app*. Inbound transfers, and sends made from
+another client, are **not** visible until WDK ships an indexer/explorer API.
+This is stated in the code header and `RN-TO-WEB-MAP.md`; it is a deliberate,
+documented scope boundary, not a bug.
+
+Status is **read from chain, never inferred**:
+
+- EVM: ethers `receipt === null` → `pending` (not mined); `receipt.status === 0`
+  → `failed` (an explicit on-chain revert flag — a real chain-reported failure,
+  not a guess); otherwise → `confirmed` (`status === 1`, or pre-Byzantium
+  `null` = mined without a status opcode).
+- Bitcoin: no revert concept — `receipt === null` → `pending`, non-null
+  (mined into a block) → `confirmed`, full stop.
+
+`WdkBalanceReader.getTransactionStatus(chain, hash, address)` takes the sender
+address because WDK's **Bitcoin** receipt lookup is address-scoped (it scans
+that address's history, not a global hash index); an address-less sentinel
+would dishonestly report a confirmed BTC tx as forever `pending`. EVM resolves
+the receipt via the provider and ignores `address` — one signature, honest on
+both chains. The address is stored internally on the log entry; the public
+`ActivityItem` is unchanged (frozen) — `from` is projected away on read.
+
+Related additive contract refinement: `Asset.symbol` was widened with `"ETH"`
+so EVM gas is representable in `FeeQuote.feeAsset` (gas for a USDT/XAU₮ transfer
+is paid in ETH, not the token). Grep proved no consumer does an exhaustive
+switch on the union, so widening is backward-compatible with the P1 surface.
+
+Full history (incl. inbound) is deferred to a later phase, gated on the WDK
+Indexer; the contract does not change when it lands — only this backing does.

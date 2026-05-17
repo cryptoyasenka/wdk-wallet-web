@@ -12,7 +12,7 @@ that separates a port from a paste.)
 | Unlock / auth | Face ID / Touch ID | **WebAuthn / passkey**; passphrase fallback | Equivalent UX, stronger phishing resistance; availability varies by browser. |
 | QR scan | native camera | `getUserMedia()` + `zxing`/`jsQR` | Requires HTTPS + camera permission; otherwise equivalent. |
 | Bitcoin Electrum | `react-native-tcp-socket` | **Electrum-over-WebSocket** relay (or WDK Indexer) | Browser cannot open raw TCP; needs a WS-to-Electrum relay or the hosted Indexer. **Plus** a newly found bundling blocker — see "Bitcoin on web (P1 status)" below. |
-| Live balances/activity | WDK Indexer | WDK Indexer (unchanged) | Portable as-is. |
+| Live balances/activity | WDK Indexer | Balances via WDK read-only accounts; **activity via a local outgoing send-log** (alpha WDK ships no history/list API — only per-hash receipts) | Outgoing-only + this-wallet-via-this-app-only until a WDK Indexer/explorer lands — see ARCHITECTURE.md ADR-003. Entry status is read from the on-chain receipt, never fabricated. |
 | UI kit | `@tetherto/wdk-uikit-react-native` | Tailwind + shadcn/ui (web components) | Visual parity by design; no shared component code. |
 | Node polyfills | metro polyfills | webpack/turbopack `crypto`/`buffer`/`stream` polyfills | Build-config only; documented in ARCHITECTURE.md. |
 | Navigation | Expo Router + native gestures | Next.js App Router | Portable patterns; standard web nav. |
