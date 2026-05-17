@@ -18,13 +18,15 @@ import {
   type WalletEngine,
 } from "@wdk-web/wallet-core";
 import { IndexedDbStorage } from "./storage";
-import { PassphraseUnlock } from "./unlock";
+import { SelectingUnlockProvider } from "./webauthnUnlock";
 import { StubCryptoWorker } from "./cryptoWorker";
 
 export interface WalletApp {
   readonly engine: WalletEngine;
   /** Feed the user's passphrase to the unlock provider before an unlock op. */
   setPassphrase(passphrase: string): void;
+  /** Opt into a WebAuthn passkey (PRF). Preferred over passphrase once set. */
+  enrollPasskey(): Promise<void>;
 }
 
 /**
@@ -57,7 +59,7 @@ export function getWalletApp(): WalletApp {
   if (app) return app;
 
   const storage = new IndexedDbStorage();
-  const unlock = new PassphraseUnlock(storage);
+  const unlock = new SelectingUnlockProvider(storage);
   const crypto = new StubCryptoWorker();
 
   const engine = createWalletEngine(
@@ -68,6 +70,7 @@ export function getWalletApp(): WalletApp {
   app = {
     engine,
     setPassphrase: (passphrase: string) => unlock.setPassphrase(passphrase),
+    enrollPasskey: () => unlock.enrollPasskey(),
   };
   return app;
 }
