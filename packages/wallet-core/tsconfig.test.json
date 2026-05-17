@@ -1,0 +1,10 @@
+{
+  "//": "Type-checks src + tests + vitest config WITHOUT emitting, so the build",
+  "//2": "tsconfig stays src-only (no test code in dist). Run by `typecheck`.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}

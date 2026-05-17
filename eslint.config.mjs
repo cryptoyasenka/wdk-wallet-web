@@ -34,6 +34,16 @@ export default tseslint.config(
     rules: {
       "no-restricted-imports": ["error", TETHER_BAN],
       "@typescript-eslint/no-restricted-imports": ["error", TETHER_BAN],
+      // Convention: a leading underscore marks an intentionally-unused binding
+      // (e.g. an interface-mandated parameter the impl does not need).
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
     },
   },
 
