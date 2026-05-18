@@ -11,14 +11,14 @@ that separates a port from a paste.)
 | Key storage at rest | iOS Keychain / Android KeyStore | **WebCrypto** (AES-GCM) + key from WebAuthn/passphrase, ciphertext in **encrypted IndexedDB** | No hardware-backed keystore in-browser by default; passkey/WebAuthn gives hardware-backed *unlock*, not at-rest HSM. |
 | Unlock / auth | Face ID / Touch ID | **WebAuthn passkey PRF** (CTAP2 `hmac-secret`) → HKDF→AES-GCM key; **PBKDF2-600k passphrase** fallback (ADR-005) | Equivalent UX, stronger phishing resistance. The key is the PRF *secret*, never a (non-deterministic) signature. **PRF support is narrower than passkey support** (≈ Safari 18+, Firefox 148+, Chrome 147+/Win Hello), so the passphrase is a first-class path, not a degraded one; selection prefers the passkey only when one is actually enrolled in this wallet. |
 | QR scan | native camera | `getUserMedia()` + `zxing`/`jsQR` | Requires HTTPS + camera permission; otherwise equivalent. |
-| Bitcoin Electrum | `react-native-tcp-socket` | **Electrum-over-WebSocket** relay (or WDK Indexer) | Browser cannot open raw TCP; needs a WS-to-Electrum relay or the hosted Indexer. **Plus** a newly found bundling blocker — see "Bitcoin on web (P1 status)" below. |
+| Bitcoin Electrum | `react-native-tcp-socket` | **Electrum-over-WebSocket** relay (or WDK Indexer) | Browser cannot open raw TCP; needs a WS-to-Electrum relay or the hosted Indexer. **Plus** a deeper bundling blocker — see "Bitcoin on web" below. |
 | Live balances/activity | WDK Indexer | Balances via WDK read-only accounts; **activity via a local outgoing send-log** (alpha WDK ships no history/list API — only per-hash receipts) | Outgoing-only + this-wallet-via-this-app-only until a WDK Indexer/explorer lands — see ARCHITECTURE.md ADR-003. Entry status is read from the on-chain receipt, never fabricated. |
 | UI kit | `@tetherto/wdk-uikit-react-native` | Tailwind + shadcn/ui (web components) | Visual parity by design; no shared component code. |
 | Node polyfills | metro polyfills | webpack/turbopack `crypto`/`buffer`/`stream` polyfills | Build-config only; documented in ARCHITECTURE.md. |
 | Navigation | Expo Router + native gestures | Next.js App Router | Portable patterns; standard web nav. |
 | Animations | Reanimated | CSS / Framer Motion | Cosmetic. |
 
-## Bitcoin on web (P1 status)
+## Bitcoin on web (current status: deferred, EVM-only)
 
 The RN→web Bitcoin delta is **larger than just the TCP transport**. Building the
 web bundle surfaced a second, harder blocker in the alpha WDK itself:
@@ -31,19 +31,21 @@ web bundle surfaced a second, harder blocker in the alpha WDK itself:
   ships no working browser build for its own `browser` field (it points at
   `sodium-javascript`, which the dependency tree does not install).
 
-**P1 decision — the web app is EVM-only, stated honestly:**
+**Decision (P1, unchanged through P2 and P3) — the web app is EVM-only, stated honestly:**
 
-| Concern | P1 web behaviour | Honest delta |
+| Concern | Web behaviour (shipped) | Honest delta |
 |---|---|---|
 | BTC key/crypto deps | `sodium-universal` aliased (this app's bundle only) to a shim re-exporting **real** pure-JS `sodium_memzero` from `sodium-javascript` | No faked crypto — real libsodium zeroisation; identical behaviour to `sodium-universal`'s own browser target. |
 | BTC wallet adapter | `@tetherto/wdk-wallet-btc` aliased (this app's bundle only) to a typed stub that **throws** on construction | The BTC path is unreachable on P1 screens (EVM-only scope). A loud throw cannot masquerade as a working wallet. |
 | `wallet-core` itself | **Untouched** — Node/RN consumers keep the real BTC adapter and real native sodium | The containment boundary holds; only `apps/next`'s webpack bundle is reshaped. |
 
-**P2 web Bitcoin plan:** revisit once the `sodium-native`/Bare-runtime story is
-either fixed upstream or replaced with a maintained pure-JS path; pair it with the
-Electrum-over-WebSocket relay (or hosted Indexer) the table above already specifies.
-Until then, advertising BTC on web would be the kind of fake-parity SECURITY.md
-forbids.
+**Status through P2 and P3: still deferred — the reason is unchanged.** Neither
+P2 nor P3 added a BTC-on-web path: the upstream `sodium-native`/Bare-runtime
+packaging gap in alpha WDK is unchanged, so the blocker stands. It is revisited
+(not abandoned) once that story is fixed upstream or replaced with a maintained
+pure-JS path, paired with the Electrum-over-WebSocket relay (or hosted Indexer)
+the table above already specifies. Until then, advertising BTC on web would be
+the kind of fake-parity SECURITY.md forbids — so we don't.
 
 **Portable as-is (copied, not rewritten):** WDK provider/orchestration layer,
 `config/` (networks, assets, chains, failover/RPC), `services/` (pricing), `utils/`
