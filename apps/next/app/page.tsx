@@ -1,12 +1,15 @@
 "use client";
 
 /**
- * The whole Phase-1 wallet UI as one client-side state machine.
+ * The whole wallet UI as one client-side state machine.
  *
- * Honest P1 scope (see docs/ARCHITECTURE.md → Phasing): create / import /
- * unlock / portfolio / receive. Send, activity and WebAuthn are Phase 2 — the
- * core throws typed errors for those, so there is no UI that pretends to do
- * them. Every wallet-core call is funnelled through `act()` which maps the
+ * Scope (see docs/ARCHITECTURE.md → Phasing): create / import / unlock /
+ * portfolio / receive (Phase 1) and send / itemised tx-confirm / activity
+ * (Phase 2). Activity is the local outgoing send-log (ADR-003) — outgoing,
+ * this-wallet-via-this-app only; statuses come from the on-chain receipt and
+ * are never fabricated. The send confirm screen renders decoded transaction
+ * fields (amount, asset, chain, recipient, fee), never opaque hex, per
+ * docs/SECURITY.md. Every wallet-core call goes through `act()` which maps the
  * package's typed error surface to a human message instead of string-matching.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
@@ -16,8 +19,12 @@ import {
   VaultDecryptError,
   WalletError,
   WalletExistsError,
+  type ActivityItem,
+  type Asset,
   type Balance,
   type ChainId,
+  type FeeQuote,
+  type TxIntent,
 } from "@wdk-web/wallet-core";
 import { getWalletApp } from "@/lib/engine";
 
@@ -34,6 +41,38 @@ function formatUnits(amount: bigint, decimals: number): string {
   const whole = digits.slice(0, digits.length - decimals);
   const frac = digits.slice(digits.length - decimals).replace(/0+$/, "");
   return `${neg ? "-" : ""}${whole}${frac ? `.${frac}` : ""}`;
+}
+
+/**
+ * Decimal string → bigint minor units (inverse of `formatUnits`). Rejects
+ * anything that is not a positive amount and refuses to silently truncate
+ * money: more fraction digits than the asset has decimals is an error, not a
+ * round. `decimals === 0` (no fractional unit) only accepts a whole number.
+ */
+function parseUnits(input: string, decimals: number): bigint {
+  const s = input.trim();
+  if (!/^\d+(\.\d+)?$/.test(s)) throw new Error("Enter a positive amount, e.g. 12.5");
+  const dot = s.indexOf(".");
+  const whole = dot === -1 ? s : s.slice(0, dot);
+  const frac = dot === -1 ? "" : s.slice(dot + 1);
+  if (frac.length > decimals) {
+    throw new Error(`Too many decimal places — this asset has ${decimals}.`);
+  }
+  const value = BigInt(whole + frac.padEnd(decimals, "0"));
+  if (value <= 0n) throw new Error("Amount must be greater than zero.");
+  return value;
+}
+
+/** Stable option/lookup key for an asset (symbol is not unique across chains). */
+function assetKey(a: Asset): string {
+  return `${a.symbol}-${a.chain}`;
+}
+
+/** Status → badge classes. Pending is the honest default (never fabricated). */
+function statusClass(status: ActivityItem["status"]): string {
+  if (status === "confirmed") return "bg-green-500/15 text-green-300";
+  if (status === "failed") return "bg-red-500/15 text-red-300";
+  return "bg-yellow-500/15 text-yellow-300";
 }
 
 /** Friendly copy for the typed errors the core throws (and a safe fallback). */
@@ -61,6 +100,16 @@ export default function Page() {
   const [balances, setBalances] = useState<readonly Balance[] | null>(null);
   const [balancesError, setBalancesError] = useState<string | null>(null);
   const [addresses, setAddresses] = useState<ReadonlyArray<readonly [ChainId, string]>>([]);
+
+  const [sendAssetKey, setSendAssetKey] = useState("");
+  const [sendTo, setSendTo] = useState("");
+  const [sendAmount, setSendAmount] = useState("");
+  const [quote, setQuote] = useState<{ readonly intent: TxIntent; readonly fee: FeeQuote } | null>(
+    null,
+  );
+  const [sentHash, setSentHash] = useState<string | null>(null);
+  const [activity, setActivity] = useState<readonly ActivityItem[] | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   /** Run a wallet-core call with shared busy/error handling. */
   const act = useCallback(async (fn: () => Promise<void>) => {
@@ -93,6 +142,18 @@ export default function Page() {
     };
   }, []);
 
+  const loadActivity = useCallback(async () => {
+    setActivityError(null);
+    try {
+      // getActivity refreshes pending entries from the on-chain receipt when
+      // unlocked and never fabricates a status (see activity-log.ts / ADR-003).
+      setActivity(await getWalletApp().engine.getActivity());
+    } catch (e) {
+      setActivity(null);
+      setActivityError(messageFor(e));
+    }
+  }, []);
+
   const loadUnlockedView = useCallback(async () => {
     const { engine } = getWalletApp();
 
@@ -113,7 +174,9 @@ export default function Page() {
       setBalances(null);
       setBalancesError(messageFor(e));
     }
-  }, []);
+
+    await loadActivity();
+  }, [loadActivity]);
 
   const enter = useCallback(
     (next: Phase) => {
@@ -178,8 +241,45 @@ export default function Page() {
       await getWalletApp().engine.lock();
       setBalances(null);
       setAddresses([]);
+      setQuote(null);
+      setSentHash(null);
+      setSendTo("");
+      setSendAmount("");
+      setActivity(null);
+      setActivityError(null);
       enter("locked");
     });
+
+  /** Build the intent, get a fee quote, and move to the itemised confirm. */
+  const onReview = () =>
+    act(async () => {
+      const list = balances ?? [];
+      const asset =
+        list.find((b) => assetKey(b.asset) === sendAssetKey)?.asset ?? list[0]?.asset;
+      if (!asset) throw new Error("No sendable assets on configured chains.");
+      const to = sendTo.trim();
+      if (!to) throw new Error("Enter a recipient address.");
+      const amount = parseUnits(sendAmount, asset.decimals);
+      const intent: TxIntent = { asset, to, amount };
+      const fee = await getWalletApp().engine.quoteSend(intent);
+      setQuote({ intent, fee });
+    });
+
+  const onConfirmSend = () =>
+    act(async () => {
+      if (!quote) return;
+      const res = await getWalletApp().engine.send(quote.intent);
+      setQuote(null);
+      setSendTo("");
+      setSendAmount("");
+      setSentHash(res.hash);
+      await loadUnlockedView(); // balance now reflects the pending spend; log gained an entry
+    });
+
+  const onCancelQuote = () => {
+    setError(null);
+    setQuote(null);
+  };
 
   return (
     <main className="mx-auto flex min-h-full max-w-md flex-col gap-6 px-5 py-10">
@@ -347,6 +447,112 @@ export default function Page() {
           </Card>
 
           <Card>
+            <h2 className="mb-3 font-medium">Send</h2>
+
+            {(!balances || balances.length === 0) && (
+              <p className="text-sm text-[--color-muted]">
+                No sendable assets on configured chains.
+              </p>
+            )}
+
+            {balances && balances.length > 0 && !quote && sentHash === null && (
+              <>
+                <Field label="Asset">
+                  <select
+                    className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                    value={sendAssetKey || assetKey(balances[0]!.asset)}
+                    onChange={(e) => setSendAssetKey(e.target.value)}
+                  >
+                    {balances.map((b) => (
+                      <option key={assetKey(b.asset)} value={assetKey(b.asset)}>
+                        {b.asset.symbol} on {b.asset.chain}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Recipient address">
+                  <Input
+                    type="text"
+                    value={sendTo}
+                    onChange={setSendTo}
+                    placeholder="destination address"
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field label="Amount">
+                  <Input
+                    type="text"
+                    value={sendAmount}
+                    onChange={setSendAmount}
+                    placeholder="0.0"
+                    autoComplete="off"
+                  />
+                </Field>
+                <Button onClick={onReview} busy={busy}>
+                  Review transaction
+                </Button>
+              </>
+            )}
+
+            {quote && (
+              <div className="text-sm">
+                <p className="mb-3 text-[--color-muted]">
+                  Decoded from the transaction — not raw hex. Check every line.
+                </p>
+                <dl className="mb-4 divide-y divide-[--color-border] rounded-md border border-[--color-border]">
+                  <Row
+                    k="Amount"
+                    v={`${formatUnits(quote.intent.amount, quote.intent.asset.decimals)} ${quote.intent.asset.symbol}`}
+                  />
+                  <Row
+                    k="Asset"
+                    v={
+                      quote.intent.asset.token
+                        ? `${quote.intent.asset.symbol} (${quote.intent.asset.token})`
+                        : quote.intent.asset.symbol
+                    }
+                  />
+                  <Row k="Chain" v={quote.intent.asset.chain} />
+                  <Row k="Recipient" v={quote.intent.to} mono />
+                  <Row
+                    k="Network fee"
+                    v={`${formatUnits(quote.fee.fee, quote.fee.feeAsset.decimals)} ${quote.fee.feeAsset.symbol}`}
+                  />
+                </dl>
+                <div className="flex gap-2">
+                  <Button onClick={onConfirmSend} busy={busy}>
+                    Confirm &amp; send
+                  </Button>
+                  <button
+                    className="rounded-md border border-[--color-border] px-4 py-2.5 text-sm text-[--color-muted] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={onCancelQuote}
+                    disabled={busy}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {sentHash !== null && (
+              <div className="text-sm">
+                <p className="mb-2 text-green-300">
+                  Broadcast. It appears below as pending until the network confirms it.
+                </p>
+                <code className="block break-anywhere rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs">
+                  {sentHash}
+                </code>
+                <button
+                  className="mt-3 text-[--color-accent] underline-offset-2 hover:underline"
+                  onClick={() => setSentHash(null)}
+                >
+                  Send another
+                </button>
+              </div>
+            )}
+          </Card>
+
+          <Card>
             <h2 className="mb-3 font-medium">Receive</h2>
             {addresses.length === 0 && (
               <p className="text-sm text-[--color-muted]">No addresses.</p>
@@ -368,9 +574,58 @@ export default function Page() {
             </ul>
           </Card>
 
-          <p className="text-center text-xs text-[--color-muted]">
-            Phase 1 — sending, activity history and passkey unlock arrive in Phase 2.
-          </p>
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-medium">Activity</h2>
+              <button
+                className="text-sm text-[--color-muted] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => void loadActivity()}
+                disabled={busy}
+              >
+                Refresh
+              </button>
+            </div>
+
+            {activity === null && !activityError && (
+              <p className="text-sm text-[--color-muted]">Loading activity…</p>
+            )}
+            {activityError && <p className="text-sm text-red-300">{activityError}</p>}
+            {activity && activity.length === 0 && (
+              <p className="text-sm text-[--color-muted]">No sends yet.</p>
+            )}
+            {activity && activity.length > 0 && (
+              <ul className="divide-y divide-[--color-border]">
+                {activity.map((it) => (
+                  <li
+                    key={it.hash}
+                    className="flex items-center justify-between gap-3 py-2 text-sm"
+                  >
+                    <span>
+                      <span className="font-medium">
+                        {it.direction === "out" ? "−" : "+"}
+                        {formatUnits(it.amount, it.asset.decimals)} {it.asset.symbol}
+                      </span>{" "}
+                      <span className="text-[--color-muted]">on {it.asset.chain}</span>
+                      <span className="block text-xs text-[--color-muted]">
+                        {new Date(it.timestamp).toLocaleString()}
+                      </span>
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${statusClass(it.status)}`}
+                    >
+                      {it.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <p className="mt-3 text-xs text-[--color-muted]">
+              Outgoing sends made in this wallet via this app. Inbound and
+              external transfers need a WDK indexer — see docs/ARCHITECTURE.md
+              (ADR-003). Statuses come from the on-chain receipt, never guessed.
+            </p>
+          </Card>
         </>
       )}
     </main>
@@ -384,6 +639,24 @@ function Card({ children }: { readonly children: ReactNode }) {
     <section className="rounded-xl border border-[--color-border] bg-[--color-surface] p-5">
       {children}
     </section>
+  );
+}
+
+/** One labelled line of the itemised tx-confirm. */
+function Row({
+  k,
+  v,
+  mono,
+}: {
+  readonly k: string;
+  readonly v: string;
+  readonly mono?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 px-3 py-2">
+      <dt className="shrink-0 text-[--color-muted]">{k}</dt>
+      <dd className={`text-right ${mono ? "break-anywhere font-mono text-xs" : ""}`}>{v}</dd>
+    </div>
   );
 }
 
