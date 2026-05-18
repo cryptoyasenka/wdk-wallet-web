@@ -4,7 +4,7 @@
  * `@tetherto/*` is never loaded. The vault crypto underneath is real
  * (PassphraseUnlock derives an actual AES-GCM key).
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWalletEngineWithAdapter } from "../src/wallet/engine.js";
 import { DEFAULT_ASSETS, USDT_ETHEREUM, buildChainRegistry } from "../src/chains/index.js";
 import {
@@ -16,6 +16,7 @@ import {
   WalletLockedError,
 } from "../src/errors.js";
 import type { WalletEngine, WalletEngineDeps } from "../src/types.js";
+import type { ChainRegistry, WdkBalanceReader } from "../src/wdk/types.js";
 import { FakeWdkAdapter, MemoryStorage, PassphraseUnlock, SpyCryptoWorker } from "./fakes.js";
 
 function makeDeps(storage = new MemoryStorage(), passphrase = "correct horse"): {
@@ -251,5 +252,132 @@ describe("wallet engine — send / quote / activity (Phase 2)", () => {
     await expect(
       fresh.send({ asset: USDT, to: "0xrecipient", amount: 1n }),
     ).rejects.toBeInstanceOf(WalletLockedError);
+  });
+});
+
+/**
+ * End-to-end send round-trip on the established fake-adapter seam. These cover
+ * the paths the Phase-2 block above does not: pending→failed, a throwing
+ * status lookup keeping the last-known status (never fabricated), newest-first
+ * ordering, and that the internal `from` is dropped from the public shape.
+ */
+describe("wallet engine — send e2e (mocked provider)", () => {
+  const USDT = { symbol: "USDT", chain: "ethereum", token: USDT_ETHEREUM, decimals: 6 } as const;
+  const XAUT = {
+    symbol: "XAUT",
+    chain: "ethereum",
+    token: "0x68749665FF8D2d112Fa859AA293F07A622782F38",
+    decimals: 6,
+  } as const;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("round-trips quote → send → activity, persists status, drops internal `from`", async () => {
+    const txStatus = new Map<string, "pending" | "confirmed" | "failed">();
+    const m = makeDeps();
+    const storage = m.storage;
+    const engine = createWalletEngineWithAdapter(new FakeWdkAdapter({ txStatus }), m.deps);
+    await engine.createWallet();
+    await engine.unlock();
+
+    const quote = await engine.quoteSend({ asset: USDT, to: "0xrecipient", amount: 250_000n });
+    expect(quote.fee).toBe(21_000n);
+    expect(quote.feeAsset.symbol).toBe("ETH");
+    expect(quote.feeAsset.chain).toBe("ethereum");
+
+    const res = await engine.send({ asset: USDT, to: "0xrecipient", amount: 250_000n });
+    expect(res.hash).toMatch(/^0x[0-9a-f]{8}$/);
+    expect(res.chain).toBe("ethereum");
+
+    const pending = await engine.getActivity();
+    expect(pending).toHaveLength(1);
+    const item = pending[0]!;
+    expect(item).toMatchObject({
+      hash: res.hash,
+      direction: "out",
+      status: "pending",
+      amount: 250_000n,
+    });
+    expect(item.asset).toEqual(USDT); // symbol+chain+token+decimals survive serialize
+    // Internal sender address must NOT leak into the public shape.
+    expect("from" in item).toBe(false);
+
+    txStatus.set(res.hash, "confirmed"); // mine it
+    expect((await engine.getActivity())[0]?.status).toBe("confirmed");
+
+    // A fresh, still-locked engine over the SAME storage (no refresh path)
+    // still reads "confirmed" → it was written back, not recomputed.
+    const reopened = createWalletEngineWithAdapter(new FakeWdkAdapter(), makeDeps(storage).deps);
+    const persisted = await reopened.getActivity();
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0]?.status).toBe("confirmed");
+  });
+
+  it("refreshes a pending entry to failed when the chain reports an explicit failure", async () => {
+    const txStatus = new Map<string, "pending" | "confirmed" | "failed">();
+    const m = makeDeps();
+    const engine = createWalletEngineWithAdapter(new FakeWdkAdapter({ txStatus }), m.deps);
+    await engine.createWallet();
+    await engine.unlock();
+
+    const res = await engine.send({ asset: USDT, to: "0xrecipient", amount: 5n });
+    expect((await engine.getActivity())[0]?.status).toBe("pending");
+
+    txStatus.set(res.hash, "failed");
+    expect((await engine.getActivity())[0]?.status).toBe("failed");
+  });
+
+  it("keeps the last-known status (never fabricates) when the status lookup throws", async () => {
+    class ThrowingStatusAdapter extends FakeWdkAdapter {
+      override async createBalanceReader(_chains: ChainRegistry): Promise<WdkBalanceReader> {
+        return {
+          async getNativeBalance(): Promise<bigint> {
+            return 0n;
+          },
+          async getTokenBalance(): Promise<bigint> {
+            return 0n;
+          },
+          async getTransactionStatus(): Promise<"pending" | "confirmed" | "failed"> {
+            throw new Error("RPC down");
+          },
+          dispose(): void {},
+        };
+      }
+    }
+
+    const m = makeDeps();
+    const engine = createWalletEngineWithAdapter(new ThrowingStatusAdapter(), m.deps);
+    await engine.createWallet();
+    await engine.unlock();
+
+    await engine.send({ asset: USDT, to: "0xrecipient", amount: 9n });
+    const activity = await engine.getActivity();
+    // The refresh threw; the engine must keep the last-known status, not
+    // silently invent "confirmed"/"failed".
+    expect(activity).toHaveLength(1);
+    expect(activity[0]?.status).toBe("pending");
+  });
+
+  it("orders activity newest-first", async () => {
+    let t = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => (t += 1_000));
+
+    const m = makeDeps();
+    const engine = createWalletEngineWithAdapter(new FakeWdkAdapter(), m.deps);
+    await engine.createWallet();
+    await engine.unlock();
+
+    await engine.send({ asset: USDT, to: "0xfirst", amount: 1n });
+    await engine.send({ asset: XAUT, to: "0xsecond", amount: 2n });
+    await engine.send({ asset: USDT, to: "0xthird", amount: 3n });
+
+    const activity = await engine.getActivity();
+    expect(activity).toHaveLength(3);
+    const ts = activity.map((a) => a.timestamp);
+    expect(ts).toEqual([...ts].sort((a, b) => b - a)); // strictly descending
+    expect(activity[0]?.amount).toBe(3n); // newest send first
+    expect(activity[2]?.amount).toBe(1n);
   });
 });
