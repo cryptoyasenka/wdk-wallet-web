@@ -6,8 +6,12 @@ the official [`wdk-starter-react-native`](https://github.com/tetherto/wdk-starte
 WDK ships starter templates **only for React Native** — this is the production-grade
 **web** counterpart.
 
-> Status: scaffold. Built in phases (see `../../.planning/BUILD-DECISION.md`).
-> Not for production use with real funds yet.
+> Status: Phase 1–2 shipped (onboarding · unlock · portfolio · receive · send ·
+> tx-confirm · activity, EVM-only), Phase 3 = the Svelte portability proof +
+> CI/docs finalisation. Built in phases (see `../../.planning/BUILD-DECISION.md`).
+> EVM-only by an honest alpha-WDK constraint (no BTC-on-web — see
+> `docs/RN-TO-WEB-MAP.md`); repo is local-only (no remote); **not for production
+> use with real funds yet**. No fake native-parity.
 
 ## Why this is structured the way it is
 
@@ -21,8 +25,10 @@ from **platform-specific UI/storage**:
 - **`apps/next`** — the reference Next.js app: full screen parity with the RN starter
   (onboarding → wallet-setup → unlock → portfolio → token detail → send → receive →
   activity → settings).
-- **`apps/svelte-proof`** — a deliberately minimal Svelte app whose only job is to
-  prove `wallet-core` is genuinely framework-agnostic, not Next-coupled.
+- **`apps/svelte`** (package `svelte-proof`) — a thin Svelte 5 + Vite app that
+  runs the full Phase-1 state machine against the **byte-unchanged** core,
+  proving `wallet-core` is genuinely framework-agnostic, not Next-coupled. Ships
+  with a headless portability test (`test/portability.test.ts`).
 
 The headless core is reusable verbatim for a browser-extension wallet and an
 eCommerce checkout (the other two Tether WDK bounties).
@@ -40,7 +46,7 @@ risk plainly. Honest limits over false parity.
 ```
 packages/wallet-core/   headless WDK engine (the spine)
 apps/next/              reference web wallet (the deliverable)
-apps/svelte-proof/      portability proof
+apps/svelte/            portability proof (Svelte 5 + Vite; pkg svelte-proof)
 docs/
   ARCHITECTURE.md       module boundaries & data flow
   SECURITY.md           threat model & honest limits
@@ -53,9 +59,14 @@ docs/
 ```bash
 pnpm install
 cp apps/next/.env.example apps/next/.env.local   # fill WDK Indexer keys
-pnpm --filter wallet-core test
+pnpm --filter @wdk-web/wallet-core test           # 33 unit tests
+pnpm --filter svelte-proof test                   # headless portability proof
 pnpm --filter next dev
 ```
 
 WDK is alpha; package versions are pinned (see `docs/ARCHITECTURE.md` → Alpha-churn
-containment). Never commit `.env*`.
+containment). Never commit `.env*`. The repo is **local-only (no git remote)**:
+`.github/workflows/ci.yml` is a repo-correct definition never executed by a hosted
+runner here, so there is deliberately **no "build passing" badge** — the bar is the
+quartet green locally exactly as CI would invoke it (see the caveat at the top of
+`ci.yml`).
