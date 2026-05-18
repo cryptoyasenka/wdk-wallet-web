@@ -4,15 +4,20 @@
    * of apps/next/app/page.tsx, driven entirely by the byte-unchanged
    * @wdk-web/wallet-core public surface.
    *
-   * Scope is deliberately Phase-1 parity (P3-CONTEXT D-01): create / import /
-   * backup / unlock / portfolio / receive. No send / activity / passkey — those
-   * are already proven by the Next.js reference app; re-porting them to the
-   * *minimal* second host would be scope creep, not a stronger portability
-   * proof. The point being demonstrated is that the same engine, with the same
-   * typed-error surface and the same host-port contract, runs framework-free
-   * under a second bundler/framework. Every wallet-core call goes through
-   * `act()` which maps the package's typed errors to a human message instead of
-   * string-matching.
+   * Scope: create / import / unlock / portfolio / receive and send / itemised
+   * tx-confirm / activity — full parity with the Next.js reference, on the same
+   * engine, so "one core, two real apps" is literally true. The one deliberate
+   * delta is unlock: passphrase only (no WebAuthn/PRF). That is a host-port
+   * choice, not an engine gap — WebAuthn is already proven by apps/next, the
+   * engine's unlock contract is identical either way, and a second passkey UI
+   * on the second host would prove nothing new about the engine.
+   *
+   * Activity is the local outgoing send-log (ADR-003) — outgoing,
+   * this-wallet-via-this-app only; statuses come from the on-chain receipt and
+   * are never fabricated. The send confirm screen renders decoded transaction
+   * fields (amount, asset, chain, recipient, fee), never opaque hex, per
+   * docs/SECURITY.md. Every wallet-core call goes through `act()` which maps the
+   * package's typed errors to a human message instead of string-matching.
    */
   import {
     InvalidSeedPhraseError,
@@ -20,17 +25,22 @@
     VaultDecryptError,
     WalletError,
     WalletExistsError,
+    type ActivityItem,
+    type Asset,
     type Balance,
     type ChainId,
+    type FeeQuote,
+    type TxIntent,
   } from "@wdk-web/wallet-core";
   import { getWalletApp } from "./lib/engine";
 
   type Phase = "loading" | "onboarding" | "backup" | "locked" | "unlocked";
   type OnboardMode = "create" | "import";
 
-  // Identical to apps/next: ask for both, keep whichever the build configured.
-  // Bitcoin is gracefully absent in the EVM-only web build (typed
-  // UnsupportedChainError, swallowed below — never a silent gap).
+  // Identical to apps/next: ask both chains; the build keeps whichever it
+  // configured. BTC ships on web when VITE_BTC_ELECTRUM_WS_URL is set; with no
+  // endpoint it surfaces a typed UnsupportedChainError (swallowed below — a
+  // documented operational input, never a silent gap).
   const RECEIVE_CHAINS: readonly ChainId[] = ["bitcoin", "ethereum"];
 
   let phase = $state<Phase>("loading");
@@ -48,6 +58,14 @@
   let balancesError = $state<string | null>(null);
   let addresses = $state<ReadonlyArray<readonly [ChainId, string]>>([]);
 
+  let sendAssetKey = $state("");
+  let sendTo = $state("");
+  let sendAmount = $state("");
+  let quote = $state<{ readonly intent: TxIntent; readonly fee: FeeQuote } | null>(null);
+  let sentHash = $state<string | null>(null);
+  let activity = $state<readonly ActivityItem[] | null>(null);
+  let activityError = $state<string | null>(null);
+
   /** bigint minor units → decimal string, trailing zeros trimmed. */
   function formatUnits(amount: bigint, decimals: number): string {
     if (decimals === 0) return amount.toString();
@@ -56,6 +74,38 @@
     const whole = digits.slice(0, digits.length - decimals);
     const frac = digits.slice(digits.length - decimals).replace(/0+$/, "");
     return `${neg ? "-" : ""}${whole}${frac ? `.${frac}` : ""}`;
+  }
+
+  /**
+   * Decimal string → bigint minor units (inverse of `formatUnits`). Rejects
+   * anything that is not a positive amount and refuses to silently truncate
+   * money: more fraction digits than the asset has decimals is an error, not a
+   * round. `decimals === 0` (no fractional unit) only accepts a whole number.
+   */
+  function parseUnits(input: string, decimals: number): bigint {
+    const s = input.trim();
+    if (!/^\d+(\.\d+)?$/.test(s)) throw new Error("Enter a positive amount, e.g. 12.5");
+    const dot = s.indexOf(".");
+    const whole = dot === -1 ? s : s.slice(0, dot);
+    const frac = dot === -1 ? "" : s.slice(dot + 1);
+    if (frac.length > decimals) {
+      throw new Error(`Too many decimal places — this asset has ${decimals}.`);
+    }
+    const value = BigInt(whole + frac.padEnd(decimals, "0"));
+    if (value <= 0n) throw new Error("Amount must be greater than zero.");
+    return value;
+  }
+
+  /** Stable option/lookup key for an asset (symbol is not unique across chains). */
+  function assetKey(a: Asset): string {
+    return `${a.symbol}-${a.chain}`;
+  }
+
+  /** Status → pill modifier. Pending is the honest default (never fabricated). */
+  function statusClass(status: ActivityItem["status"]): "ok" | "bad" | "wait" {
+    if (status === "confirmed") return "ok";
+    if (status === "failed") return "bad";
+    return "wait";
   }
 
   /** Friendly copy for the typed errors the core throws (and a safe fallback). */
@@ -89,6 +139,18 @@
     backedUp = false;
   }
 
+  async function loadActivity(): Promise<void> {
+    activityError = null;
+    try {
+      // getActivity refreshes pending entries from the on-chain receipt when
+      // unlocked and never fabricates a status (see activity-log.ts / ADR-003).
+      activity = await getWalletApp().engine.getActivity();
+    } catch (e) {
+      activity = null;
+      activityError = messageFor(e);
+    }
+  }
+
   async function loadUnlockedView(): Promise<void> {
     const { engine } = getWalletApp();
 
@@ -109,6 +171,8 @@
       balances = null;
       balancesError = messageFor(e);
     }
+
+    await loadActivity();
   }
 
   function enter(next: Phase): void {
@@ -184,8 +248,45 @@
       await getWalletApp().engine.lock();
       balances = null;
       addresses = [];
+      quote = null;
+      sentHash = null;
+      sendTo = "";
+      sendAmount = "";
+      activity = null;
+      activityError = null;
       enter("locked");
     });
+
+  /** Build the intent, get a fee quote, and move to the itemised confirm. */
+  const onReview = (): Promise<void> =>
+    act(async () => {
+      const list = balances ?? [];
+      const asset =
+        list.find((b) => assetKey(b.asset) === sendAssetKey)?.asset ?? list[0]?.asset;
+      if (!asset) throw new Error("No sendable assets on configured chains.");
+      const to = sendTo.trim();
+      if (!to) throw new Error("Enter a recipient address.");
+      const amount = parseUnits(sendAmount, asset.decimals);
+      const intent: TxIntent = { asset, to, amount };
+      const fee = await getWalletApp().engine.quoteSend(intent);
+      quote = { intent, fee };
+    });
+
+  const onConfirmSend = (): Promise<void> =>
+    act(async () => {
+      if (!quote) return;
+      const res = await getWalletApp().engine.send(quote.intent);
+      quote = null;
+      sendTo = "";
+      sendAmount = "";
+      sentHash = res.hash;
+      await loadUnlockedView(); // balance reflects the pending spend; log gained an entry
+    });
+
+  function onCancelQuote(): void {
+    error = null;
+    quote = null;
+  }
 </script>
 
 <main>
@@ -329,6 +430,103 @@
     </section>
 
     <section class="card">
+      <h2>Send</h2>
+
+      {#if !balances || balances.length === 0}
+        <p class="muted">No sendable assets on configured chains.</p>
+      {/if}
+
+      {#if balances && balances.length > 0 && !quote && sentHash === null}
+        <label>
+          <span>Asset</span>
+          <select bind:value={sendAssetKey}>
+            {#each balances as b (assetKey(b.asset))}
+              <option value={assetKey(b.asset)}>
+                {b.asset.symbol} on {b.asset.chain}
+              </option>
+            {/each}
+          </select>
+        </label>
+        <label>
+          <span>Recipient address</span>
+          <input
+            type="text"
+            placeholder="destination address"
+            autocomplete="off"
+            bind:value={sendTo}
+          />
+        </label>
+        <label>
+          <span>Amount</span>
+          <input
+            type="text"
+            placeholder="0.0"
+            autocomplete="off"
+            bind:value={sendAmount}
+          />
+        </label>
+        <button class="primary" disabled={busy} onclick={onReview}>
+          {busy ? "Working…" : "Review transaction"}
+        </button>
+      {/if}
+
+      {#if quote}
+        {@const q = quote}
+        <p class="muted">
+          Decoded from the transaction — not raw hex. Check every line.
+        </p>
+        <dl>
+          <div>
+            <dt>Amount</dt>
+            <dd>
+              {formatUnits(q.intent.amount, q.intent.asset.decimals)}
+              {q.intent.asset.symbol}
+            </dd>
+          </div>
+          <div>
+            <dt>Asset</dt>
+            <dd>
+              {q.intent.asset.token
+                ? `${q.intent.asset.symbol} (${q.intent.asset.token})`
+                : q.intent.asset.symbol}
+            </dd>
+          </div>
+          <div>
+            <dt>Chain</dt>
+            <dd>{q.intent.asset.chain}</dd>
+          </div>
+          <div>
+            <dt>Recipient</dt>
+            <dd class="mono">{q.intent.to}</dd>
+          </div>
+          <div>
+            <dt>Network fee</dt>
+            <dd>
+              {formatUnits(q.fee.fee, q.fee.feeAsset.decimals)}
+              {q.fee.feeAsset.symbol}
+            </dd>
+          </div>
+        </dl>
+        <div class="actions">
+          <button class="primary" disabled={busy} onclick={onConfirmSend}>
+            {busy ? "Working…" : "Confirm & send"}
+          </button>
+          <button class="secondary" disabled={busy} onclick={onCancelQuote}>
+            Cancel
+          </button>
+        </div>
+      {/if}
+
+      {#if sentHash !== null}
+        <p class="success">
+          Broadcast. It appears below as pending until the network confirms it.
+        </p>
+        <code>{sentHash}</code>
+        <button class="link mt" onclick={() => (sentHash = null)}>Send another</button>
+      {/if}
+    </section>
+
+    <section class="card">
       <h2>Receive</h2>
       {#if addresses.length === 0}
         <p class="muted">No addresses.</p>
@@ -341,6 +539,58 @@
           </li>
         {/each}
       </ul>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <h2>Activity</h2>
+        <button class="link" disabled={busy} onclick={() => void loadActivity()}>
+          Refresh
+        </button>
+      </div>
+
+      {#if activity === null && !activityError}
+        <p class="muted">Loading activity…</p>
+      {/if}
+      {#if activityError}
+        <p class="error">{activityError}</p>
+      {/if}
+      {#if activity && activity.length === 0}
+        <p class="muted">No sends yet.</p>
+      {/if}
+      {#if activity && activity.length > 0}
+        <ul>
+          {#each activity as it (it.hash)}
+            <li>
+              <span>
+                <strong>
+                  {it.direction === "out" ? "−" : "+"}{formatUnits(
+                    it.amount,
+                    it.asset.decimals,
+                  )}
+                  {it.asset.symbol}
+                </strong>
+                <span class="muted">on {it.asset.chain}</span>
+                <span class="muted block">{new Date(it.timestamp).toLocaleString()}</span>
+              </span>
+              <span
+                class="pill"
+                class:ok={statusClass(it.status) === "ok"}
+                class:bad={statusClass(it.status) === "bad"}
+                class:wait={statusClass(it.status) === "wait"}
+              >
+                {it.status}
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      <p class="muted note">
+        Outgoing sends made in this wallet via this app. Inbound and external
+        transfers need a WDK indexer — see docs/ARCHITECTURE.md (ADR-003).
+        Statuses come from the on-chain receipt, never guessed.
+      </p>
     </section>
   {/if}
 </main>
@@ -514,5 +764,93 @@
     word-break: break-word;
     font-size: 0.875rem;
     margin: 0 0 1rem;
+  }
+  select {
+    width: 100%;
+    box-sizing: border-box;
+    background: #0e0e10;
+    border: 1px solid #2a2a31;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    color: inherit;
+    font: inherit;
+    font-size: 0.875rem;
+  }
+  select:focus {
+    outline: none;
+    border-color: #6c8cff;
+  }
+  dl {
+    margin: 0 0 1rem;
+    border: 1px solid #2a2a31;
+    border-radius: 0.375rem;
+  }
+  dl > div {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+  }
+  dl > div + div {
+    border-top: 1px solid #2a2a31;
+  }
+  dt {
+    color: #9a9aa3;
+    flex-shrink: 0;
+  }
+  dd {
+    margin: 0;
+    text-align: right;
+    word-break: break-all;
+  }
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .actions .primary {
+    width: auto;
+    flex: 1;
+  }
+  button.secondary {
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    background: transparent;
+    border: 1px solid #2a2a31;
+    color: #9a9aa3;
+  }
+  .success {
+    color: #86efac;
+    font-size: 0.875rem;
+    margin: 0 0 0.5rem;
+  }
+  .block {
+    display: block;
+    font-size: 0.75rem;
+  }
+  .note {
+    margin: 0.75rem 0 0;
+  }
+  .mt {
+    margin-top: 0.75rem;
+  }
+  .pill {
+    flex-shrink: 0;
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  .pill.ok {
+    background: rgba(74, 222, 128, 0.15);
+    color: #86efac;
+  }
+  .pill.bad {
+    background: rgba(248, 113, 113, 0.15);
+    color: #fca5a5;
+  }
+  .pill.wait {
+    background: rgba(250, 204, 21, 0.15);
+    color: #fde047;
   }
 </style>
