@@ -124,28 +124,56 @@ the RN starter's BareKit worklet.
 > design as built. The instinct here — "P1 builds a seam, P2 fills it; don't
 > ship a worker that isolates nothing" — held; only the seam's identity moved.
 
-## ADR-002: the P1 web bundle is EVM-only (alpha-WDK native deps)
+## ADR-002: the web bundle ships real BTC (alpha-WDK browser shims)
 
-**Status:** accepted (P1). Bitcoin-on-web remained deferred through P2 and P3 (the upstream alpha-WDK packaging gap is unchanged); see RN-TO-WEB-MAP.md.
+**Status:** accepted (P1, EVM-only) → **superseded (P4): the alpha-WDK browser
+packaging gap is closed; real BTC ships on web in both apps.** See
+RN-TO-WEB-MAP.md → "Bitcoin on web (shipped)".
 
 `@tetherto/wdk-wallet-btc` (and the EVM package's memory-safe key modules) reach
 `sodium-universal`, a CJS `module.exports = require('sodium-native')` — a Node
 N-API native addon — plus Bare-runtime modules that cannot bundle for a browser.
-Two webpack-level resolutions, both honest, both **scoped to this app's browser
-bundle only** (`wallet-core` is untouched, so Node/RN consumers keep real BTC and
-the real native sodium):
+Through P1–P3 that left BTC stubbed; **P4 establishes it was an alpha-WDK
+*packaging* gap, not a web-platform limit.** The BTC package's browser `default`
+entry is in fact pure-JS (bitcoinjs-lib, bip32/39, `@bitcoinerlab/secp256k1`); it
+only needed the host bundler to resolve a handful of Node-only specifiers it
+never executes in a browser. Four bundler-level resolutions, all honest, all
+**scoped to this app's browser bundle only** (`wallet-core` is untouched, so
+Node/RN consumers keep the same code and the real native sodium):
 
 - `sodium-universal` → `apps/next/src/lib/sodiumUniversalShim.ts`, which re-exports
   the **real** pure-JS `sodium_memzero` from `sodium-javascript` (exactly what
   `sodium-universal`'s own `browser` field targets) as a proper static ESM named
   export webpack can analyse. No crypto behaviour is faked or no-op'd — private-key
   buffers are still genuinely zeroised in the browser.
-- `@tetherto/wdk-wallet-btc` → `apps/next/src/lib/wdkBtcBrowserStub.ts`, a typed
-  stub that **throws** on construction. P1's web scope is EVM (ETH + USDT/XAUT on
-  Ethereum); the BTC path is unreachable in P1 screens, so a loud throwing stub is
-  honest (it cannot silently pretend to be a wallet) and keeps the EVM bundle clean.
+- `buffer` → the pure-JS npm shim, plus a global `Buffer` injected by webpack's
+  `ProvidePlugin({ Buffer: ["buffer", "Buffer"] })` into **every** chunk including
+  the WDK adapter worker chunk, because bitcoinjs-lib reads a bare global `Buffer`.
+  The shim is the standard pure-JS implementation, not a stub.
+- `ws` / `ledger-bitcoin` → `false` (empty module). `ws` is only `import()`ed in a
+  dead `isNodeOrBare` branch (the browser uses `globalThis.WebSocket`);
+  `ledger-bitcoin` is an **optional** `@bitcoinerlab/descriptors` peer `require()`d
+  behind try/catch solely for Ledger hardware signing this software wallet never does.
+- `@tetherto/wdk-wallet-btc` itself is **no longer stubbed** — the throwing
+  `wdkBtcBrowserStub.ts` is deleted in both apps. Real BTC (address derive,
+  balance, receive, quote, send) runs client-side in the WDK worker against an
+  **injected Electrum-WS client** over the native `WebSocket` (no raw TCP).
 
-See `RN-TO-WEB-MAP.md` for the Bitcoin-on-web delta and why it stays deferred.
+**Residual (honest, real — not a missing feature).** The app needs a public
+Electrum-WS endpoint to point at, env-driven
+(`NEXT_PUBLIC_BTC_ELECTRUM_WS_URL` / `VITE_BTC_ELECTRUM_WS_URL`; unset → the BTC
+chain is simply not registered). A third-party WS-Electrum server is a trust/
+uptime dependency; the documented mitigation is an endpoint array via
+`@tetherto/wdk-failover-provider`. That operational dependency is the only thing
+between the shipped code and a running BTC wallet.
+
+**Verified empirically.** Full quartet (lint/typecheck/test/build) green in both
+apps after the un-stub; First Load JS unchanged (Next ≈ 111 kB, Svelte main
+55.51 kB) — the BTC crypto graph lands in the code-split WDK worker chunk, off
+the main thread (ADR-004), so there is no main-bundle regression.
+
+See `RN-TO-WEB-MAP.md` → "Bitcoin on web (shipped)" for the full RN→web delta
+and the symmetric Vite mirror in `apps/svelte`.
 
 ## ADR-003: getActivity is a local outgoing send-log (alpha WDK has no history API)
 
@@ -244,10 +272,12 @@ worker with `new Worker(new URL("./crypto.worker.js", import.meta.url),
 { type: "module" })` from inside the compiled workspace package. With
 `transpilePackages: ["@wdk-web/wallet-core"]`, webpack 5's native worker
 support emits it as a **separate chunk**, and `next.config.mjs`'s
-`resolve.alias`/`resolve.fallback` (BTC stub + sodium shim, see ADR-002) apply
-to that worker chunk too. `next build` was inspected: the worker chunk carries
-the WDK manager *and* the seed-owning `onmessage` dispatch, while the main
-First Load chunks contain **zero** `@tetherto/*` (First Load JS ≈ 111 kB as shipped through P2).
+`resolve.alias`/`resolve.fallback` (sodium + Buffer + `ws`/`ledger-bitcoin`
+shims, see ADR-002) apply to that worker chunk too — which is exactly why the
+real BTC crypto graph lands there and not in First Load. `next build` was
+inspected: the worker chunk carries the WDK manager *and* the seed-owning
+`onmessage` dispatch, while the main First Load chunks contain **zero**
+`@tetherto/*` (First Load JS ≈ 111 kB, unchanged after real BTC shipped).
 Net effect: WDK moved entirely out of the main bundle into the worker chunk.
 
 **Honest scope (the delta a reviewer must see).** At **create / import** the
