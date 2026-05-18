@@ -35,11 +35,24 @@ implementations injected into `wallet-core`: `IndexedDbStorage`, `WebCryptoWorke
 (Web Worker), `WebAuthnUnlock`, `getUserMedia` QR. UI = Tailwind + shadcn. **No
 `@tetherto/*` import anywhere under `apps/`.**
 
-## apps/svelte-proof (portability proof)
+## apps/svelte (portability proof — shipped)
 
-One screen (create wallet → show address → balance) wired to the same `wallet-core`
-with the same injected adapters. Exists solely to prove the core is not Next-coupled.
-First thing cut under time pressure; not required for bounty acceptance.
+`apps/svelte` (package `svelte-proof`; Svelte 5 + Vite) consumes the
+**byte-unchanged** `@wdk-web/wallet-core` public surface through its full
+Phase-1 state machine (onboarding → backup → locked → unlocked). It deliberately
+stops at Phase-1 parity — no send/activity/passkey — because the seam is already
+proven by onboarding+unlock+portfolio (same bar as Phase-1 Next); a second full
+UI would be scope, not more proof. Its host ports (`storage`, `PassphraseUnlock`,
+`crypto` stub) are **app-local by design**, not a shared package: ports are the
+host-specific layer (see RN-TO-WEB-MAP.md); the portability claim is about the
+*engine* — the hard part — reused bit-for-bit. **Two hosts, one core:**
+apps/next and apps/svelte drive the same engine with no core change; `git diff`
+on `packages/wallet-core/**` is empty across all of Phase 3 (a hard pass/fail
+gate). The claim is also an executable assertion —
+`apps/svelte/test/portability.test.ts` drives `createWallet → unlock →
+getBalances` headlessly through in-memory ports (no DOM), so
+"framework-agnostic" is a passing test, not a slogan. First Load: main entry
+≈55.5 kB (≈21 kB gzip); WDK is code-split into a worker chunk off the main bundle.
 
 ## Alpha-churn containment
 
@@ -58,7 +71,9 @@ scattered.
 - **P1** wallet-core (wdk+secrets+chains+wallet create/import/balance/receive) +
   Next.js onboarding/unlock/portfolio/receive. Irreducible "real wallet".
 - **P2** send + activity + WebAuthn unlock + tx confirmation UI + e2e send test.
-- **P3** svelte-proof + full test/CI matrix + polish + docs finalisation.
+- **P3** `apps/svelte` portability proof + headless portability test + CI
+  extend/verify (node matrix, local-only honesty) + docs truth-up. S1+S2
+  shipped; S3 finalises docs.
 
 ## ADR-001: P1 ships no Web Worker — seed isolation co-designs with signing (P2)
 
@@ -111,7 +126,7 @@ the RN starter's BareKit worklet.
 
 ## ADR-002: the P1 web bundle is EVM-only (alpha-WDK native deps)
 
-**Status:** accepted (P1). Bitcoin-on-web is a P2 investigation.
+**Status:** accepted (P1). Bitcoin-on-web remained deferred through P2 and P3 (the upstream alpha-WDK packaging gap is unchanged); see RN-TO-WEB-MAP.md.
 
 `@tetherto/wdk-wallet-btc` (and the EVM package's memory-safe key modules) reach
 `sodium-universal`, a CJS `module.exports = require('sodium-native')` — a Node
@@ -130,7 +145,7 @@ the real native sodium):
   Ethereum); the BTC path is unreachable in P1 screens, so a loud throwing stub is
   honest (it cannot silently pretend to be a wallet) and keeps the EVM bundle clean.
 
-See `RN-TO-WEB-MAP.md` for the Bitcoin-on-web delta and the P2 plan.
+See `RN-TO-WEB-MAP.md` for the Bitcoin-on-web delta and why it stays deferred.
 
 ## ADR-003: getActivity is a local outgoing send-log (alpha WDK has no history API)
 
@@ -232,7 +247,7 @@ support emits it as a **separate chunk**, and `next.config.mjs`'s
 `resolve.alias`/`resolve.fallback` (BTC stub + sodium shim, see ADR-002) apply
 to that worker chunk too. `next build` was inspected: the worker chunk carries
 the WDK manager *and* the seed-owning `onmessage` dispatch, while the main
-First Load chunks contain **zero** `@tetherto/*` (First Load JS ≈ 109 kB).
+First Load chunks contain **zero** `@tetherto/*` (First Load JS ≈ 111 kB as shipped through P2).
 Net effect: WDK moved entirely out of the main bundle into the worker chunk.
 
 **Honest scope (the delta a reviewer must see).** At **create / import** the
@@ -292,7 +307,7 @@ passphrase") — it never silently no-ops.
 
 **Honest test scope.** The deterministic core — HKDF: same IKM+salt
 round-trips a real seal/open, different salt/IKM/info fails the GCM tag — is
-unit-tested in `packages/wallet-core/test/vault.test.ts` (29 green). The
+unit-tested in `packages/wallet-core/test/vault.test.ts` (part of the 33-green wallet-core suite). The
 `navigator.credentials` create/get ceremony is browser-only and verified
 manually; it is **never** exercised with a faked assertion, and `apps/next`
 has no unit harness, so the selection/fallback wiring is covered by
