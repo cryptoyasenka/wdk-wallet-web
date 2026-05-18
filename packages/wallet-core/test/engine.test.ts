@@ -381,3 +381,83 @@ describe("wallet engine — send e2e (mocked provider)", () => {
     expect(activity[2]?.amount).toBe(1n);
   });
 });
+
+/**
+ * Bitcoin happy path. The rest of the suite only proves BTC is *omitted* when
+ * unconfigured (default Ethereum-only registry); this proves the *positive*
+ * path now that real BTC ships on web: a BTC chain registered from an
+ * Electrum-over-WebSocket URL — the exact `ChainRegistry` shape the browser
+ * build produces from `NEXT_PUBLIC_/VITE_ BTC_ELECTRUM_WS_URL`. `FakeWdkAdapter`
+ * stands in for real WDK + the injected `ElectrumWs` client (the real
+ * `ElectrumWs` lives behind `src/wdk/wdk-core.ts`, the sole sanctioned WDK
+ * import site — unit tests never open a socket), so this asserts the engine's
+ * BTC behaviour without any network.
+ */
+describe("wallet engine — bitcoin (Electrum-WS chain configured)", () => {
+  const BTC = { symbol: "BTC", chain: "bitcoin", decimals: 8 } as const;
+  const USDT = { symbol: "USDT", chain: "ethereum", token: USDT_ETHEREUM, decimals: 6 } as const;
+  const WSS = "wss://electrum.example.invalid:50004";
+  const chains = buildChainRegistry({ btcElectrumWsUrl: WSS });
+  const assets = [BTC, USDT];
+
+  it("buildChainRegistry registers bitcoin when an Electrum-WS URL is set", () => {
+    expect(chains.bitcoin).toMatchObject({
+      kind: "btc",
+      chain: "bitcoin",
+      network: "bitcoin",
+      electrumWsUrl: WSS,
+    });
+  });
+
+  it("derives a BTC address and lists native (no-token) BTC in the portfolio", async () => {
+    const adapter = new FakeWdkAdapter({ native: { bitcoin: 150_000n } });
+    const { deps } = makeDeps();
+    const engine = createWalletEngineWithAdapter(adapter, deps, { chains, assets });
+    await engine.createWallet();
+    await engine.unlock();
+
+    // Shape is the fake's (seed-bound hex); the real WDK ElectrumWs path yields
+    // a bech32 address — covered by the wdk/ adapter, not this engine unit test.
+    expect(await engine.getAddress("bitcoin", 0)).toMatch(/^0x[0-9a-f]{8}$/);
+
+    const balances = await engine.getBalances();
+    const btc = balances.find((b) => b.asset.symbol === "BTC");
+    expect(btc?.asset.chain).toBe("bitcoin");
+    expect(btc?.asset.token).toBeUndefined(); // BTC is native — no ERC-20 token
+    expect(btc?.amount).toBe(150_000n); // satoshis (8 decimals)
+  });
+
+  it("quotes a BTC send with the fee labelled in BTC, not ETH", async () => {
+    const { deps } = makeDeps();
+    const engine = createWalletEngineWithAdapter(new FakeWdkAdapter(), deps, { chains, assets });
+    await engine.createWallet();
+    await engine.unlock();
+
+    const q = await engine.quoteSend({ asset: BTC, to: "bc1qexamplerecipient", amount: 50_000n });
+    // A Bitcoin tx fee is paid in BTC, never in ETH (distinct from EVM gas).
+    expect(q.feeAsset.symbol).toBe("BTC");
+    expect(q.feeAsset.chain).toBe("bitcoin");
+  });
+
+  it("sends BTC and records one pending outgoing entry on the bitcoin chain", async () => {
+    const { deps } = makeDeps();
+    const engine = createWalletEngineWithAdapter(new FakeWdkAdapter(), deps, { chains, assets });
+    await engine.createWallet();
+    await engine.unlock();
+
+    const res = await engine.send({ asset: BTC, to: "bc1qexamplerecipient", amount: 50_000n });
+    expect(res.chain).toBe("bitcoin");
+    expect(res.hash).toMatch(/^0x[0-9a-f]{8}$/);
+
+    const activity = await engine.getActivity();
+    expect(activity).toHaveLength(1);
+    expect(activity[0]).toMatchObject({
+      hash: res.hash,
+      direction: "out",
+      status: "pending",
+      amount: 50_000n,
+    });
+    expect(activity[0]?.asset.symbol).toBe("BTC");
+    expect(activity[0]?.asset.chain).toBe("bitcoin");
+  });
+});
