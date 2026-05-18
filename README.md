@@ -6,9 +6,9 @@ the official [`wdk-starter-react-native`](https://github.com/tetherto/wdk-starte
 WDK ships starter templates **only for React Native** — this is the production-grade
 **web** counterpart.
 
-> Status: Phase 1–2 shipped (onboarding · unlock · portfolio · receive · send ·
-> tx-confirm · activity, EVM-only), Phase 3 = the Svelte portability proof +
-> CI/docs finalisation. Built in phases (see `../../.planning/BUILD-DECISION.md`).
+> Status: Phases 1–3 shipped (onboarding · unlock · portfolio · receive · send ·
+> tx-confirm · activity, EVM-only) plus a Svelte 5 portability proof and a
+> Node 20/22 CI matrix. Built in phases (see `../../.planning/BUILD-DECISION.md`).
 > EVM-only by an honest alpha-WDK constraint (no BTC-on-web — see
 > `docs/RN-TO-WEB-MAP.md`); repo is local-only (no remote); **not for production
 > use with real funds yet**. No fake native-parity.
@@ -59,7 +59,7 @@ docs/
 ```bash
 pnpm install
 cp apps/next/.env.example apps/next/.env.local   # fill WDK Indexer keys
-pnpm --filter @wdk-web/wallet-core test           # 33 unit tests
+pnpm --filter @wdk-web/wallet-core test           # 38 unit tests
 pnpm --filter svelte-proof test                   # headless portability proof
 pnpm --filter next dev
 ```
