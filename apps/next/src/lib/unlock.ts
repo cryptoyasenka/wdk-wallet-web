@@ -1,10 +1,15 @@
 /**
- * `UnlockProvider` backed by a user passphrase (Phase 1).
+ * `UnlockProvider` backed by a user passphrase — the passphrase leg of the
+ * app's `SelectingUnlockProvider`. The frozen contract's preferred credential
+ * is a WebAuthn passkey (PRF); `SelectingUnlockProvider` routes to the passkey
+ * when one is enrolled in this wallet and falls back to this passphrase path
+ * otherwise (see `webauthnUnlock.ts` and docs/ARCHITECTURE.md → ADR-005). PRF
+ * support is narrower than passkey support, so the passphrase is a first-class
+ * path, not a degraded one.
  *
- * The frozen contract's preferred credential is WebAuthn/passkey; that lands in
- * Phase 2. For Phase 1 we derive the vault-wrapping key from a passphrase via
- * PBKDF2 — using wallet-core's own `deriveAesGcmKey`/`generateSalt` so the app
- * never reimplements crypto and the salt format stays owned by the core.
+ * Key derivation: the vault-wrapping key comes from the passphrase via PBKDF2,
+ * using wallet-core's own `deriveAesGcmKey`/`generateSalt` so the app never
+ * reimplements crypto and the salt format stays owned by the core.
  *
  * Salt handling: PBKDF2 needs a per-vault random salt. It is NOT secret, so we
  * persist it (via the same injected `StorageAdapter` the vault blob lives in)

@@ -3,7 +3,7 @@
  *
  * The app depends ONLY on `@wdk-web/wallet-core`'s public surface; `@tetherto/*`
  * is never imported here (ESLint-enforced). We inject the browser host ports
- * (IndexedDB storage, passphrase unlock, Phase-1 crypto stub) and env-driven
+ * (IndexedDB storage, passphrase unlock, crypto lock stub) and env-driven
  * chain config into the public `createWalletEngine` factory.
  *
  * Memoised module singleton: the engine, its IndexedDB handle, and the session

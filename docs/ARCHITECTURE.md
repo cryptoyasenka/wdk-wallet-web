@@ -307,7 +307,7 @@ passphrase") — it never silently no-ops.
 
 **Honest test scope.** The deterministic core — HKDF: same IKM+salt
 round-trips a real seal/open, different salt/IKM/info fails the GCM tag — is
-unit-tested in `packages/wallet-core/test/vault.test.ts` (part of the 33-green wallet-core suite). The
+unit-tested in `packages/wallet-core/test/vault.test.ts` (part of the 38-green wallet-core suite). The
 `navigator.credentials` create/get ceremony is browser-only and verified
 manually; it is **never** exercised with a faked assertion, and `apps/next`
 has no unit harness, so the selection/fallback wiring is covered by

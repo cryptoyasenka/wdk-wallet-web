@@ -6,23 +6,31 @@ Next.js App Router app consuming `@wdk-web/wallet-core`. Screen parity with
 **Boundary rule:** no `@tetherto/*` import anywhere under `apps/`. The app only
 provides web implementations of the injected ports and renders UI.
 
-`src/lib/` (Phase 1) supplies the injected web host ports:
+`src/lib/` supplies the injected web host ports:
 - `IndexedDbStorage` → `StorageAdapter` (raw IndexedDB, zero extra deps)
-- `PassphraseUnlock` → `UnlockProvider` (PBKDF2 via wallet-core's
-  `deriveAesGcmKey`; per-vault salt persisted in IndexedDB beside the blob)
+- `SelectingUnlockProvider` → `UnlockProvider` — routes to a WebAuthn passkey
+  (PRF → HKDF) when one is enrolled in this wallet, else the `PassphraseUnlock`
+  path (PBKDF2 via wallet-core's `deriveAesGcmKey`; per-vault salt persisted in
+  IndexedDB beside the blob). PRF support is narrower than passkey support, so
+  the passphrase is a first-class path (`../../docs/ARCHITECTURE.md` → ADR-005)
 - `StubCryptoWorker` → `CryptoWorker` (`lock()` is a real no-op; address
-  derivation / signing intentionally throw — Phase 2)
+  derivation / signing reject loudly — **intentional architecture, not a
+  pending stub**: the real seed isolation lives behind the WDK adapter's
+  Dedicated Web Worker, not this port — `../../docs/ARCHITECTURE.md` → ADR-004)
 - `getWalletApp()` wires the ports + env-driven `buildChainRegistry` into the
   public `createWalletEngine` factory as a memoised client singleton
 
-Honest Phase-2 boundary: passkey (WebAuthn) unlock and true in-Web-Worker key
-isolation pair with transaction signing in Phase 2 — the frozen `CryptoWorker`
-port has no seed-provisioning method, so Phase 1 decrypts in-process and the
-core still calls `lock()` for forward-compatibility. See
-`../../docs/SECURITY.md` and `../../docs/ARCHITECTURE.md` → Phasing.
+Seed isolation (shipped): in the operational steady state (unlock → derive →
+quote → send → lock) the decrypted seed and the WDK signer exist only inside a
+Dedicated Web Worker; the main thread holds an opaque postMessage proxy. A Web
+Worker is defense-in-depth, not an XSS boundary; create/import unavoidably
+touch the main thread. See `../../docs/SECURITY.md` and
+`../../docs/ARCHITECTURE.md` → ADR-004.
 
 Screens (parity target): onboarding → wallet-setup → unlock → portfolio → token
 detail → send → receive → activity → settings.
 
-Phase 1 ships: onboarding (create + import), unlock, portfolio, receive — one
-client-side state machine in `app/page.tsx`. Send / activity / passkey = Phase 2.
+Ships: onboarding (create + import), unlock (passkey or passphrase), portfolio,
+receive, send (itemised decoded confirmation), and activity (a local outgoing
+send-log — `../../docs/ARCHITECTURE.md` → ADR-003) — one client-side state
+machine in `app/page.tsx`.

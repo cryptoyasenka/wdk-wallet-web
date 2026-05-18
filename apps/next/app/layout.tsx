@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "WDK Web Wallet",
   description:
-    "Reference self-custodial web wallet built on the Tether Wallet Development Kit. Phase 1: create / import / unlock / portfolio / receive.",
+    "Reference self-custodial multi-chain web wallet built on the Tether Wallet Development Kit: create or import, passkey or passphrase unlock, portfolio, receive, send with itemised confirmation, and activity.",
   robots: { index: false, follow: false },
 };
 

@@ -24,7 +24,7 @@ const nextConfig = {
   // `resolve.fallback` below apply to that worker chunk too, so the BTC stub
   // and sodium shim cover `@tetherto/*` wherever it is pulled. Net effect:
   // `@tetherto/*` moves entirely into the worker chunk and out of the main
-  // First Load bundle (verified: First Load JS ≈ 109 kB, WDK in numbered
+  // First Load bundle (verified: First Load JS ≈ 111 kB, WDK in numbered
   // async chunks). transpilePackages is what lets webpack see and rewrite
   // the worker's `import.meta.url` URL inside the workspace package.
   transpilePackages: ["@wdk-web/wallet-core"],
