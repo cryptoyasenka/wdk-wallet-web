@@ -16,8 +16,10 @@
     "@wdk-web/wallet-core": "workspace:*"
   },
   "devDependencies": {
+    "@rollup/plugin-inject": "5.0.5",
     "@sveltejs/vite-plugin-svelte": "7.1.2",
     "@types/node": "20.19.41",
+    "buffer": "6.0.3",
     "sodium-javascript": "0.8.0",
     "svelte": "5.55.7",
     "svelte-check": "4.4.8",

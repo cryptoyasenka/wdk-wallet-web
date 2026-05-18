@@ -1,7 +1,9 @@
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { createRequire } from "node:module";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -12,41 +14,56 @@ const nextConfig = {
   // TypeScript checking during build stays ON (extra safety net).
   eslint: { ignoreDuringBuilds: true },
 
-  // wallet-core ships compiled ESM, but its lazy `@tetherto/*` adapter is
-  // alpha and may reference Node core. Transpile the workspace package and
-  // stub Node built-ins the browser does not have — the vault uses the
-  // WebCrypto global, never Node `crypto`.
+  // wallet-core ships compiled ESM; its lazy `@tetherto/*` adapter runs in a
+  // Dedicated Web Worker. Transpile the workspace package and stub the Node
+  // built-ins the browser does not have — the vault uses the WebCrypto
+  // global, never Node `crypto`.
   //
-  // As of ADR-004 the adapter spawns a Dedicated Web Worker
+  // As of ADR-004 the adapter spawns the worker
   // (`new Worker(new URL("./crypto.worker.js", import.meta.url), …)` inside
   // wallet-core/dist/wdk/adapter.js). webpack 5's native worker support emits
   // it as a separate chunk and — crucially — the `resolve.alias` /
-  // `resolve.fallback` below apply to that worker chunk too, so the BTC stub
-  // and sodium shim cover `@tetherto/*` wherever it is pulled. Net effect:
-  // `@tetherto/*` moves entirely into the worker chunk and out of the main
-  // First Load bundle (verified: First Load JS ≈ 111 kB, WDK in numbered
-  // async chunks). transpilePackages is what lets webpack see and rewrite
-  // the worker's `import.meta.url` URL inside the workspace package.
+  // `resolve.fallback` below apply to that worker chunk too, so the sodium
+  // shim and Buffer global cover `@tetherto/*` wherever it is pulled. Net
+  // effect: `@tetherto/*` (now incl. real BTC) moves entirely into the worker
+  // chunk and out of the main First Load bundle. transpilePackages is what
+  // lets webpack see and rewrite the worker's `import.meta.url` URL inside
+  // the workspace package.
   transpilePackages: ["@wdk-web/wallet-core"],
-  webpack: (config) => {
+  webpack: (config, { webpack }) => {
     config.resolve = config.resolve ?? {};
+    config.plugins = config.plugins ?? [];
 
-    // Phase-1 web build is EVM-only. @tetherto/wdk-wallet-btc pulls
-    // sodium-native (Node native addon) + Bare-runtime modules that cannot
-    // bundle for a browser, so it is aliased to a typed stub for THIS app's
-    // bundle only. wallet-core itself is untouched — Node/RN consumers keep
-    // real BTC. See src/lib/wdkBtcBrowserStub.ts and docs/RN-TO-WEB-MAP.md.
+    // BTC ships on web. @tetherto/wdk-wallet-btc's browser `default` entry is
+    // pure-JS (bitcoinjs-lib, bip32/39, @bitcoinerlab/secp256k1) and talks to
+    // an injected Electrum-WS client over the native WebSocket. Two narrow
+    // host shims make it bundle:
+    //   - `sodium-universal`: WDK's memory-safe key modules import
+    //     { sodium_memzero } from it (a CJS re-export of the Node-native
+    //     sodium-native). Backed by real pure-JS libsodium as proper ESM —
+    //     no faked crypto, keys are genuinely zeroised.
+    //   - `buffer`: bitcoinjs-lib uses a bare global `Buffer`; provide the
+    //     pure-JS npm shim as a real module + a ProvidePlugin global.
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
-      "@tetherto/wdk-wallet-btc": resolve(__dirname, "src/lib/wdkBtcBrowserStub.ts"),
-      // WDK's memory-safe key modules import { sodium_memzero } from
-      // 'sodium-universal' (CJS re-export of the Node-native sodium-native).
-      // Back it with real pure-JS libsodium as proper ESM — no faked crypto.
       "sodium-universal": resolve(__dirname, "src/lib/sodiumUniversalShim.ts"),
+      buffer: require.resolve("buffer/"),
     };
 
-    // The vault uses the WebCrypto global, never Node `crypto`; stub the Node
-    // built-ins the browser does not have so the EVM path bundles clean.
+    config.plugins.push(
+      new webpack.ProvidePlugin({ Buffer: ["buffer", "Buffer"] }),
+    );
+
+    // The vault uses the WebCrypto global, never Node `crypto`; the BTC
+    // package's default browser entry never executes its Node-only branches.
+    // Stub the Node built-ins the browser lacks so the bundle stays clean.
+    //   - `ws`: only dynamically imported in a dead `isNodeOrBare` branch
+    //     (the browser uses `globalThis.WebSocket`).
+    //   - `ledger-bitcoin`: an OPTIONAL peer of @bitcoinerlab/descriptors,
+    //     require()d behind try/catch solely for Ledger hardware-wallet
+    //     signing. This software web wallet has no Ledger path, so it stays
+    //     genuinely absent (the lib is designed for this — it throws a
+    //     helpful message only if Ledger functionality is actually invoked).
     config.resolve.fallback = {
       ...config.resolve.fallback,
       crypto: false,
@@ -58,6 +75,8 @@ const nextConfig = {
       net: false,
       tls: false,
       fs: false,
+      ws: false,
+      "ledger-bitcoin": false,
     };
     return config;
   },
