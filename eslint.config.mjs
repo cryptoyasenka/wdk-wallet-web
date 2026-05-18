@@ -29,6 +29,10 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/.next/**",
       "**/coverage/**",
+      // Demo recorder + Electrum-WS fixture. Plain Node .mjs, outside the pnpm
+      // workspace, never imports @tetherto/* or the engine; the quartet does
+      // not touch it. Ignored here too so a root-level eslint run stays clean.
+      "tools/**",
       // Next-generated, "should not be edited"; it carries a triple-slash
       // path reference that @typescript-eslint/triple-slash-reference flags.
       "**/next-env.d.ts",

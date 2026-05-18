@@ -11,16 +11,20 @@
     "lint": "pnpm -r lint",
     "//typecheck": "The Next app type-checks against @wdk-web/wallet-core's emitted dist/*.d.ts (its package exports point at dist), so the core must be built before any consumer's tsc runs. pnpm -r build is topological; build the core first, then type-check the workspace.",
     "typecheck": "pnpm --filter @wdk-web/wallet-core build && pnpm -r typecheck",
-    "dev": "pnpm --filter next dev"
+    "dev": "pnpm --filter next dev",
+    "//demo": "Regenerate docs/demo.gif: builds the app, records the full create→backup→portfolio→send→confirm flow against the offline Electrum-WS fixture (no endpoint, no secret), encodes to gif. Prereqs: `corepack pnpm exec playwright install chromium` (one-time) and ffmpeg on PATH. Demo tooling lives in tools/, outside the pnpm workspace — never touched by lint/typecheck/test/build.",
+    "demo": "node tools/demo/record.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.60.0",
     "eslint": "10.4.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-svelte": "3.17.1",
     "globals": "17.6.0",
     "svelte": "5.55.7",
     "svelte-eslint-parser": "1.6.1",
-    "typescript-eslint": "8.59.3"
+    "typescript-eslint": "8.59.3",
+    "ws": "8.20.1"
   }
 }

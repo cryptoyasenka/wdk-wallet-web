@@ -11,7 +11,13 @@ seed, unlock with a passkey or passphrase, then send and receive real BTC and
 USD₮ (plus ETH / XAUT). Key material never leaves the browser, the WDK signer
 runs in a dedicated Web Worker, and there is nothing custodial in between.
 
-<!-- DEMO -->
+![Wallet demo: create → back up seed → portfolio (BTC + USD₮) → receive (real client-derived addresses)](docs/demo.gif)
+
+> Recorded end-to-end against the real built app. The BTC row is served by a
+> local, offline Electrum-WS fixture (no endpoint, no secret); the addresses
+> and keys are real client-side derivation. Regenerate locally:
+> `corepack pnpm demo` (one-time `corepack pnpm exec playwright install
+> chromium`, plus `ffmpeg` on PATH).
 
 ## Run it in two minutes
 
