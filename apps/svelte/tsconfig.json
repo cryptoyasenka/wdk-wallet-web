@@ -1,0 +1,26 @@
+{
+  "//": "Standalone (not extending tsconfig.base): svelte-check needs the",
+  "//2": "Svelte ambient types + Vite client types. Strictness flags mirror",
+  "//3": "the base/Next config exactly so the portability proof is held to",
+  "//4": "the same bar as the reference app.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "types": ["svelte", "vite/client", "node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.svelte", "vite.config.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

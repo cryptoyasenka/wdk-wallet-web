@@ -1,0 +1,28 @@
+{
+  "name": "svelte-proof",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Svelte portability proof. Consumes @wdk-web/wallet-core byte-unchanged via its public surface only. No @tetherto/* import allowed here (ESLint-enforced) — the proof literally cannot reach alpha WDK and still works.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@wdk-web/wallet-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.1.2",
+    "@types/node": "20.19.41",
+    "sodium-javascript": "0.8.0",
+    "svelte": "5.55.7",
+    "svelte-check": "4.4.8",
+    "typescript": "5.6.3",
+    "vite": "8.0.13",
+    "vitest": "4.1.6"
+  }
+}

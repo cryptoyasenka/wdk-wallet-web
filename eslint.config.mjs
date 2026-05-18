@@ -9,6 +9,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
+import svelte from "eslint-plugin-svelte";
 
 const TETHER_BAN = {
   patterns: [
@@ -75,6 +76,25 @@ export default tseslint.config(
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+    },
+  },
+
+  // Svelte portability proof: lint .svelte components HONESTLY (real
+  // eslint-plugin-svelte + svelte-eslint-parser), not by excluding them. The
+  // recommended config wires svelte-eslint-parser for .svelte files.
+  ...svelte.configs.recommended,
+  {
+    files: ["**/*.svelte"],
+    languageOptions: {
+      // svelte-eslint-parser delegates <script lang="ts"> to the TS parser.
+      parserOptions: { parser: tseslint.parser },
+      globals: { ...globals.browser },
+    },
+    rules: {
+      // The load-bearing containment guard must cover the Svelte app too —
+      // the proof's entire point is that it never reaches @tetherto/* and
+      // still works against the unchanged core public surface.
+      "no-restricted-imports": ["error", TETHER_BAN],
     },
   },
 );
