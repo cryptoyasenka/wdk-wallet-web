@@ -107,8 +107,9 @@ and a CI green mean the same thing. WDK is alpha; package versions are pinned
 
 - **Shipped:** onboarding · unlock (passkey / passphrase) · portfolio · receive
   · send · tx-confirm · activity, for **BTC + USD₮ + ETH / XAUT**, in
-  `apps/next`; `apps/svelte` runs the same byte-unchanged core as a portability
-  proof. Built in phases.
+  `apps/next`; `apps/svelte` runs that same byte-unchanged core at full parity
+  (the one delta is passphrase-only unlock) as the portability proof. Built in
+  phases.
 - **BTC operational dependency:** needs a public Electrum-WS endpoint
   (env-driven, failover-capable). Unset → Ethereum-only and a typed error for
   BTC. Detail in `docs/RN-TO-WEB-MAP.md`.

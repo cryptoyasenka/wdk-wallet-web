@@ -12,9 +12,11 @@
  *   1. Env: Vite exposes public config as `import.meta.env.VITE_*`, not
  *      Next's `process.env.NEXT_PUBLIC_*`. Same semantics, different bundler
  *      convention.
- *   2. Unlock: `PassphraseUnlock` only — WebAuthn/PRF is already proven by
- *      apps/next; the minimal proof deliberately omits it (P3-CONTEXT D-03).
- *      Hence no `enrollPasskey` on `WalletApp`.
+ *   2. Unlock: `PassphraseUnlock` only — a deliberate host-port choice, not
+ *      an engine gap (ADR-005): WebAuthn/PRF is already proven by apps/next
+ *      and the engine's unlock contract is identical either way, so a second
+ *      passkey UI proves nothing new about the engine. Everything else is at
+ *      full parity with Next. Hence no `enrollPasskey` on `WalletApp`.
  *
  * Memoised module singleton: the engine, its IndexedDB handle, and the session
  * passphrase must be shared across every render. Construction is inert (no

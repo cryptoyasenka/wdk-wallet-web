@@ -38,21 +38,24 @@ implementations injected into `wallet-core`: `IndexedDbStorage`, `WebCryptoWorke
 ## apps/svelte (portability proof — shipped)
 
 `apps/svelte` (package `svelte-proof`; Svelte 5 + Vite) consumes the
-**byte-unchanged** `@wdk-web/wallet-core` public surface through its full
-Phase-1 state machine (onboarding → backup → locked → unlocked). It deliberately
-stops at Phase-1 parity — no send/activity/passkey — because the seam is already
-proven by onboarding+unlock+portfolio (same bar as Phase-1 Next); a second full
-UI would be scope, not more proof. Its host ports (`storage`, `PassphraseUnlock`,
+**byte-unchanged** `@wdk-web/wallet-core` public surface at **full parity with
+the Next.js reference**: onboarding → backup → locked → unlocked → portfolio →
+send → itemised tx-confirm → receive → activity. The one deliberate delta is
+unlock — passphrase only, no WebAuthn/PRF — a host-port choice, not an engine
+gap: the passkey leg is already proven by `apps/next`, and the engine's unlock
+contract is identical either way, so a second passkey UI would prove nothing
+new about the *engine*. Its host ports (`storage`, `PassphraseUnlock`,
 `crypto` stub) are **app-local by design**, not a shared package: ports are the
 host-specific layer (see RN-TO-WEB-MAP.md); the portability claim is about the
 *engine* — the hard part — reused bit-for-bit. **Two hosts, one core:**
 apps/next and apps/svelte drive the same engine with no core change; `git diff`
-on `packages/wallet-core/**` is empty across all of Phase 3 (a hard pass/fail
-gate). The claim is also an executable assertion —
+on `packages/wallet-core/**` is empty across this whole app's history (a hard
+pass/fail gate). The claim is also an executable assertion —
 `apps/svelte/test/portability.test.ts` drives `createWallet → unlock →
-getBalances` headlessly through in-memory ports (no DOM), so
+getBalances` plus the `quoteSend`/`send` typed-error path and a `getActivity`
+storage round-trip, headlessly through in-memory ports (no DOM), so
 "framework-agnostic" is a passing test, not a slogan. First Load: main entry
-≈55.5 kB (≈21 kB gzip); WDK is code-split into a worker chunk off the main bundle.
+≈63.25 kB (≈23 kB gzip); WDK is code-split into a worker chunk off the main bundle.
 
 ## Alpha-churn containment
 
@@ -168,8 +171,8 @@ uptime dependency; the documented mitigation is an endpoint array via
 between the shipped code and a running BTC wallet.
 
 **Verified empirically.** Full quartet (lint/typecheck/test/build) green in both
-apps after the un-stub; First Load JS unchanged (Next ≈ 111 kB, Svelte main
-55.51 kB) — the BTC crypto graph lands in the code-split WDK worker chunk, off
+apps after the un-stub; First Load JS unchanged (Next ≈ 113 kB, Svelte main
+63.25 kB) — the BTC crypto graph lands in the code-split WDK worker chunk, off
 the main thread (ADR-004), so there is no main-bundle regression.
 
 See `RN-TO-WEB-MAP.md` → "Bitcoin on web (shipped)" for the full RN→web delta
@@ -277,7 +280,7 @@ shims, see ADR-002) apply to that worker chunk too — which is exactly why the
 real BTC crypto graph lands there and not in First Load. `next build` was
 inspected: the worker chunk carries the WDK manager *and* the seed-owning
 `onmessage` dispatch, while the main First Load chunks contain **zero**
-`@tetherto/*` (First Load JS ≈ 111 kB, unchanged after real BTC shipped).
+`@tetherto/*` (First Load JS ≈ 113 kB, unchanged after real BTC shipped).
 Net effect: WDK moved entirely out of the main bundle into the worker chunk.
 
 **Honest scope (the delta a reviewer must see).** At **create / import** the
@@ -337,7 +340,7 @@ passphrase") — it never silently no-ops.
 
 **Honest test scope.** The deterministic core — HKDF: same IKM+salt
 round-trips a real seal/open, different salt/IKM/info fails the GCM tag — is
-unit-tested in `packages/wallet-core/test/vault.test.ts` (part of the 38-green wallet-core suite). The
+unit-tested in `packages/wallet-core/test/vault.test.ts` (part of the 42-green wallet-core suite). The
 `navigator.credentials` create/get ceremony is browser-only and verified
 manually; it is **never** exercised with a faked assertion, and `apps/next`
 has no unit harness, so the selection/fallback wiring is covered by

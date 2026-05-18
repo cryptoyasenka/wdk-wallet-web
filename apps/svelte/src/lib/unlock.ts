@@ -2,10 +2,12 @@
  * `UnlockProvider` backed by a user passphrase.
  *
  * This is the ONLY unlock provider in the portability proof, by design — not
- * a phase-staging artifact. WebAuthn/PRF is already proven by apps/next;
- * re-adding it to the *minimal* second host would be scope creep (P3-CONTEXT
- * D-03). The seam being proven is the engine, exercised by onboarding +
- * unlock + portfolio against passphrase unlock.
+ * a phase-staging artifact, and the single deliberate delta vs apps/next. The
+ * passkey/PRF leg is already proven there and the engine's unlock contract is
+ * identical either way, so a second passkey UI proves nothing new about the
+ * engine — a host-port choice, not a scope cut (ADR-005). The seam being
+ * proven is the engine, exercised at full parity (onboarding + unlock +
+ * portfolio + send + itemised tx-confirm + activity) against passphrase unlock.
  *
  * The vault-wrapping key is derived from the passphrase via wallet-core's own
  * `deriveAesGcmKey`/`generateSalt` (PBKDF2) so the app never reimplements

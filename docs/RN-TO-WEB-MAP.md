@@ -48,7 +48,7 @@ uptime dependency; the documented mitigation is an endpoint array via
 running BTC wallet.
 
 **Verified empirically:** full quartet green in both apps; First Load JS
-unchanged (Next 111 kB, Svelte main 55.51 kB) — the BTC crypto graph lands in
+unchanged (Next 113 kB, Svelte main 63.25 kB) — the BTC crypto graph lands in
 the code-split WDK worker chunk, off the main thread.
 
 **Portable as-is (copied, not rewritten):** WDK provider/orchestration layer,
