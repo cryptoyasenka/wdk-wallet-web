@@ -81,21 +81,34 @@ export function serializeError(e: unknown): SerializedError {
  * (honest: we do not invent a typed error we cannot reconstruct).
  */
 export function rehydrateError({ name, message }: SerializedError): Error {
+  // Reconstruct the class so callers' `instanceof` branches survive the edge,
+  // then restore the EXACT serialized text. `UnsupportedChainError` /
+  // `UnsupportedAssetError` template their argument into the message, so
+  // re-passing the already-formatted `message` would double-wrap it
+  // (`chain "chain "x" is not configured…"`). Set `.message` directly instead;
+  // for the fixed-message errors this is the same string they already carry.
+  let err: Error;
   switch (name) {
     case "VaultDecryptError":
-      return new VaultDecryptError();
+      err = new VaultDecryptError();
+      break;
     case "VaultFormatError":
-      return new VaultFormatError();
+      err = new VaultFormatError();
+      break;
     case "InvalidSeedPhraseError":
-      return new InvalidSeedPhraseError();
+      err = new InvalidSeedPhraseError();
+      break;
     case "UnsupportedChainError":
-      return new UnsupportedChainError(message);
+      err = new UnsupportedChainError("");
+      break;
     case "UnsupportedAssetError":
-      return new UnsupportedAssetError(message);
-    default: {
-      const err = name.endsWith("Error") && message ? new WalletError(message) : new Error(message);
+      err = new UnsupportedAssetError("");
+      break;
+    default:
+      err = name.endsWith("Error") && message ? new WalletError(message) : new Error(message);
       err.name = name;
       return err;
-    }
   }
+  err.message = message;
+  return err;
 }
