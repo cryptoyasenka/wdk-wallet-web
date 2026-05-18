@@ -27,6 +27,7 @@ import {
   type TxIntent,
 } from "@wdk-web/wallet-core";
 import { getWalletApp } from "@/lib/engine";
+import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
 
 type Phase = "loading" | "onboarding" | "backup" | "locked" | "unlocked";
 type OnboardMode = "create" | "import";
@@ -111,6 +112,12 @@ export default function Page() {
   const [activity, setActivity] = useState<readonly ActivityItem[] | null>(null);
   const [activityError, setActivityError] = useState<string | null>(null);
 
+  // WebAuthn detection is client-only: resolving it in an effect (not at
+  // render) keeps the static prerender and the first client render identical,
+  // so there is no hydration mismatch.
+  const [webauthnOk, setWebauthnOk] = useState(false);
+  const [passkeyAdded, setPasskeyAdded] = useState(false);
+
   /** Run a wallet-core call with shared busy/error handling. */
   const act = useCallback(async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -140,6 +147,10 @@ export default function Page() {
     return () => {
       alive = false;
     };
+  }, []);
+
+  useEffect(() => {
+    setWebauthnOk(isWebAuthnSupported());
   }, []);
 
   const loadActivity = useCallback(async () => {
@@ -247,6 +258,7 @@ export default function Page() {
       setSendAmount("");
       setActivity(null);
       setActivityError(null);
+      setPasskeyAdded(false);
       enter("locked");
     });
 
@@ -280,6 +292,18 @@ export default function Page() {
     setError(null);
     setQuote(null);
   };
+
+  /**
+   * Opt into a WebAuthn passkey. Honest UX: this *adds* a passkey and makes it
+   * the preferred unlock; the passphrase keeps working unchanged. The browser
+   * ceremony runs inside `enrollPasskey()`; a no-PRF authenticator surfaces a
+   * typed error here rather than silently doing nothing (ADR-005).
+   */
+  const onEnrollPasskey = () =>
+    act(async () => {
+      await getWalletApp().enrollPasskey();
+      setPasskeyAdded(true);
+    });
 
   return (
     <main className="mx-auto flex min-h-full max-w-md flex-col gap-6 px-5 py-10">
@@ -626,6 +650,29 @@ export default function Page() {
               (ADR-003). Statuses come from the on-chain receipt, never guessed.
             </p>
           </Card>
+
+          {webauthnOk && (
+            <Card>
+              <h2 className="mb-1 font-medium">Security</h2>
+              {passkeyAdded ? (
+                <p className="text-sm text-green-300">
+                  Passkey added. It will be the preferred unlock next time; your
+                  passphrase still works.
+                </p>
+              ) : (
+                <>
+                  <p className="mb-3 text-sm text-[--color-muted]">
+                    Add a passkey (Face ID / Touch ID / security key) for unlock.
+                    Optional — your passphrase keeps working unchanged; the
+                    passkey is just preferred once enrolled.
+                  </p>
+                  <Button onClick={onEnrollPasskey} busy={busy}>
+                    Add passkey unlock
+                  </Button>
+                </>
+              )}
+            </Card>
+          )}
         </>
       )}
     </main>
