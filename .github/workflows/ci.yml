@@ -1,19 +1,15 @@
 name: ci
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HONESTY CAVEAT — read before trusting any "CI" claim (Phase 3 / Strand 2).
+# What "green" means here (Phase 3 / Strand 2).
 #
-# This repository is LOCAL ONLY: it has NO git remote and is never pushed.
-# GitHub Actions therefore NEVER actually executes this workflow. This file is
-# a *repo-correct definition*, not evidence of a passing hosted run. There is
-# deliberately NO "build passing" badge anywhere (README included) — a badge
-# with no run behind it would be a lie.
-#
-# The real bar (and what "S2 done" means): the exact quartet below is green
-# LOCALLY, invoked precisely as CI would invoke it. Local runs use
-# `corepack pnpm` (pnpm is not on PATH); CI here uses `pnpm/action-setup`.
-# Both resolve the same pinned pnpm@9 and run the identical root scripts, so
-# the local green is what proves this definition correct.
+# Local dev runs the quartet with `corepack pnpm` (pnpm is not on PATH); CI
+# uses `pnpm/action-setup`, which reads the pinned pnpm from package.json's
+# `packageManager` field — the single source of truth. Do NOT also pass a
+# `version:` input here: action-setup@v4 hard-errors on a double-spec
+# (`ERR_PNPM_BAD_PM_VERSION`). Both paths resolve the same pinned pnpm and run
+# the identical root scripts, so a local green and a CI green mean the same
+# thing.
 #
 # Coverage: `verify` runs the ROOT scripts only. Those are recursive
 # (`lint`/`test`/`build` = `pnpm -r …`) and topological (`typecheck` builds
@@ -40,7 +36,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
         with: { node-version: "${{ matrix.node }}", cache: pnpm }
       - run: pnpm install --frozen-lockfile

@@ -65,8 +65,8 @@ pnpm --filter next dev
 ```
 
 WDK is alpha; package versions are pinned (see `docs/ARCHITECTURE.md` → Alpha-churn
-containment). Never commit `.env*`. The repo is **local-only (no git remote)**:
-`.github/workflows/ci.yml` is a repo-correct definition never executed by a hosted
-runner here, so there is deliberately **no "build passing" badge** — the bar is the
-quartet green locally exactly as CI would invoke it (see the caveat at the top of
-`ci.yml`).
+containment). Never commit `.env*`. CI (`.github/workflows/ci.yml`) runs the bar on
+every push and PR — `lint · typecheck · test · build` across **both** apps on a
+Node 20 + 22 matrix, plus a committed-secret scan. The same quartet runs locally
+via `corepack pnpm`; the caveat at the top of `ci.yml` explains why a local green
+and a CI green mean the same thing.
