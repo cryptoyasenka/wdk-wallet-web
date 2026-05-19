@@ -106,6 +106,8 @@ export default function Page() {
   const [addresses, setAddresses] = useState<ReadonlyArray<readonly [ChainId, string]>>([]);
   const [activeAccount, setActiveAccount] = useState(0);
   const [accountCount, setAccountCount] = useState(1);
+  const [activeWallet, setActiveWallet] = useState(0);
+  const [walletCount, setWalletCount] = useState(0);
 
   const [sendAssetKey, setSendAssetKey] = useState("");
   const [sendTo, setSendTo] = useState("");
@@ -136,11 +138,47 @@ export default function Page() {
     }
   }, []);
 
+  /**
+   * Wallet-level meta: which seed is active and how many wallets exist. Both
+   * are non-secret plaintext keys, readable while the engine is locked, so
+   * the Wallet switcher works pre-unlock (you must see the list to pick which
+   * seed to unlock). `walletCount` is the populated count; the option list
+   * widens to the active index so a freshly-added empty slot still shows.
+   */
+  const loadWalletMeta = useCallback(async () => {
+    const { engine } = getWalletApp();
+    setActiveWallet(await engine.getActiveWallet());
+    setWalletCount(await engine.getWalletCount());
+  }, []);
+
+  /**
+   * Drop every piece of unlocked-session UI state. Shared by lock and by a
+   * wallet switch, which tears the engine session down the same way (a
+   * different seed must be unlocked on its own). Active wallet is NOT reset
+   * here — the caller has just chosen it.
+   */
+  const clearSession = useCallback(() => {
+    setBalances(null);
+    setAddresses([]);
+    setActiveAccount(0);
+    setAccountCount(1);
+    setQuote(null);
+    setSentHash(null);
+    setSendTo("");
+    setSendAmount("");
+    setActivity(null);
+    setActivityError(null);
+    setPasskeyAdded(false);
+  }, []);
+
   useEffect(() => {
     let alive = true;
     void (async () => {
       try {
-        const has = await getWalletApp().engine.hasWallet();
+        const { engine } = getWalletApp();
+        const has = await engine.hasWallet();
+        if (!alive) return;
+        await loadWalletMeta(); // non-secret; lets the Wallet card show pre-unlock
         if (alive) setPhase(has ? "locked" : "onboarding");
       } catch (e) {
         if (alive) {
@@ -152,7 +190,7 @@ export default function Page() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [loadWalletMeta]);
 
   useEffect(() => {
     setWebauthnOk(isWebAuthnSupported());
@@ -172,6 +210,8 @@ export default function Page() {
 
   const loadUnlockedView = useCallback(async () => {
     const { engine } = getWalletApp();
+
+    await loadWalletMeta();
 
     const acct = await engine.getActiveAccount();
     setActiveAccount(acct);
@@ -196,15 +236,16 @@ export default function Page() {
     }
 
     await loadActivity();
-  }, [loadActivity]);
+  }, [loadActivity, loadWalletMeta]);
 
   const enter = useCallback(
     (next: Phase) => {
       setError(null);
       setPhase(next);
       if (next === "unlocked") void loadUnlockedView();
+      else if (next === "onboarding" || next === "locked") void loadWalletMeta();
     },
-    [loadUnlockedView],
+    [loadUnlockedView, loadWalletMeta],
   );
 
   function resetSecrets() {
@@ -259,17 +300,7 @@ export default function Page() {
   const onLock = () =>
     act(async () => {
       await getWalletApp().engine.lock();
-      setBalances(null);
-      setAddresses([]);
-      setActiveAccount(0);
-      setAccountCount(1);
-      setQuote(null);
-      setSentHash(null);
-      setSendTo("");
-      setSendAmount("");
-      setActivity(null);
-      setActivityError(null);
-      setPasskeyAdded(false);
+      clearSession();
       enter("locked");
     });
 
@@ -323,6 +354,38 @@ export default function Page() {
   };
 
   /**
+   * Switch the active wallet. A wallet is an independent BIP-39 seed in its
+   * own vault; selecting another one tears the engine's unlocked session
+   * down (a different seed must be unlocked on its own), so the UI drops to
+   * the lock screen for the chosen wallet. The selector only lists existing
+   * wallets, so the target always has a vault to unlock.
+   */
+  const onSelectWallet = (index: number) =>
+    act(async () => {
+      await getWalletApp().engine.setActiveWallet(index);
+      setActiveWallet(index);
+      clearSession();
+      resetSecrets();
+      enter("locked");
+    });
+
+  /**
+   * Create another wallet. `addWallet` allocates the next empty seed slot
+   * and tears the session down; that slot has no vault yet, so the user
+   * lands on onboarding (create or import a seed) for it, exactly like
+   * first run. The previous wallet is untouched and stays switchable here.
+   */
+  const onAddWallet = () =>
+    act(async () => {
+      const newIndex = await getWalletApp().engine.addWallet();
+      setActiveWallet(newIndex);
+      clearSession();
+      resetSecrets();
+      setMode("create");
+      enter("onboarding");
+    });
+
+  /**
    * Opt into a WebAuthn passkey. Honest UX: this *adds* a passkey and makes it
    * the preferred unlock; the passphrase keeps working unchanged. The browser
    * ceremony runs inside `enrollPasskey()`; a no-PRF authenticator surfaces a
@@ -351,6 +414,40 @@ export default function Page() {
           {error}
         </p>
       )}
+
+      {(phase === "onboarding" || phase === "locked" || phase === "unlocked") &&
+        (walletCount >= 1 || activeWallet > 0) && (
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-medium">Wallet</h2>
+              <button
+                className="text-sm text-[--color-muted] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={onAddWallet}
+                disabled={busy}
+              >
+                Add wallet
+              </button>
+            </div>
+            <select
+              className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+              value={activeWallet}
+              onChange={(e) => onSelectWallet(Number(e.target.value))}
+              disabled={busy}
+            >
+              {Array.from({ length: Math.max(walletCount, activeWallet + 1) }, (_, i) => (
+                <option key={i} value={i}>
+                  Wallet #{i}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-[--color-muted]">
+              Each wallet is an independent seed with its own accounts,
+              balances, and activity. Switching locks the current wallet —
+              you unlock the one you pick. Add wallet starts a fresh, empty
+              seed slot.
+            </p>
+          </Card>
+        )}
 
       {phase === "loading" && <Card>Loading wallet…</Card>}
 

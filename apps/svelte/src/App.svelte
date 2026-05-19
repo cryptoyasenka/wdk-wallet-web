@@ -63,6 +63,8 @@
   let addresses = $state<ReadonlyArray<readonly [ChainId, string]>>([]);
   let activeAccount = $state(0);
   let accountCount = $state(1);
+  let activeWallet = $state(0);
+  let walletCount = $state(0);
 
   let sendAssetKey = $state("");
   let sendTo = $state("");
@@ -266,6 +268,38 @@
     backedUp = false;
   }
 
+  /**
+   * Wallet-level meta: which seed is active and how many wallets exist. Both
+   * are non-secret plaintext keys, readable while the engine is locked, so
+   * the Wallet switcher works pre-unlock (you must see the list to pick which
+   * seed to unlock). `walletCount` is the populated count; the option list
+   * widens to the active index so a freshly-added empty slot still shows.
+   */
+  async function loadWalletMeta(): Promise<void> {
+    const { engine } = getWalletApp();
+    activeWallet = await engine.getActiveWallet();
+    walletCount = await engine.getWalletCount();
+  }
+
+  /**
+   * Drop every piece of unlocked-session UI state. Shared by lock and by a
+   * wallet switch, which tears the engine session down the same way (a
+   * different seed must be unlocked on its own). Active wallet is NOT reset
+   * here — the caller has just chosen it.
+   */
+  function clearSession(): void {
+    balances = null;
+    addresses = [];
+    activeAccount = 0;
+    accountCount = 1;
+    quote = null;
+    sentHash = null;
+    sendTo = "";
+    sendAmount = "";
+    activity = null;
+    activityError = null;
+  }
+
   async function loadActivity(): Promise<void> {
     activityError = null;
     try {
@@ -280,6 +314,7 @@
 
   async function loadUnlockedView(): Promise<void> {
     const { engine } = getWalletApp();
+    await loadWalletMeta();
 
     const acct = await engine.getActiveAccount();
     activeAccount = acct;
@@ -310,6 +345,7 @@
     error = null;
     phase = next;
     if (next === "unlocked") void loadUnlockedView();
+    else if (next === "onboarding" || next === "locked") void loadWalletMeta();
   }
 
   // Mount: decide the opening screen from persisted state. No reactive deps are
@@ -320,6 +356,8 @@
     void (async () => {
       try {
         const has = await getWalletApp().engine.hasWallet();
+        if (!alive) return;
+        await loadWalletMeta();
         if (alive) phase = has ? "locked" : "onboarding";
       } catch (e) {
         if (alive) {
@@ -377,16 +415,7 @@
   const onLock = (): Promise<void> =>
     act(async () => {
       await getWalletApp().engine.lock();
-      balances = null;
-      addresses = [];
-      activeAccount = 0;
-      accountCount = 1;
-      quote = null;
-      sentHash = null;
-      sendTo = "";
-      sendAmount = "";
-      activity = null;
-      activityError = null;
+      clearSession();
       enter("locked");
     });
 
@@ -439,6 +468,38 @@
     accountCount = next + 1;
     void onSelectAccount(next);
   }
+
+  /**
+   * Switch the active wallet — the Svelte twin of apps/next's onSelectWallet.
+   * A "wallet" is a discrete BIP-39 seed/vault (distinct from an account, an
+   * HD index within one seed). The engine tears its unlocked session down on
+   * a switch — a different seed must be unlocked on its own — so we drop the
+   * session UI and route to the locked screen for the newly active wallet.
+   */
+  const onSelectWallet = (index: number): Promise<void> =>
+    act(async () => {
+      await getWalletApp().engine.setActiveWallet(index);
+      activeWallet = index;
+      clearSession();
+      resetSecrets();
+      enter("locked");
+    });
+
+  /**
+   * Allocate the next empty wallet slot and onboard a fresh seed into it.
+   * `addWallet()` returns the new index and ends any session; the slot stays
+   * unpopulated (walletCount unchanged) until create/import writes its vault,
+   * so the freshly-added wallet opens straight onto onboarding.
+   */
+  const onAddWallet = (): Promise<void> =>
+    act(async () => {
+      const newIndex = await getWalletApp().engine.addWallet();
+      activeWallet = newIndex;
+      clearSession();
+      resetSecrets();
+      mode = "create";
+      enter("onboarding");
+    });
 </script>
 
 <main>
@@ -452,6 +513,29 @@
 
   {#if error}
     <p class="alert" role="alert">{error}</p>
+  {/if}
+
+  {#if (phase === "onboarding" || phase === "locked" || phase === "unlocked") && (walletCount >= 1 || activeWallet > 0)}
+    <section class="card">
+      <div class="row">
+        <h2>Wallet</h2>
+        <button class="link" disabled={busy} onclick={onAddWallet}>Add wallet</button>
+      </div>
+      <select
+        value={activeWallet}
+        disabled={busy}
+        onchange={(e) => void onSelectWallet(Number(e.currentTarget.value))}
+      >
+        {#each Array.from({ length: Math.max(walletCount, activeWallet + 1) }, (_, i) => i) as i (i)}
+          <option value={i}>Wallet #{i}</option>
+        {/each}
+      </select>
+      <p class="muted note">
+        Each wallet is an independent seed with its own accounts, balances, and
+        activity. Switching locks the current wallet — you unlock the one you
+        pick. Add wallet starts a fresh, empty seed slot.
+      </p>
+    </section>
   {/if}
 
   {#if phase === "loading"}

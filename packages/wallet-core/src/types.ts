@@ -122,6 +122,27 @@ export interface WalletEngine {
   setActiveAccount(index: number): Promise<void>;
   getActiveAccount(): Promise<number>;
 
+  /**
+   * Multi-wallet per user. A "wallet" is one INDEPENDENT BIP-39 seed in its
+   * own encrypted vault — distinct from an "account" (an HD index within one
+   * seed). Wallet 0 is the original single-wallet storage layout unchanged
+   * (zero migration), so a pre-multi-wallet user keeps working as-is.
+   *
+   * `addWallet()` allocates the next empty wallet slot, makes it active, and
+   * ends the current unlocked session (a different wallet is a different seed
+   * → it must be unlocked on its own); the caller then populates that slot via
+   * `createWallet()` / `importWallet()` (which target the active slot) and
+   * `unlock()`. `getWalletCount()` is how many wallets actually exist;
+   * `setActiveWallet()` switches between existing wallets (also ending the
+   * session — re-unlock required). Each wallet has its OWN active-account
+   * selection and its OWN activity log (fully isolated). The active-wallet
+   * selection is non-secret and persists across reload (default `0`).
+   */
+  getWalletCount(): Promise<number>;
+  getActiveWallet(): Promise<number>;
+  setActiveWallet(index: number): Promise<void>;
+  addWallet(): Promise<number>;
+
   getAddress(chain: ChainId, index?: number): Promise<string>;
   getBalances(): Promise<readonly Balance[]>;
   getActivity(asset?: Asset): Promise<readonly ActivityItem[]>;

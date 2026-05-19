@@ -23,15 +23,21 @@ export const ACTIVITY_KEY = "wdk:activity:v1";
 const ENVELOPE_VERSION = 1;
 
 /**
- * Per-account log key. Multi-account derives unlimited accounts from one seed;
- * each must see ONLY its own send history (switching accounts must not show a
- * merged list). Account 0 maps to the original un-suffixed key, so a wallet
- * written before multi-account (always account 0) needs zero migration — its
- * existing log simply *is* account 0's. No on-disk format change, so
- * `ENVELOPE_VERSION` stays 1.
+ * Per-(wallet, account) log key. Two independent dimensions of isolation:
+ *  - Multi-wallet: each wallet is a separate BIP-39 seed/vault; its sends must
+ *    not bleed into another wallet's history.
+ *  - Multi-account: within one wallet, each HD account sees only its own log.
+ *
+ * Suffixes are applied wallet-first then account, and BOTH default to the
+ * original un-suffixed key when their index is 0. So a wallet written before
+ * either feature (always wallet 0 / account 0) needs zero migration — its
+ * existing log simply *is* `(wallet 0, account 0)`'s. No on-disk format
+ * change, so `ENVELOPE_VERSION` stays 1.
  */
-function activityKey(accountIndex: number): string {
-  return accountIndex === 0 ? ACTIVITY_KEY : `${ACTIVITY_KEY}:acct${accountIndex}`;
+function activityKey(walletIndex: number, accountIndex: number): string {
+  const w = walletIndex === 0 ? "" : `:w${walletIndex}`;
+  const a = accountIndex === 0 ? "" : `:acct${accountIndex}`;
+  return `${ACTIVITY_KEY}${w}${a}`;
 }
 
 /**
@@ -150,11 +156,12 @@ function deserialize(raw: unknown): StoredActivityItem | null {
  */
 export async function readLog(
   storage: StorageAdapter,
+  walletIndex = 0,
   accountIndex = 0,
 ): Promise<StoredActivityItem[]> {
   let bytes: Uint8Array | null;
   try {
-    bytes = await storage.get(activityKey(accountIndex));
+    bytes = await storage.get(activityKey(walletIndex, accountIndex));
   } catch {
     return [];
   }
@@ -185,19 +192,24 @@ export async function readLog(
 export async function writeLog(
   storage: StorageAdapter,
   items: readonly StoredActivityItem[],
+  walletIndex = 0,
   accountIndex = 0,
 ): Promise<void> {
   const envelope: Envelope = { v: ENVELOPE_VERSION, items: items.map(serialize) };
-  await storage.set(activityKey(accountIndex), new TextEncoder().encode(JSON.stringify(envelope)));
+  await storage.set(
+    activityKey(walletIndex, accountIndex),
+    new TextEncoder().encode(JSON.stringify(envelope)),
+  );
 }
 
 /** Append one freshly-broadcast send to the log (read-modify-write). */
 export async function appendSend(
   storage: StorageAdapter,
   item: StoredActivityItem,
+  walletIndex = 0,
   accountIndex = 0,
 ): Promise<void> {
-  const items = await readLog(storage, accountIndex);
+  const items = await readLog(storage, walletIndex, accountIndex);
   items.push(item);
-  await writeLog(storage, items, accountIndex);
+  await writeLog(storage, items, walletIndex, accountIndex);
 }

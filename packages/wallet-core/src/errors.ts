@@ -72,6 +72,20 @@ export class InvalidAccountIndexError extends WalletError {
 }
 
 /**
+ * The wallet index handed to `setActiveWallet` is not an existing wallet — not
+ * a non-negative safe integer, or out of range (0 ≤ index < walletCount).
+ * Wallets are discrete vaults (each its own BIP-39 seed), unlike HD accounts
+ * (unlimited, derived from one seed), so an out-of-range wallet has no vault to
+ * select — surfaced as a typed error the wallet-switcher UI can guard instead
+ * of string-matching. Sibling of `InvalidAccountIndexError`.
+ */
+export class InvalidWalletIndexError extends WalletError {
+  constructor(index: number) {
+    super(`wallet index must be an existing wallet (0 ≤ integer < count), got ${index}`);
+  }
+}
+
+/**
  * Vault decryption failed: wrong unlock credential, or a tampered/corrupt
  * blob (AES-GCM auth tag mismatch). Deliberately does not echo the cause —
  * callers should treat every failure as "wrong passphrase / corrupt vault".

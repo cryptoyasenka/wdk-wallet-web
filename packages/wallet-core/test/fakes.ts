@@ -158,11 +158,27 @@ export interface FakeBalances {
 export class FakeWdkAdapter implements WdkAdapter {
   readonly signers: FakeSigner[] = [];
   readonly readers: FakeBalanceReader[] = [];
+  /** How many seeds this adapter has minted (multi-wallet needs them DISTINCT). */
+  #seedCalls = 0;
   constructor(private readonly balances: FakeBalances = {}) {}
 
+  /**
+   * Deterministic per call. Call 0 is byte-identical to the original
+   * single-seed fake (`abandon …×(words-1) … about|art`), so every pre-
+   * multi-wallet test — which only ever mints one seed — is unaffected.
+   * Call N>0 swaps the first word for `"x".repeat(N)`, yielding a DISTINCT
+   * phrase that still passes `isValidSeedPhrase` (12/24 lowercase words; the
+   * fake validator does not check the BIP-39 wordlist). A distinct seed makes
+   * `FakeSigner` derive distinct addresses/hashes automatically, which is how
+   * multi-wallet isolation is proven through the created path. Mirrors the
+   * multi-account precedent: vary only what the new test needs, keep the
+   * established call-0 output frozen for back-compat.
+   */
   async generateSeedPhrase(words: 12 | 24 = 12): Promise<string> {
     const tail = words === 24 ? "art" : "about";
-    return `${Array<string>(words - 1).fill("abandon").join(" ")} ${tail}`;
+    const n = this.#seedCalls++;
+    const first = n === 0 ? "abandon" : "x".repeat(n);
+    return [first, ...Array<string>(words - 2).fill("abandon"), tail].join(" ");
   }
 
   async isValidSeedPhrase(seedPhrase: string): Promise<boolean> {
