@@ -51,9 +51,9 @@ async function handle(req: WorkerRequest): Promise<unknown> {
     case "signer.deriveAddress":
       return { address: await signer(req.handle).deriveAddress(req.chain, req.index) };
     case "signer.quoteSend":
-      return { feeQuote: await signer(req.handle).quoteSend(req.intent) };
+      return { feeQuote: await signer(req.handle).quoteSend(req.intent, req.accountIndex) };
     case "signer.send":
-      return { txResult: await signer(req.handle).send(req.intent) };
+      return { txResult: await signer(req.handle).send(req.intent, req.accountIndex) };
     case "signer.dispose": {
       await signer(req.handle).dispose();
       signers.delete(req.handle);

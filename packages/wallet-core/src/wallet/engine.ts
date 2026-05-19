@@ -34,6 +34,7 @@ import type {
   Balance,
   ChainId,
   FeeQuote,
+  StorageAdapter,
   TxIntent,
   TxResult,
   WalletEngine,
@@ -44,6 +45,7 @@ import { DEFAULT_ASSETS, DEFAULT_CHAINS } from "../chains/index.js";
 import { sealSeed } from "../secrets/index.js";
 import { appendSend, readLog, writeLog } from "./activity-log.js";
 import {
+  InvalidAccountIndexError,
   InvalidSeedPhraseError,
   NoWalletError,
   UnsupportedChainError,
@@ -66,6 +68,33 @@ export interface WalletEngineConfig {
 const VAULT_KEY = "wdk:vault:v1";
 
 /**
+ * Storage key for the active HD account index. Plaintext decimal — this is a
+ * UI preference (which of the seed's accounts is selected), NOT secret
+ * material, so it is deliberately not in the encrypted vault and survives
+ * lock/unlock + reload. Absent ⇒ account 0, so a pre-multi-account wallet
+ * reads back exactly as before.
+ */
+const ACTIVE_ACCOUNT_KEY = "wdk:active-account:v1";
+
+/** Read the persisted active account; any failure or absence ⇒ 0 (back-compat). */
+async function loadActiveAccount(storage: StorageAdapter): Promise<number> {
+  let bytes: Uint8Array | null;
+  try {
+    bytes = await storage.get(ACTIVE_ACCOUNT_KEY);
+  } catch {
+    return 0;
+  }
+  if (bytes === null) return 0;
+  const n = Number.parseInt(new TextDecoder().decode(bytes), 10);
+  return Number.isSafeInteger(n) && n >= 0 ? n : 0;
+}
+
+/** Persist the active account index as plaintext decimal bytes. */
+async function saveActiveAccount(storage: StorageAdapter, index: number): Promise<void> {
+  await storage.set(ACTIVE_ACCOUNT_KEY, new TextEncoder().encode(String(index)));
+}
+
+/**
  * Shared engine body. `adapterReady` defers adapter acquisition: the public
  * factory passes a lazy dynamic import, the internal factory a resolved fake.
  */
@@ -79,6 +108,20 @@ function buildEngine(
 
   let signer: WdkSigner | null = null;
   let balanceReader: WdkBalanceReader | null = null;
+
+  // Active HD account, lazily hydrated from storage on first use so a reopened
+  // engine resumes the last selection. Not reset by lock() — the selection is
+  // a non-secret UI preference, symmetric with the vault staying in storage.
+  let activeAccount = 0;
+  let activeAccountLoaded = false;
+
+  async function currentAccount(): Promise<number> {
+    if (!activeAccountLoaded) {
+      activeAccount = await loadActiveAccount(deps.storage);
+      activeAccountLoaded = true;
+    }
+    return activeAccount;
+  }
 
   function ensureUnlocked(): { signer: WdkSigner; balanceReader: WdkBalanceReader } {
     if (!signer || !balanceReader) throw new WalletLockedError();
@@ -141,6 +184,21 @@ function buildEngine(
       // (the WDK adapter worker is — ADR-004). Kept as a defense-in-depth
       // hook the host can wire to also hard-stop any auxiliary worker.
       await deps.crypto.lock();
+      // activeAccount is intentionally NOT reset: it is a non-secret UI
+      // preference that must survive lock/unlock (symmetric with the vault).
+    },
+
+    async setActiveAccount(index: number): Promise<void> {
+      if (!Number.isSafeInteger(index) || index < 0) {
+        throw new InvalidAccountIndexError(index);
+      }
+      await saveActiveAccount(deps.storage, index);
+      activeAccount = index;
+      activeAccountLoaded = true;
+    },
+
+    async getActiveAccount(): Promise<number> {
+      return currentAccount();
     },
 
     async getAddress(chain: ChainId, index = 0): Promise<string> {
@@ -151,6 +209,7 @@ function buildEngine(
 
     async getBalances(): Promise<readonly Balance[]> {
       const { signer: s, balanceReader: r } = ensureUnlocked();
+      const acct = await currentAccount();
       const addressByChain = new Map<ChainId, string>();
       const balances: Balance[] = [];
       for (const asset of assets) {
@@ -160,7 +219,7 @@ function buildEngine(
         if (!chains[asset.chain]) continue;
         let address = addressByChain.get(asset.chain);
         if (address === undefined) {
-          address = await s.deriveAddress(asset.chain, 0);
+          address = await s.deriveAddress(asset.chain, acct);
           addressByChain.set(asset.chain, address);
         }
         const amount = asset.token
@@ -172,7 +231,8 @@ function buildEngine(
     },
 
     async getActivity(asset?: Asset): Promise<readonly ActivityItem[]> {
-      const items = await readLog(deps.storage);
+      const acct = await currentAccount();
+      const items = await readLog(deps.storage, acct);
       // Refresh pending entries only when unlocked (the seedless reader is
       // built at unlock). Locked → return last-known statuses, never guessed;
       // a flaky RPC on one entry must not fail the whole activity read.
@@ -193,7 +253,7 @@ function buildEngine(
             }
           }),
         );
-        if (changed) await writeLog(deps.storage, items);
+        if (changed) await writeLog(deps.storage, items, acct);
       }
       const filtered =
         asset === undefined
@@ -223,25 +283,31 @@ function buildEngine(
     async quoteSend(intent: TxIntent): Promise<FeeQuote> {
       const { signer: s } = ensureUnlocked();
       if (!chains[intent.asset.chain]) throw new UnsupportedChainError(intent.asset.chain);
-      return s.quoteSend(intent);
+      return s.quoteSend(intent, await currentAccount());
     },
 
     async send(intent: TxIntent): Promise<TxResult> {
       const { signer: s } = ensureUnlocked();
       if (!chains[intent.asset.chain]) throw new UnsupportedChainError(intent.asset.chain);
+      const acct = await currentAccount();
       // The sender address is recorded so a Bitcoin tx's status can later be
-      // refreshed (WDK's BTC receipt lookup is address-scoped, not global).
-      const from = await s.deriveAddress(intent.asset.chain, 0);
-      const result = await s.send(intent);
-      await appendSend(deps.storage, {
-        hash: result.hash,
-        asset: intent.asset,
-        amount: intent.amount,
-        direction: "out",
-        timestamp: Date.now(),
-        status: "pending",
-        from,
-      });
+      // refreshed (WDK's BTC receipt lookup is address-scoped, not global) —
+      // derived for the ACTIVE account so a switch changes the send origin.
+      const from = await s.deriveAddress(intent.asset.chain, acct);
+      const result = await s.send(intent, acct);
+      await appendSend(
+        deps.storage,
+        {
+          hash: result.hash,
+          asset: intent.asset,
+          amount: intent.amount,
+          direction: "out",
+          timestamp: Date.now(),
+          status: "pending",
+          from,
+        },
+        acct,
+      );
       return result;
     },
   };

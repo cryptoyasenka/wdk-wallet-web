@@ -51,10 +51,17 @@ export type ChainRegistry = Partial<Record<ChainId, ChainConfig>>;
  */
 export interface WdkSigner {
   deriveAddress(chain: ChainId, index: number): Promise<string>;
-  /** Estimate the fee for `intent` without broadcasting. */
-  quoteSend(intent: TxIntent): Promise<FeeQuote>;
-  /** Sign and broadcast `intent`; resolves once accepted by the network. */
-  send(intent: TxIntent): Promise<TxResult>;
+  /**
+   * Estimate the fee for `intent` without broadcasting, from the HD account
+   * at `accountIndex` (the multi-account dimension; the engine passes the
+   * active account, never a hardcoded 0).
+   */
+  quoteSend(intent: TxIntent, accountIndex: number): Promise<FeeQuote>;
+  /**
+   * Sign and broadcast `intent` from the HD account at `accountIndex`;
+   * resolves once accepted by the network.
+   */
+  send(intent: TxIntent, accountIndex: number): Promise<TxResult>;
   /** Zeroise the seed + WDK manager. Async for the worker-backed proxy. */
   dispose(): void | Promise<void>;
 }

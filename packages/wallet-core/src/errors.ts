@@ -60,6 +60,18 @@ export class UnsupportedAssetError extends WalletError {
 }
 
 /**
+ * The active HD account index handed to `setActiveAccount` is not a
+ * non-negative safe integer. This is the one BIP-44 dimension the UI exposes
+ * ("Account #N"); a fractional/negative/NaN value is a caller bug, surfaced as
+ * a typed error the account-switcher UI can guard instead of string-matching.
+ */
+export class InvalidAccountIndexError extends WalletError {
+  constructor(index: number) {
+    super(`account index must be a non-negative integer, got ${index}`);
+  }
+}
+
+/**
  * Vault decryption failed: wrong unlock credential, or a tampered/corrupt
  * blob (AES-GCM auth tag mismatch). Deliberately does not echo the cause —
  * callers should treat every failure as "wrong passphrase / corrupt vault".

@@ -61,6 +61,8 @@
   let balances = $state<readonly Balance[] | null>(null);
   let balancesError = $state<string | null>(null);
   let addresses = $state<ReadonlyArray<readonly [ChainId, string]>>([]);
+  let activeAccount = $state(0);
+  let accountCount = $state(1);
 
   let sendAssetKey = $state("");
   let sendTo = $state("");
@@ -279,10 +281,14 @@
   async function loadUnlockedView(): Promise<void> {
     const { engine } = getWalletApp();
 
+    const acct = await engine.getActiveAccount();
+    activeAccount = acct;
+    if (accountCount < acct + 1) accountCount = acct + 1;
+
     const found: Array<readonly [ChainId, string]> = [];
     for (const chain of RECEIVE_CHAINS) {
       try {
-        found.push([chain, await engine.getAddress(chain)]);
+        found.push([chain, await engine.getAddress(chain, acct)]);
       } catch (e) {
         if (!(e instanceof UnsupportedChainError)) throw e; // chain just not configured
       }
@@ -373,6 +379,8 @@
       await getWalletApp().engine.lock();
       balances = null;
       addresses = [];
+      activeAccount = 0;
+      accountCount = 1;
       quote = null;
       sentHash = null;
       sendTo = "";
@@ -411,6 +419,25 @@
   function onCancelQuote(): void {
     error = null;
     quote = null;
+  }
+
+  /**
+   * Switch the active HD account — the Svelte twin of apps/next's
+   * onSelectAccount. Every account derives from the one seed at a distinct
+   * BIP-44 index; the engine persists the selection and it scopes the
+   * portfolio, receive address, and activity below.
+   */
+  const onSelectAccount = (index: number): Promise<void> =>
+    act(async () => {
+      await getWalletApp().engine.setActiveAccount(index);
+      activeAccount = index;
+      await loadUnlockedView();
+    });
+
+  function onAddAccount(): void {
+    const next = accountCount;
+    accountCount = next + 1;
+    void onSelectAccount(next);
   }
 </script>
 
@@ -527,6 +554,27 @@
   {/if}
 
   {#if phase === "unlocked"}
+    <section class="card">
+      <div class="row">
+        <h2>Account</h2>
+        <button class="link" disabled={busy} onclick={onAddAccount}>Add account</button>
+      </div>
+      <select
+        value={activeAccount}
+        disabled={busy}
+        onchange={(e) => void onSelectAccount(Number(e.currentTarget.value))}
+      >
+        {#each Array.from({ length: accountCount }, (_, i) => i) as i (i)}
+          <option value={i}>Account #{i}</option>
+        {/each}
+      </select>
+      <p class="muted note">
+        Every account derives from the one seed at a distinct HD index.
+        Switching scopes the portfolio, receive address, and activity below;
+        the selection is remembered on this device.
+      </p>
+    </section>
+
     <section class="card">
       <div class="row">
         <h2>Portfolio</h2>

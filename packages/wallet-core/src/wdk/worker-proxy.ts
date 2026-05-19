@@ -108,22 +108,24 @@ class WorkerSigner implements WdkSigner {
     return address;
   }
 
-  async quoteSend(intent: TxIntent): Promise<FeeQuote> {
+  async quoteSend(intent: TxIntent, accountIndex: number): Promise<FeeQuote> {
     const { feeQuote } = await this.#a.rpc<{ feeQuote: FeeQuote }>((id) => ({
       id,
       kind: "signer.quoteSend",
       handle: this.#h,
       intent,
+      accountIndex,
     }));
     return feeQuote;
   }
 
-  async send(intent: TxIntent): Promise<TxResult> {
+  async send(intent: TxIntent, accountIndex: number): Promise<TxResult> {
     const { txResult } = await this.#a.rpc<{ txResult: TxResult }>((id) => ({
       id,
       kind: "signer.send",
       handle: this.#h,
       intent,
+      accountIndex,
     }));
     return txResult;
   }

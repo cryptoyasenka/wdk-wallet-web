@@ -109,6 +109,19 @@ export interface WalletEngine {
   unlock(): Promise<void>;
   lock(): Promise<void>;
 
+  /**
+   * Multi-account over ONE seed. Every wallet derives unlimited accounts from
+   * the single BIP-39 seed at distinct BIP-44 indices (`getAccount(chain, N)`
+   * in WDK terms) — no extra seed, no extra vault. `setActiveAccount` selects
+   * which account `getBalances` / `getActivity` / `quoteSend` / `send` act on;
+   * the selection is non-secret and persists across lock/unlock and reload
+   * (default `0`, so a Phase-1 single-account wallet keeps working unchanged).
+   * `getAddress(chain, index?)` stays explicit-index for an account-LIST UI
+   * ("show me account N's address") independent of the active selection.
+   */
+  setActiveAccount(index: number): Promise<void>;
+  getActiveAccount(): Promise<number>;
+
   getAddress(chain: ChainId, index?: number): Promise<string>;
   getBalances(): Promise<readonly Balance[]>;
   getActivity(asset?: Asset): Promise<readonly ActivityItem[]>;

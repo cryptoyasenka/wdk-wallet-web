@@ -87,24 +87,32 @@ export class SpyCryptoWorker implements CryptoWorker {
 
 class FakeSigner implements WdkSigner {
   disposed = false;
-  /** Every send() recorded, so tests can assert what was broadcast. */
-  readonly sent: TxIntent[] = [];
+  /** Every send() recorded ({intent, accountIndex}), so tests can assert it. */
+  readonly sent: { intent: TxIntent; accountIndex: number }[] = [];
+  /** Every deriveAddress() call, so a test can prove the ACTIVE index is used. */
+  readonly deriveCalls: { chain: ChainId; index: number }[] = [];
   constructor(readonly seedPhrase: string) {}
   async deriveAddress(chain: ChainId, index: number): Promise<string> {
     if (this.disposed) throw new Error("signer disposed");
+    this.deriveCalls.push({ chain, index });
+    // index folded into the seed string ⇒ a distinct HD index ⇒ a distinct
+    // address, mirroring real WDK getAccount(chain, index) at the fake edge.
     return `0x${fnv1aHex(`${this.seedPhrase}|${chain}|${index}`)}`;
   }
-  async quoteSend(intent: TxIntent): Promise<FeeQuote> {
+  async quoteSend(intent: TxIntent, accountIndex: number): Promise<FeeQuote> {
     if (this.disposed) throw new Error("signer disposed");
+    void accountIndex; // fee is flat in the fake; index doesn't change it
     // Deterministic, plausible: a fixed gas units count, asset-labelled in
     // the chain's native coin (ETH for ethereum, BTC for bitcoin).
     return { fee: 21_000n, feeAsset: intent.asset.chain === "bitcoin" ? BTC_NATIVE : ETH_NATIVE };
   }
-  async send(intent: TxIntent): Promise<TxResult> {
+  async send(intent: TxIntent, accountIndex: number): Promise<TxResult> {
     if (this.disposed) throw new Error("signer disposed");
-    this.sent.push(intent);
+    this.sent.push({ intent, accountIndex });
+    // accountIndex folded into the hash ⇒ the broadcast tx differs per
+    // account (honest HD parity: account N signs from account N's key).
     const hash = `0x${fnv1aHex(
-      `${this.seedPhrase}|${intent.asset.chain}|${intent.to}|${intent.amount}`,
+      `${this.seedPhrase}|${intent.asset.chain}|${accountIndex}|${intent.to}|${intent.amount}`,
     )}`;
     return { hash, chain: intent.asset.chain };
   }

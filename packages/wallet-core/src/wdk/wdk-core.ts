@@ -115,9 +115,9 @@ class WdkSignerImpl implements WdkSigner {
     return account.getAddress();
   }
 
-  async quoteSend(intent: TxIntent): Promise<FeeQuote> {
+  async quoteSend(intent: TxIntent, accountIndex: number): Promise<FeeQuote> {
     requireChain(this.#chains, intent.asset.chain);
-    const account = await this.#wdk.getAccount(intent.asset.chain, 0);
+    const account = await this.#wdk.getAccount(intent.asset.chain, accountIndex);
     // A token send pays gas in the chain's native coin, not in the token —
     // feeAsset reflects that. ERC-20 ⇒ transfer/quoteTransfer; native ⇒
     // sendTransaction/quoteSendTransaction (WDK's two distinct code paths).
@@ -131,9 +131,9 @@ class WdkSignerImpl implements WdkSigner {
     return { fee, feeAsset: feeAssetFor(intent.asset.chain) };
   }
 
-  async send(intent: TxIntent): Promise<TxResult> {
+  async send(intent: TxIntent, accountIndex: number): Promise<TxResult> {
     requireChain(this.#chains, intent.asset.chain);
-    const account = await this.#wdk.getAccount(intent.asset.chain, 0);
+    const account = await this.#wdk.getAccount(intent.asset.chain, accountIndex);
     const { hash } = intent.asset.token
       ? await account.transfer({
           token: intent.asset.token,

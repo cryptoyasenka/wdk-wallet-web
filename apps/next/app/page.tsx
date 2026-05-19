@@ -104,6 +104,8 @@ export default function Page() {
   const [balances, setBalances] = useState<readonly Balance[] | null>(null);
   const [balancesError, setBalancesError] = useState<string | null>(null);
   const [addresses, setAddresses] = useState<ReadonlyArray<readonly [ChainId, string]>>([]);
+  const [activeAccount, setActiveAccount] = useState(0);
+  const [accountCount, setAccountCount] = useState(1);
 
   const [sendAssetKey, setSendAssetKey] = useState("");
   const [sendTo, setSendTo] = useState("");
@@ -171,10 +173,14 @@ export default function Page() {
   const loadUnlockedView = useCallback(async () => {
     const { engine } = getWalletApp();
 
+    const acct = await engine.getActiveAccount();
+    setActiveAccount(acct);
+    setAccountCount((c) => Math.max(c, acct + 1));
+
     const found: Array<readonly [ChainId, string]> = [];
     for (const chain of RECEIVE_CHAINS) {
       try {
-        found.push([chain, await engine.getAddress(chain)]);
+        found.push([chain, await engine.getAddress(chain, acct)]);
       } catch (e) {
         if (!(e instanceof UnsupportedChainError)) throw e; // chain just not configured
       }
@@ -255,6 +261,8 @@ export default function Page() {
       await getWalletApp().engine.lock();
       setBalances(null);
       setAddresses([]);
+      setActiveAccount(0);
+      setAccountCount(1);
       setQuote(null);
       setSentHash(null);
       setSendTo("");
@@ -294,6 +302,24 @@ export default function Page() {
   const onCancelQuote = () => {
     setError(null);
     setQuote(null);
+  };
+
+  /**
+   * Switch the active HD account. Every account derives from the one seed at
+   * a distinct BIP-44 index; the engine persists the selection and it scopes
+   * the portfolio, receive address, and activity below.
+   */
+  const onSelectAccount = (index: number) =>
+    act(async () => {
+      await getWalletApp().engine.setActiveAccount(index);
+      setActiveAccount(index);
+      await loadUnlockedView();
+    });
+
+  const onAddAccount = () => {
+    const next = accountCount;
+    setAccountCount(next + 1);
+    void onSelectAccount(next);
   };
 
   /**
@@ -425,6 +451,36 @@ export default function Page() {
 
       {phase === "unlocked" && (
         <>
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-medium">Account</h2>
+              <button
+                className="text-sm text-[--color-muted] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={onAddAccount}
+                disabled={busy}
+              >
+                Add account
+              </button>
+            </div>
+            <select
+              className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+              value={activeAccount}
+              onChange={(e) => onSelectAccount(Number(e.target.value))}
+              disabled={busy}
+            >
+              {Array.from({ length: accountCount }, (_, i) => (
+                <option key={i} value={i}>
+                  Account #{i}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-[--color-muted]">
+              Every account derives from the one seed at a distinct HD index.
+              Switching scopes the portfolio, receive address, and activity
+              below; the selection is remembered on this device.
+            </p>
+          </Card>
+
           <Card>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-medium">Portfolio</h2>
