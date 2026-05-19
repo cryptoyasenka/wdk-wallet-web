@@ -26,6 +26,7 @@ import {
   type FeeQuote,
   type TxIntent,
 } from "@wdk-web/wallet-core";
+import qrcode from "qrcode-generator";
 import { getWalletApp } from "@/lib/engine";
 import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
 
@@ -593,6 +594,7 @@ export default function Page() {
                     </code>
                     <CopyButton value={addr} />
                   </div>
+                  <Qr value={addr} chain={chain} />
                 </li>
               ))}
             </ul>
@@ -811,5 +813,40 @@ function CopyButton({ value }: { readonly value: string }) {
     >
       {done ? "Copied" : "Copy"}
     </button>
+  );
+}
+
+/**
+ * Address QR. Offline, synchronous, zero runtime deps. Rendered as native
+ * SVG (no canvas, no dangerouslySetInnerHTML, no async) so the Svelte
+ * portability proof renders byte-identical logic — the parity claim stays
+ * honest. typeNumber 0 = auto-size, EC "M", default Byte mode, correct for
+ * any hex / base58 / bech32 address.
+ */
+function Qr({ value, chain }: { readonly value: string; readonly chain: string }) {
+  const qr = qrcode(0, "M");
+  qr.addData(value);
+  qr.make();
+  const n = qr.getModuleCount();
+  let d = "";
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (qr.isDark(r, c)) d += `M${c + 4} ${r + 4}h1v1h-1z`;
+    }
+  }
+  const size = n + 8; // 4-module quiet zone each side (QR spec)
+  return (
+    <div className="mt-2 w-36 rounded-md bg-white p-2">
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        className="block h-full w-full"
+        shapeRendering="crispEdges"
+        role="img"
+        aria-label={`${chain} address QR`}
+      >
+        <rect width={size} height={size} fill="#fff" />
+        <path d={d} fill="#000" />
+      </svg>
+    </div>
   );
 }

@@ -32,6 +32,7 @@
     type FeeQuote,
     type TxIntent,
   } from "@wdk-web/wallet-core";
+  import qrcode from "qrcode-generator";
   import { getWalletApp } from "./lib/engine";
 
   type Phase = "loading" | "onboarding" | "backup" | "locked" | "unlocked";
@@ -99,6 +100,26 @@
   /** Stable option/lookup key for an asset (symbol is not unique across chains). */
   function assetKey(a: Asset): string {
     return `${a.symbol}-${a.chain}`;
+  }
+
+  /**
+   * Address QR as an SVG path. Offline, synchronous, zero runtime deps —
+   * byte-identical logic to apps/next/app/page.tsx so "one core, two real
+   * apps" stays honest down to the QR. typeNumber 0 = auto-size, EC "M",
+   * default Byte mode (correct for any hex / base58 / bech32 address).
+   */
+  function qrPath(value: string): { d: string; size: number } {
+    const qr = qrcode(0, "M");
+    qr.addData(value);
+    qr.make();
+    const n = qr.getModuleCount();
+    let d = "";
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        if (qr.isDark(r, c)) d += `M${c + 4} ${r + 4}h1v1h-1z`;
+      }
+    }
+    return { d, size: n + 8 }; // 4-module quiet zone each side (QR spec)
   }
 
   /** Status → pill modifier. Pending is the honest default (never fabricated). */
@@ -533,9 +554,20 @@
       {/if}
       <ul>
         {#each addresses as [chain, addr] (chain)}
+          {@const qr = qrPath(addr)}
           <li class="receive">
             <div class="muted upper">{chain}</div>
             <code>{addr}</code>
+            <svg
+              class="qr"
+              viewBox="0 0 {qr.size} {qr.size}"
+              shape-rendering="crispEdges"
+              role="img"
+              aria-label="{chain} address QR"
+            >
+              <rect width={qr.size} height={qr.size} fill="#fff" />
+              <path d={qr.d} fill="#000" />
+            </svg>
           </li>
         {/each}
       </ul>
@@ -741,6 +773,16 @@
   }
   li.receive {
     display: block;
+  }
+  .qr {
+    display: block;
+    width: 9rem;
+    height: 9rem;
+    margin-top: 0.5rem;
+    background: #fff;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    box-sizing: border-box;
   }
   .mono,
   code {
