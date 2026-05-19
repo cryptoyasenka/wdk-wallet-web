@@ -22,7 +22,7 @@ import WalletManagerBtc, { WalletAccountReadOnlyBtc } from "@tetherto/wdk-wallet
 
 import type { ChainId, FeeQuote, TxIntent, TxResult } from "../types.js";
 import { UnsupportedAssetError, UnsupportedChainError } from "../errors.js";
-import { BTC_NATIVE, ETH_NATIVE } from "../chains/index.js";
+import { BTC_NATIVE, ETH_NATIVE, POL_NATIVE, XPL_NATIVE } from "../chains/index.js";
 import { openSeed } from "../secrets/index.js";
 import type {
   BtcChainConfig,
@@ -42,12 +42,19 @@ function requireChain(chains: ChainRegistry, chain: ChainId) {
 
 /**
  * Native coin that pays the fee on a given chain. EVM gas (incl. for an ERC-20
- * USDT/XAU₮ transfer) is paid in ETH; a Bitcoin tx fee is paid in BTC. Only the
- * chains this build models are answerable — anything else is an honest typed
- * error rather than a mislabelled fee asset.
+ * USDT/XAU₮ transfer) is paid in that chain's own native coin: ETH on Ethereum
+ * AND on Arbitrum One (Arbitrum settles gas in ETH), POL on Polygon PoS, XPL
+ * on Plasma. A Bitcoin tx fee is paid in BTC. On Plasma a *simple* USD₮
+ * transfer can be sponsored gasless by the protocol paymaster, but the fee
+ * asset for anything quoted/charged is still XPL — labelling it XPL is the
+ * honest answer, not a guess. Only the chains this build models are
+ * answerable; anything else (e.g. `tron`, declared in `ChainId` but not yet
+ * wired) is an honest typed error rather than a mislabelled fee asset.
  */
 function feeAssetFor(chain: ChainId) {
-  if (chain === "ethereum") return ETH_NATIVE;
+  if (chain === "ethereum" || chain === "arbitrum") return ETH_NATIVE;
+  if (chain === "polygon") return POL_NATIVE;
+  if (chain === "plasma") return XPL_NATIVE;
   if (chain === "bitcoin") return BTC_NATIVE;
   throw new UnsupportedChainError(chain);
 }

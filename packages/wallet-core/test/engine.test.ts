@@ -119,8 +119,10 @@ describe("wallet engine — lifecycle", () => {
 
 describe("wallet engine — portfolio", () => {
   it("omits assets on chains this build did not configure", async () => {
-    // DEFAULT registry = Ethereum only → BTC@bitcoin is dropped from the
-    // portfolio, but an explicit getAddress('bitcoin') still errors loud.
+    // DEFAULT registry = the four always-on EVM nets (keyless public RPC):
+    // Ethereum, Polygon, Arbitrum, Plasma. BTC@bitcoin needs an explicit
+    // Electrum-WS URL, so it is dropped from the portfolio — but an explicit
+    // getAddress('bitcoin') still errors loud.
     const adapter = new FakeWdkAdapter();
     const { deps } = makeDeps();
     const engine = createWalletEngineWithAdapter(adapter, deps); // default chains/assets
@@ -129,8 +131,11 @@ describe("wallet engine — portfolio", () => {
 
     const balances = await engine.getBalances();
     const symbols = balances.map((b) => b.asset.symbol).sort();
-    expect(symbols).toEqual(["USDT", "XAUT"]);
-    expect(balances.every((b) => b.asset.chain === "ethereum")).toBe(true);
+    // USDT on Ethereum/Polygon/Arbitrum/Plasma + XAU₮ on Ethereum.
+    expect(symbols).toEqual(["USDT", "USDT", "USDT", "USDT", "XAUT"]);
+    const chains = new Set(balances.map((b) => b.asset.chain));
+    expect([...chains].sort()).toEqual(["arbitrum", "ethereum", "plasma", "polygon"]);
+    expect(chains.has("bitcoin")).toBe(false); // BTC chain not in default registry
     expect(DEFAULT_ASSETS.some((a) => a.symbol === "BTC")).toBe(true); // BTC is in the set…
     expect(symbols).not.toContain("BTC"); // …but omitted when unconfigured.
 
@@ -234,7 +239,8 @@ describe("wallet engine — send / quote / activity (Phase 2)", () => {
   });
 
   it("send/quoteSend on an unconfigured chain raise UnsupportedChainError", async () => {
-    // Default registry is Ethereum-only → Bitcoin is unconfigured.
+    // Default registry = the always-on EVM nets; Bitcoin needs an explicit
+    // Electrum-WS URL, so it is unconfigured here.
     await expect(
       engine.send({ asset: BTC, to: "bc1qrecipient", amount: 1n }),
     ).rejects.toBeInstanceOf(UnsupportedChainError);
@@ -384,7 +390,7 @@ describe("wallet engine — send e2e (mocked provider)", () => {
 
 /**
  * Bitcoin happy path. The rest of the suite only proves BTC is *omitted* when
- * unconfigured (default Ethereum-only registry); this proves the *positive*
+ * unconfigured (no Electrum-WS URL in the default registry); this proves the *positive*
  * path now that real BTC ships on web: a BTC chain registered from an
  * Electrum-over-WebSocket URL — the exact `ChainRegistry` shape the browser
  * build produces from `NEXT_PUBLIC_/VITE_ BTC_ELECTRUM_WS_URL`. `FakeWdkAdapter`

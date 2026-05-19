@@ -9,17 +9,25 @@
  *    the Next.js app, a browser extension, and an eCommerce checkout unchanged.
  */
 
-export type ChainId = "bitcoin" | "ethereum" | "polygon" | "arbitrum" | "tron";
+export type ChainId =
+  | "bitcoin"
+  | "ethereum"
+  | "polygon"
+  | "arbitrum"
+  | "plasma"
+  | "tron";
 
 export interface Asset {
   /**
    * Phase-2 contract refinement (additive, backward-compatible): `"ETH"` was
    * added so EVM gas is representable honestly in `FeeQuote.feeAsset` — gas
-   * for a USDT/XAU₮ transfer is paid in ETH, not in the token. No consumer
-   * does an exhaustive switch on this union, so widening it does not break
-   * apps compiled against the Phase-1 surface.
+   * for a USDT/XAU₮ transfer is paid in ETH, not in the token. `"POL"`
+   * (Polygon PoS) and `"XPL"` (Plasma) follow the same rule for the extra EVM
+   * nets: each chain pays gas in its own native coin, never in the token. No
+   * consumer does an exhaustive switch on this union, so widening it does not
+   * break apps compiled against the Phase-1 surface.
    */
-  readonly symbol: "BTC" | "USDT" | "XAUT" | "ETH";
+  readonly symbol: "BTC" | "USDT" | "XAUT" | "ETH" | "POL" | "XPL";
   readonly chain: ChainId;
   /** Contract address for tokens; undefined for native BTC. */
   readonly token?: string;
