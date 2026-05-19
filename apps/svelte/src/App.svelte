@@ -33,7 +33,10 @@
     type TxIntent,
   } from "@wdk-web/wallet-core";
   import qrcode from "qrcode-generator";
+  import jsQR from "jsqr";
+  import { onDestroy, tick } from "svelte";
   import { getWalletApp } from "./lib/engine";
+  import { extractAddress } from "./lib/extract-address";
 
   type Phase = "loading" | "onboarding" | "backup" | "locked" | "unlocked";
   type OnboardMode = "create" | "import";
@@ -121,6 +124,107 @@
     }
     return { d, size: n + 8 }; // 4-module quiet zone each side (QR spec)
   }
+
+  /**
+   * QR-scan-to-fill-recipient — the Svelte twin of apps/next/app/page.tsx's
+   * <QrScanner>, same shape on the same logic. Purely additive: the recipient
+   * input stays the default, manual entry is never gated on this. Decode is
+   * getUserMedia → off-screen canvas → jsQR in a requestAnimationFrame loop;
+   * on a hit the value is unwrapped by the byte-identical `extractAddress`
+   * (so the existing wallet-core Send validation runs on it unchanged) and
+   * the camera is released.
+   *
+   * The MediaStream is stopped on EVERY exit path — hit, cancel, error and
+   * unmount (onDestroy) — through the single `stopScan()` teardown, so the
+   * camera is never left running. Failures surface as honest inline text.
+   *
+   * Honest limit: the camera path is browser-only and cannot run under the
+   * headless unit env; only the pure `extractAddress` unwrap is unit-tested
+   * (apps/svelte/test/extract-address.test.ts).
+   */
+  let scanOpen = $state(false);
+  let scanError = $state<string | null>(null);
+  let videoEl = $state<HTMLVideoElement | null>(null);
+  let scanStream: MediaStream | null = null;
+  let scanRaf: number | null = null;
+
+  function stopScan(): void {
+    if (scanRaf !== null) {
+      cancelAnimationFrame(scanRaf);
+      scanRaf = null;
+    }
+    if (scanStream) {
+      for (const t of scanStream.getTracks()) t.stop();
+      scanStream = null;
+    }
+    if (videoEl) videoEl.srcObject = null;
+  }
+
+  function closeScan(): void {
+    stopScan();
+    scanOpen = false;
+  }
+
+  function startScan(): void {
+    scanError = null;
+    // getUserMedia needs a secure context (https or localhost). Say so
+    // plainly instead of surfacing an opaque DOMException.
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      scanError =
+        "Camera scanning needs a secure context (https or localhost). Type or paste the address instead.";
+      scanOpen = true;
+      return;
+    }
+    scanOpen = true;
+    void navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "environment" } })
+      .then(async (stream) => {
+        scanStream = stream;
+        await tick(); // let the {:else} <video> mount before wiring it
+        const v = videoEl;
+        if (!v) {
+          // Closed before the permission prompt resolved — release at once.
+          stopScan();
+          return;
+        }
+        v.srcObject = stream;
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        const loop = (): void => {
+          scanRaf = null;
+          if (!scanStream) return; // stopped between frames
+          if (ctx && v.readyState >= v.HAVE_ENOUGH_DATA && v.videoWidth > 0) {
+            canvas.width = v.videoWidth;
+            canvas.height = v.videoHeight;
+            ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+            const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(img.data, img.width, img.height, {
+              inversionAttempts: "dontInvert",
+            });
+            if (code) {
+              sendTo = extractAddress(code.data);
+              stopScan();
+              scanOpen = false;
+              return;
+            }
+          }
+          scanRaf = requestAnimationFrame(loop);
+        };
+        scanRaf = requestAnimationFrame(loop);
+      })
+      .catch((e: unknown) => {
+        const name = e instanceof Error ? e.name : "";
+        if (name === "NotAllowedError" || name === "SecurityError") {
+          scanError = "Camera permission denied. Type or paste the address instead.";
+        } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+          scanError = "No camera found. Type or paste the address instead.";
+        } else {
+          scanError = "Could not start the camera. Type or paste the address instead.";
+        }
+      });
+  }
+
+  onDestroy(stopScan);
 
   /** Status → pill modifier. Pending is the honest default (never fabricated). */
   function statusClass(status: ActivityItem["status"]): "ok" | "bad" | "wait" {
@@ -477,6 +581,27 @@
             bind:value={sendTo}
           />
         </label>
+        {#if !scanOpen}
+          <button type="button" class="scan" onclick={startScan}>Scan QR</button>
+        {:else}
+          <div class="scanbox">
+            {#if scanError}
+              <p class="error">{scanError}</p>
+            {:else}
+              <video
+                bind:this={videoEl}
+                autoplay
+                playsinline
+                muted
+                class="scanvid"
+                aria-label="QR scanner camera preview"
+              ></video>
+            {/if}
+            <button type="button" class="scan" onclick={closeScan}>
+              {scanError ? "Close" : "Cancel"}
+            </button>
+          </div>
+        {/if}
         <label>
           <span>Amount</span>
           <input
@@ -783,6 +908,30 @@
     border-radius: 0.375rem;
     padding: 0.5rem;
     box-sizing: border-box;
+  }
+  .scan {
+    margin-bottom: 1rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    background: transparent;
+    border: 1px solid #2a2a31;
+    color: #9a9aa3;
+  }
+  .scanbox {
+    margin-bottom: 1rem;
+    border: 1px solid #2a2a31;
+    background: #0e0e10;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+  }
+  .scanbox .scan {
+    margin-bottom: 0;
+    margin-top: 0.5rem;
+  }
+  .scanvid {
+    display: block;
+    width: 100%;
+    border-radius: 0.375rem;
   }
   .mono,
   code {

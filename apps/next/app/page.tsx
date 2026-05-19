@@ -12,7 +12,7 @@
  * docs/SECURITY.md. Every wallet-core call goes through `act()` which maps the
  * package's typed error surface to a human message instead of string-matching.
  */
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   InvalidSeedPhraseError,
   UnsupportedChainError,
@@ -27,7 +27,9 @@ import {
   type TxIntent,
 } from "@wdk-web/wallet-core";
 import qrcode from "qrcode-generator";
+import jsQR from "jsqr";
 import { getWalletApp } from "@/lib/engine";
+import { extractAddress } from "@/lib/extract-address";
 import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
 
 type Phase = "loading" | "onboarding" | "backup" | "locked" | "unlocked";
@@ -504,6 +506,7 @@ export default function Page() {
                     autoComplete="off"
                   />
                 </Field>
+                <QrScanner onResult={setSendTo} />
                 <Field label="Amount">
                   <Input
                     type="text"
@@ -847,6 +850,151 @@ function Qr({ value, chain }: { readonly value: string; readonly chain: string }
         <rect width={size} height={size} fill="#fff" />
         <path d={d} fill="#000" />
       </svg>
+    </div>
+  );
+}
+
+/**
+ * Scan a payment QR with the device camera to fill the Send recipient.
+ *
+ * Purely additive: the recipient input stays the default, manual entry is
+ * never gated on this. The decode is `getUserMedia` → off-screen canvas →
+ * `jsQR` in a `requestAnimationFrame` loop; on a hit the value is unwrapped
+ * by the byte-identical `extractAddress` (so the existing wallet-core Send
+ * validation still runs on it unchanged) and the camera is released.
+ *
+ * The MediaStream is stopped on EVERY exit path — hit, cancel, error, and
+ * unmount — through the single `stop()` teardown, so the camera is never
+ * left running. Failures (permission denied, no camera, insecure context)
+ * surface as honest inline text, not a crash or a fabricated state.
+ *
+ * Honest limit: the camera path is browser-only and cannot run under the
+ * headless unit env; only the pure `extractAddress` unwrap is unit-tested
+ * (apps/svelte/test/extract-address.test.ts). The Svelte twin
+ * (apps/svelte/src/App.svelte) is the same shape on the same logic.
+ */
+function QrScanner({ onResult }: { readonly onResult: (address: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  const stop = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    const s = streamRef.current;
+    if (s) {
+      for (const t of s.getTracks()) t.stop();
+      streamRef.current = null;
+    }
+    const v = videoRef.current;
+    if (v) v.srcObject = null;
+  }, []);
+
+  // Safety net: an unmount mid-scan (tab change, navigation) still releases
+  // the camera. `stop` is stable, so this registers exactly one teardown.
+  useEffect(() => stop, [stop]);
+
+  const close = useCallback(() => {
+    stop();
+    setOpen(false);
+  }, [stop]);
+
+  const start = useCallback(() => {
+    setScanError(null);
+    // getUserMedia needs a secure context (https or localhost). Say so
+    // plainly instead of surfacing an opaque DOMException.
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setScanError(
+        "Camera scanning needs a secure context (https or localhost). Type or paste the address instead.",
+      );
+      setOpen(true);
+      return;
+    }
+    setOpen(true);
+    void navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "environment" } })
+      .then((stream) => {
+        streamRef.current = stream;
+        const v = videoRef.current;
+        if (!v) {
+          // Closed before the permission prompt resolved — release at once.
+          stop();
+          return;
+        }
+        v.srcObject = stream;
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        const tick = () => {
+          rafRef.current = null;
+          if (!streamRef.current) return; // stopped between frames
+          if (ctx && v.readyState >= v.HAVE_ENOUGH_DATA && v.videoWidth > 0) {
+            canvas.width = v.videoWidth;
+            canvas.height = v.videoHeight;
+            ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+            const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(img.data, img.width, img.height, {
+              inversionAttempts: "dontInvert",
+            });
+            if (code) {
+              onResult(extractAddress(code.data));
+              stop();
+              setOpen(false);
+              return;
+            }
+          }
+          rafRef.current = requestAnimationFrame(tick);
+        };
+        rafRef.current = requestAnimationFrame(tick);
+      })
+      .catch((e: unknown) => {
+        const name = e instanceof Error ? e.name : "";
+        if (name === "NotAllowedError" || name === "SecurityError") {
+          setScanError("Camera permission denied. Type or paste the address instead.");
+        } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+          setScanError("No camera found. Type or paste the address instead.");
+        } else {
+          setScanError("Could not start the camera. Type or paste the address instead.");
+        }
+      });
+  }, [onResult, stop]);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="mb-4 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white"
+        onClick={start}
+      >
+        Scan QR
+      </button>
+    );
+  }
+
+  return (
+    <div className="mb-4 rounded-md border border-[--color-border] bg-[--color-bg] p-2">
+      {scanError ? (
+        <p className="text-xs text-red-300">{scanError}</p>
+      ) : (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="block w-full rounded-md"
+          aria-label="QR scanner camera preview"
+        />
+      )}
+      <button
+        type="button"
+        className="mt-2 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white"
+        onClick={close}
+      >
+        {scanError ? "Close" : "Cancel"}
+      </button>
     </div>
   );
 }
