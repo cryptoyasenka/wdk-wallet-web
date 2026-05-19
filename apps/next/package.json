@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@wdk-web/wallet-core": "workspace:*",
+    "jsqr": "1.4.0",
     "next": "15.5.18",
     "qrcode-generator": "2.0.4",
     "react": "19.2.6",
