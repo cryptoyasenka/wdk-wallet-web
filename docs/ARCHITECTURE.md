@@ -54,8 +54,11 @@ pass/fail gate). The claim is also an executable assertion —
 `apps/svelte/test/portability.test.ts` drives `createWallet → unlock →
 getBalances` plus the `quoteSend`/`send` typed-error path and a `getActivity`
 storage round-trip, headlessly through in-memory ports (no DOM), so
-"framework-agnostic" is a passing test, not a slogan. First Load: main entry
-≈63.25 kB (≈23 kB gzip); WDK is code-split into a worker chunk off the main bundle.
+"framework-agnostic" is a passing test, not a slogan. Bundle: the Svelte main
+entry is ≈224 kB (≈81 kB gzip) — it inlines the QR codec (`qrcode-generator` +
+`jsqr`, P1); WDK itself is code-split into a separate worker chunk off the main
+bundle. The Next app code-splits the QR path too, so its First Load stays lower
+(≈169 kB) — see "First Load JS" below.
 
 ## Alpha-churn containment
 
@@ -171,9 +174,11 @@ uptime dependency; the documented mitigation is an endpoint array via
 between the shipped code and a running BTC wallet.
 
 **Verified empirically.** Full quartet (lint/typecheck/test/build) green in both
-apps after the un-stub; First Load JS unchanged (Next ≈ 113 kB, Svelte main
-63.25 kB) — the BTC crypto graph lands in the code-split WDK worker chunk, off
-the main thread (ADR-004), so there is no main-bundle regression.
+apps after the un-stub; the BTC crypto graph lands in the code-split WDK worker
+chunk, off the main thread (ADR-004), so there is no main-bundle regression from
+BTC. Current First Load: Next ≈ 169 kB, Svelte main ≈ 224 kB — both grew from
+the pre-P1 baseline because the P1 QR codec (`qrcode-generator` + `jsqr`) is in
+the app bundle, not from any `@tetherto/*` leaking out of the worker chunk.
 
 See `RN-TO-WEB-MAP.md` → "Bitcoin on web (shipped)" for the full RN→web delta
 and the symmetric Vite mirror in `apps/svelte`.
@@ -280,7 +285,8 @@ shims, see ADR-002) apply to that worker chunk too — which is exactly why the
 real BTC crypto graph lands there and not in First Load. `next build` was
 inspected: the worker chunk carries the WDK manager *and* the seed-owning
 `onmessage` dispatch, while the main First Load chunks contain **zero**
-`@tetherto/*` (First Load JS ≈ 113 kB, unchanged after real BTC shipped).
+`@tetherto/*` (Next First Load JS ≈ 169 kB; no `@tetherto/*` in it before or
+after real BTC shipped — the post-P1 growth is the app-side QR codec, not WDK).
 Net effect: WDK moved entirely out of the main bundle into the worker chunk.
 
 **Honest scope (the delta a reviewer must see).** At **create / import** the
@@ -340,7 +346,7 @@ passphrase") — it never silently no-ops.
 
 **Honest test scope.** The deterministic core — HKDF: same IKM+salt
 round-trips a real seal/open, different salt/IKM/info fails the GCM tag — is
-unit-tested in `packages/wallet-core/test/vault.test.ts` (part of the 42-green wallet-core suite). The
+unit-tested in `packages/wallet-core/test/vault.test.ts` (part of the 72-green wallet-core suite). The
 `navigator.credentials` create/get ceremony is browser-only and verified
 manually; it is **never** exercised with a faked assertion, and `apps/next`
 has no unit harness, so the selection/fallback wiring is covered by

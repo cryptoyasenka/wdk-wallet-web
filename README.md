@@ -35,18 +35,27 @@ cp apps/next/.env.example apps/next/.env.local
 pnpm --filter next dev
 ```
 
-No endpoint set → the wallet runs Ethereum-only and BTC surfaces a typed,
-honest "unsupported chain" error instead of failing silently.
+No endpoint set → the wallet runs EVM-only (Ethereum, Polygon, Arbitrum,
+Plasma) and BTC surfaces a typed, honest "unsupported chain" error instead
+of failing silently.
 
 ## Scope: the bounty asked for BTC + USD₮ — both ship
 
 | Bounty ask | Status |
 |---|---|
-| Send / receive **USD₮** on web | ✅ shipped — USDT + XAUT on Ethereum via the WDK EVM manager |
+| Send / receive **USD₮** on web | ✅ shipped — USDT on Ethereum, Polygon, Arbitrum & Plasma + XAU₮ on Ethereum, via the WDK EVM manager |
 | Send / receive **BTC** on web | ✅ shipped — pure-JS WDK BTC manager + injected Electrum-WS client, in the worker |
 | Self-custodial, keys client-side | ✅ WebCrypto vault + Web Worker signer (ADR-004) |
 | Unlock | ✅ WebAuthn passkey (PRF) with a PBKDF2 passphrase fallback (ADR-005) |
+| Multi-wallet / multi-account | ✅ N independent BIP-39 seeds, each with HD accounts; zero-migration back-compat |
+| QR | ✅ scan a BIP-21/EIP-681 payment URI into the recipient field; render the receive address as a QR |
 | Reusable across hosts | ✅ headless core consumed byte-unchanged by a second app (Svelte) |
+
+Beyond the BTC + USD₮ ask, the EVM manager is wired for **four EVM
+networks** (Ethereum, Polygon, Arbitrum, Plasma) plus BTC. Solana and
+Lightning/Spark are **not** shipped — they are reachable on the same
+adapter shape but deliberately left as documented extension points, not
+claimed as done.
 
 The one honest operational dependency: a browser cannot open a raw Electrum TCP
 socket, so BTC needs a **public Electrum-WS endpoint** to point at (env-driven,
@@ -91,7 +100,7 @@ docs/
 
 ```bash
 pnpm install
-pnpm --filter @wdk-web/wallet-core test   # 42 unit tests (vault + engine + BTC)
+pnpm --filter @wdk-web/wallet-core test   # 72 unit tests (vault · engine · chains · worker-protocol · multi-account · multi-wallet)
 pnpm --filter svelte-proof test           # headless portability proof
 pnpm --filter next dev
 ```
@@ -105,14 +114,18 @@ and a CI green mean the same thing. WDK is alpha; package versions are pinned
 
 ## Status & honest limits
 
-- **Shipped:** onboarding · unlock (passkey / passphrase) · portfolio · receive
-  · send · tx-confirm · activity, for **BTC + USD₮ + ETH / XAUT**, in
-  `apps/next`; `apps/svelte` runs that same byte-unchanged core at full parity
-  (the one delta is passphrase-only unlock) as the portability proof. Built in
-  phases.
+- **Shipped:** onboarding · unlock (passkey / passphrase) · multi-wallet ·
+  multi-account · portfolio · receive (+ QR) · send (+ QR scan) · tx-confirm ·
+  activity, for **USD₮ on Ethereum / Polygon / Arbitrum / Plasma + XAU₮ on
+  Ethereum + BTC**, in `apps/next`; `apps/svelte` runs that same byte-unchanged
+  core at full parity (the one delta is passphrase-only unlock) as the
+  portability proof. Built in phases.
+- **Not shipped (honest):** Solana and Lightning/Spark — same adapter shape,
+  left as documented extension points, not claimed as done. Token-detail and
+  settings screens are folded into the single page rather than separate routes.
 - **BTC operational dependency:** needs a public Electrum-WS endpoint
-  (env-driven, failover-capable). Unset → Ethereum-only and a typed error for
-  BTC. Detail in `docs/RN-TO-WEB-MAP.md`.
+  (env-driven, failover-capable). Unset → EVM-only (the four EVM networks) and
+  a typed error for BTC. Detail in `docs/RN-TO-WEB-MAP.md`.
 - **WDK is alpha:** `@tetherto/*` versions are pinned exact and quarantined
   behind `packages/wallet-core/src/wdk/` (ESLint-enforced), so an upstream break
   is one-file localized.
