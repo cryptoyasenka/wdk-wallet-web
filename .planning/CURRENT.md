@@ -1,7 +1,12 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-27 (LIVE DEPLOY DONE — Railway)
-**Status:** COMPLETE. Cold review CLOSED + both product-depth items DONE + LIVE on Railway. URL: https://wdk-wallet-web-production.up.railway.app (HTTP 200, per-request CSP nonce + full security headers verified live). Green: verify (80+63+13), smoke (6), a11y (0 violations), btc:live (PASS).
+**Last touched:** 2026-05-27 (independent re-audit fixes — 2 of 3 done)
+**Status:** LIVE on Railway + /cso clean. Now fixing 3 independent-audit findings. Findings 3 (watch-only label clear) + 1 (indexer historyProvider wiring) DONE & green & committed (40d4795, eb7fe41). Finding 2 (CSP vs Data Sources fork) = ASKING Yana which resolution. URL: https://wdk-wallet-web-production.up.railway.app. Green: next 74 tests (was 63, +2 watch +9 indexer), typecheck+lint clean.
+
+## Independent re-audit fixes (2026-05-27)
+- [x] Finding 3 [P3] — watch-only label could not be cleared back to unnamed. `watchOnly.ts addWatchWallet` now distinguishes explicit blank set (clears) from omitted (keeps); page.tsx onStartWatch passes label unconditionally. +2 tests (17 watchOnly). Commit 40d4795.
+- [x] Finding 1 [P1] — Data Sources indexer was dead (persisted but never wired). New `historyProvider.ts` HTTP client + injected into createWalletEngine when indexerMode=indexer && indexerUrl. Hardened untrusted JSON, [] on any failure → core falls back to local log. +9 tests. Commit eb7fe41.
+- [ ] Finding 2 [P1] — runtime custom RPC/price/indexer origins are user settings but the static per-request-nonce CSP (middleware.ts) blocks any origin not hardcoded. middleware (Edge) can't read localStorage. FORK: (A) make it work end-to-end via a cookie middleware reads + unions into connect-src (delivers feature, slight XSS-widens-CSP residual); (B) keep strict CSP, dedupe RPC allowlist into ONE shared module both middleware+UI import, validate custom origins in UI + warn when CSP will block, narrow http:→https:. ASKING Yana. Leaning B (keeps the security pitch; honest-limits philosophy). Auditor extra note: dataSources.ts:81 HTTP_SCHEMES allows http: — narrow to https except dev.
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
