@@ -10,6 +10,7 @@ import {
   buildPaymentRequestUri,
   canBuildRequest,
   decimalToMinorUnits,
+  InvalidAddressError,
   InvalidAmountError,
 } from "../src/lib/paymentRequest";
 
@@ -52,29 +53,29 @@ describe("canBuildRequest", () => {
 
 describe("buildPaymentRequestUri — EVM token (EIP-681 transfer)", () => {
   it("encodes contract@chainId/transfer with recipient and minor-unit amount", () => {
-    const uri = buildPaymentRequestUri(usdtEth, "0xRecipient", "10");
-    expect(uri).toBe("ethereum:0xdAC17F958D2ee523a2206206994597C13D831ec7@1/transfer?address=0xRecipient&uint256=10000000");
+    const uri = buildPaymentRequestUri(usdtEth, "0x1111111111111111111111111111111111111111", "10");
+    expect(uri).toBe("ethereum:0xdAC17F958D2ee523a2206206994597C13D831ec7@1/transfer?address=0x1111111111111111111111111111111111111111&uint256=10000000");
   });
 
   it("uses the chain's own EIP-155 id (polygon = 137)", () => {
-    const uri = buildPaymentRequestUri(usdtPolygon, "0xRecipient", "1");
+    const uri = buildPaymentRequestUri(usdtPolygon, "0x1111111111111111111111111111111111111111", "1");
     expect(uri).toContain("@137/transfer");
     expect(uri).toContain("uint256=1000000");
   });
 
   it("omits uint256 when no amount is given (bare token request)", () => {
-    const uri = buildPaymentRequestUri(usdtEth, "0xRecipient");
-    expect(uri).toBe("ethereum:0xdAC17F958D2ee523a2206206994597C13D831ec7@1/transfer?address=0xRecipient");
+    const uri = buildPaymentRequestUri(usdtEth, "0x1111111111111111111111111111111111111111");
+    expect(uri).toBe("ethereum:0xdAC17F958D2ee523a2206206994597C13D831ec7@1/transfer?address=0x1111111111111111111111111111111111111111");
   });
 });
 
 describe("buildPaymentRequestUri — EVM native (EIP-681 value)", () => {
   it("encodes recipient@chainId?value=<wei>", () => {
-    expect(buildPaymentRequestUri(ethNative, "0xRecipient", "0.5")).toBe("ethereum:0xRecipient@1?value=500000000000000000");
+    expect(buildPaymentRequestUri(ethNative, "0x1111111111111111111111111111111111111111", "0.5")).toBe("ethereum:0x1111111111111111111111111111111111111111@1?value=500000000000000000");
   });
 
   it("omits value when no amount is given", () => {
-    expect(buildPaymentRequestUri(ethNative, "0xRecipient")).toBe("ethereum:0xRecipient@1");
+    expect(buildPaymentRequestUri(ethNative, "0x1111111111111111111111111111111111111111")).toBe("ethereum:0x1111111111111111111111111111111111111111@1");
   });
 });
 
@@ -95,6 +96,23 @@ describe("buildPaymentRequestUri — BTC (BIP-21)", () => {
 
 describe("buildPaymentRequestUri — invalid amount is rejected before output", () => {
   it("throws for a malformed EVM amount", () => {
-    expect(() => buildPaymentRequestUri(usdtEth, "0xRecipient", "1.2.3")).toThrow(InvalidAmountError);
+    expect(() => buildPaymentRequestUri(usdtEth, "0x1111111111111111111111111111111111111111", "1.2.3")).toThrow(InvalidAmountError);
+  });
+});
+
+describe("buildPaymentRequestUri — invalid recipient is rejected before output", () => {
+  it("throws for an empty or short EVM address", () => {
+    expect(() => buildPaymentRequestUri(usdtEth, "")).toThrow(InvalidAddressError);
+    expect(() => buildPaymentRequestUri(ethNative, "0xabc")).toThrow(InvalidAddressError);
+  });
+
+  it("throws when an EVM address carries URI-injecting characters", () => {
+    // Without validation this would smuggle an extra query part into the URI.
+    expect(() => buildPaymentRequestUri(ethNative, "0x1111111111111111111111111111111111111111?value=1")).toThrow(InvalidAddressError);
+  });
+
+  it("rejects a BTC address containing URI delimiters or whitespace", () => {
+    expect(() => buildPaymentRequestUri(btc, "bc1q example")).toThrow(InvalidAddressError);
+    expect(() => buildPaymentRequestUri(btc, "bc1q?amount=1")).toThrow(InvalidAddressError);
   });
 });

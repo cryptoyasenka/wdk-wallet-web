@@ -34,6 +34,34 @@ export class InvalidAmountError extends Error {
   }
 }
 
+export class InvalidAddressError extends Error {
+  constructor(message = "recipient address is not valid for this chain") {
+    super(message);
+    this.name = "InvalidAddressError";
+  }
+}
+
+/**
+ * Per-chain recipient sanity check, run BEFORE the address is interpolated into
+ * a URI. EVM addresses must be the canonical 0x + 40 hex form. BTC addresses are
+ * not re-validated character-class by character-class here (bech32/base58 is the
+ * wallet's job), but the string must be non-empty and free of whitespace and the
+ * URI delimiters (`?#&/: ` ) that would otherwise let a crafted address inject
+ * extra URI parts. This is a guard against malformed/injecting input, not a
+ * full address validator.
+ */
+export function assertValidRecipient(address: string, chain: ChainId): void {
+  const a = address.trim();
+  if (a === "") throw new InvalidAddressError("recipient address is empty");
+  if (chain === "bitcoin") {
+    if (/[\s?#&/:]/.test(a)) throw new InvalidAddressError("bitcoin address has invalid characters");
+    return;
+  }
+  if (!/^0x[0-9a-fA-F]{40}$/.test(a)) {
+    throw new InvalidAddressError("EVM address must be 0x followed by 40 hex characters");
+  }
+}
+
 /**
  * Parse a human decimal string ("1.5", "0.000001") into minor units for a given
  * `decimals`, as bigint. Rejects empty, non-numeric, negative, or
@@ -74,6 +102,10 @@ export function buildPaymentRequestUri(
   amountDecimal?: string,
   memo?: string,
 ): string {
+  // Reject a malformed/injecting recipient before it reaches any URI.
+  assertValidRecipient(address, asset.chain);
+  const to = address.trim();
+
   if (asset.chain === "bitcoin") {
     const params = new URLSearchParams();
     if (amountDecimal && amountDecimal.trim() !== "") {
@@ -83,7 +115,7 @@ export function buildPaymentRequestUri(
     }
     if (memo && memo.trim() !== "") params.set("message", memo.trim());
     const query = params.toString();
-    return query ? `bitcoin:${address}?${query}` : `bitcoin:${address}`;
+    return query ? `bitcoin:${to}?${query}` : `bitcoin:${to}`;
   }
 
   const chainId = EVM_CHAIN_IDS[asset.chain];
@@ -97,12 +129,12 @@ export function buildPaymentRequestUri(
   if (asset.token) {
     // ERC-20 transfer request (EIP-681).
     const params = new URLSearchParams();
-    params.set("address", address);
+    params.set("address", to);
     if (minor !== null) params.set("uint256", minor.toString());
     return `ethereum:${asset.token}@${chainId}/transfer?${params.toString()}`;
   }
 
   // Native-coin request (EIP-681 value form).
-  const base = `ethereum:${address}@${chainId}`;
+  const base = `ethereum:${to}@${chainId}`;
   return minor !== null ? `${base}?value=${minor.toString()}` : base;
 }
