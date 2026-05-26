@@ -1,7 +1,7 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-27 (cold-review fix cycle CLOSED)
-**Status:** COMPLETE. Plan delivered + cold-review fix cycle done. All 7 cold-review findings fixed/verified/pushed (HEAD 5d6f5a4). verify green (80+63+13 tests, 232 kB), smoke PASS (6 assertions). NEXT focus: "Глубина продукта", then LAST "Живой деплой" (Railway).
+**Last touched:** 2026-05-27 (a11y pass DONE)
+**Status:** Cold review CLOSED + product-depth A11y pass DONE (HEAD 4458dc7, pushed). Yana picked depth = #1 BTC testnet e2e + #3 a11y. A11y done first; BTC e2e NEXT; live Railway deploy LAST. verify green (80+63+13 tests), smoke PASS (6), a11y PASS (0 violations across 8 screens, WCAG 2.0/2.1 A+AA).
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
@@ -37,16 +37,34 @@ Fixes to apply (priority order):
 - [x] Run E2E smoke in CI — new `smoke` job in .github/workflows/ci.yml (only job proving nonce-CSP/hydration at runtime). Commit a38ba84.
 - [x] Expand smoke to cover Phase 1 (payment-request panel) + Phase 5 (watch-only signing-disabled), via walletFlow()/watchOnlyFlow(). 6 assertions PASS. Commit 15845c1.
 
+## Product depth (Yana picked #1 BTC testnet e2e + #3 a11y)
+- [x] #3 A11y pass — DONE. New `tools/e2e/a11y.mjs` (axe-core WCAG 2.0/2.1 A+AA,
+  8 screens, `pnpm a11y`, threshold gate A11Y_FAIL_ON default serious, bypassCSP
+  in audit browser only). Fixed: aria-label on all bare selects; unified the 3
+  Data Sources/settings selects (one-off `bg-[#111] text-white` → canonical
+  `bg-[--color-bg]`; native control was scored dark-on-dark by axe); added
+  `color-scheme: dark` to globals.css. 0 violations across all 8 screens.
+  verify + smoke + a11y all green. Commit 4458dc7, pushed.
+- [ ] #1 BTC testnet e2e — NOT started. RESEARCH FIRST (п.5): browsers need
+  Electrum-over-**wss**; most public Electrum servers are raw TCP/SSL (this is
+  why the project uses operator-supplied `NEXT_PUBLIC_BTC_ELECTRUM_WS_URL` +
+  offline fixture). Find a public testnet/signet Electrum-WSS endpoint OR
+  document a local TCP→WS bridge. A balance-read against a funded testnet addr
+  is the automatable proof. Config: engine.ts:50 + chains/index.ts
+  `btcElectrumWsUrl`. If it needs infra/secret, report to Yana rather than thrash.
+
 ## Next step
-Cold review CLOSED. Yana's chosen sequence was: (1) cold review FIRST [done],
-(2) product depth + fix findings [findings done], (3) live deploy LAST (Railway).
-NEXT = "Глубина продукта" — pick scope with Yana: candidates are BTC testnet e2e
-(real Electrum-WS endpoint, not the offline fixture), more chains, or an a11y pass.
+Start #1 BTC testnet e2e: WebSearch for a public **testnet/signet Electrum-over-WSS**
+endpoint (e.g. blockstream/mempool electrs ws, or a known wss proxy). If one exists,
+wire a network-gated e2e (skipped without the env var, like smoke leaves BTC
+unconfigured) that does a real balance read against a funded testnet address. If no
+public wss endpoint exists, document the local bridge option and report to Yana.
 THEN LAST = "Живой деплой" on Railway (NOT Vercel — see MEMORY feedback_avoid_vercel).
 
-Final green this session (HEAD 5d6f5a4):
+Final green this session (HEAD 4458dc7):
   - `corepack pnpm verify`: lint+typecheck+build OK, 80 (wallet-core) + 63 (next) + 13 (svelte) tests.
   - `corepack pnpm smoke`: PASS under live nonce CSP, 6 assertions (zero blocking CSP violations).
+  - `corepack pnpm a11y`: PASS, 0 violations across 8 screens (WCAG 2.0/2.1 A+AA, threshold serious).
 
 ## CSP rework note (important for any future toucher)
 The first CSP attempt (static header in next.config) was WRONG — `script-src 'self'`
