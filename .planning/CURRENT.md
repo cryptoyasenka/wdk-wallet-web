@@ -1,7 +1,7 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-27 (product depth DONE — a11y + BTC live e2e)
-**Status:** Cold review CLOSED + BOTH product-depth items DONE (HEAD 0d79470, pushed): #3 a11y pass (0 axe violations, 8 screens) + #1 BTC live e2e (real Electrum-WS read, 57.2 BTC). Only LAST phase remains: live Railway deploy. Green: verify (80+63+13), smoke (6), a11y (0 violations), btc:live (PASS).
+**Last touched:** 2026-05-27 (LIVE DEPLOY DONE — Railway)
+**Status:** COMPLETE. Cold review CLOSED + both product-depth items DONE + LIVE on Railway. URL: https://wdk-wallet-web-production.up.railway.app (HTTP 200, per-request CSP nonce + full security headers verified live). Green: verify (80+63+13), smoke (6), a11y (0 violations), btc:live (PASS).
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
@@ -60,12 +60,22 @@ Fixes to apply (priority order):
   balance, zero risk) — testnet endpoint plugs into the same harness via env.
 
 ## Next step
-BOTH product-depth items DONE (#1 BTC live e2e + #3 a11y). LAST PHASE = "Живой
-деплой" on **Railway** (NOT Vercel — MEMORY feedback_avoid_vercel). Next.js 15
-standalone; needs: Railway project, build (`corepack pnpm --filter @wdk-web/wallet-core build`
-then `next build` in apps/next), start (`next start`), and the env var
-`NEXT_PUBLIC_ETHEREUM_RPC_URLS` (+ optional `NEXT_PUBLIC_BTC_ELECTRUM_WS_URL`).
-Run `/cso` before exposing publicly (п.4). Confirm with Yana before first deploy.
+ALL THREE FOCUS ITEMS DONE (cold review → product depth → live deploy).
+Live deploy SHIPPED on **Railway** (NOT Vercel): project `wdk-wallet-web`
+(id ea62a935-9782-444a-bbef-72797484bee8), service `wdk-wallet-web`
+(id 90c1dc50-75f4-4ea2-abbe-021201628391), env `production`. Deploy config =
+committed `railway.json` (NIXPACKS; build = pnpm install + wallet-core build +
+next build; start = `next start -p $PORT`). Public URL:
+https://wdk-wallet-web-production.up.railway.app — verified HTTP 200, live
+per-request CSP nonce (`strict-dynamic`), HSTS/X-Frame-Options DENY/nosniff/
+Referrer-Policy/Permissions-Policy all present. App boots with NO mandatory env
+vars (public RPC defaults; indexer/BTC optional). Created two duplicate projects
+during `railway init` (response timed out but created); deleted the dupe, kept one.
+
+Remaining-optional (NOT blocking, Yana's call):
+- `/cso` full multi-agent pass before broad public sharing (п.4). Headers/CSP
+  already strong; surface is small (client-side self-custodial, no server secrets).
+- Optional: add live URL to README demo section for the bounty submission.
 
 Final green this session (HEAD 0d79470):
   - `corepack pnpm verify`: lint+typecheck+build OK, 80 (wallet-core) + 63 (next) + 13 (svelte) tests.
