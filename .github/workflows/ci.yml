@@ -43,6 +43,22 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+  # End-to-end smoke: builds + serves the production app and drives a real
+  # headless browser under the LIVE strict CSP. This is the only job that proves
+  # the nonce-CSP / hydration path works end to end — `verify` (build/typecheck)
+  # cannot catch a CSP that blocks the app at runtime. Network-independent
+  # (BTC unconfigured; asserts only on client-derived / local UI), Node 20 only
+  # (the browser layer needs no version matrix; `verify` covers 20 + 22).
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm smoke
   secret-scan:
     runs-on: ubuntu-latest
     steps:
