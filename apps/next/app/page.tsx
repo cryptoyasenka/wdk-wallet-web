@@ -32,7 +32,7 @@ import { extractAddress } from "@/lib/extract-address";
 import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
 import { explorerUrl, addressExplorerUrl } from "@/lib/explorer";
 import { fetchPrices, fetchSparkline, formatUsd, type PriceMap } from "@/lib/prices";
-import { loadContacts, addContact, removeContact, type Contact } from "@/lib/contacts";
+import { loadContacts, addContact, removeContact, touchContact, type Contact } from "@/lib/contacts";
 import { buildPaymentRequestUri, canBuildRequest, InvalidAmountError } from "@/lib/paymentRequest";
 import { classifyRecipient, detectPoisoning, isOfficialToken, officialTokenContracts } from "@/lib/safety";
 import { t, getLocale, setLocale as persistLocale, type Locale } from "@/lib/i18n";
@@ -533,6 +533,9 @@ export default function Page() {
     act(async () => {
       if (!quote) return;
       const res = await getWalletApp().engine.send(quote.intent);
+      // Stamp a saved recipient as just-used so the address book can surface
+      // recent payees first (no-op if the recipient isn't a saved contact).
+      setContacts(touchContact(quote.intent.to, quote.intent.asset.chain));
       setLastSentRecipient(quote.intent.to);
       setLastSentChain(quote.intent.asset.chain);
       setIsContactSavedPostSend(false);
