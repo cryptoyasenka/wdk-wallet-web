@@ -22,6 +22,22 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "X-Frame-Options", value: "DENY" },
+          // Force HTTPS for two years incl. subdomains once seen over TLS.
+          // Browsers ignore this header over plain http (local dev), so it is
+          // safe to send unconditionally. `preload` is intentionally omitted:
+          // the HSTS preload list is an irrevocable, all-subdomains commitment a
+          // reference template should not make on a deployer's behalf.
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains",
+          },
+          // Deny every powerful feature by default; the QR scanner is the only
+          // one the wallet uses, so only same-origin camera is allowed.
+          {
+            key: "Permissions-Policy",
+            value:
+              "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), autoplay=(), fullscreen=(self)",
+          },
         ],
       },
     ];

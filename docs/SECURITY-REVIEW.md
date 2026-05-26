@@ -119,8 +119,13 @@ rendering so the nonce reaches Next's inline bootstrap scripts.
 | `frame-ancestors` | `'none'` | Clickjacking defence (no embedding). |
 | `form-action` | `'self'` | Forms cannot post off-origin. |
 
-Plus request-independent headers from `next.config.mjs`: `X-Content-Type-Options:
-nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`.
+Plus request-independent headers from `next.config.mjs` (every route): `X-Content-Type-Options:
+nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`,
+`Strict-Transport-Security: max-age=63072000; includeSubDomains` (HSTS — `preload`
+omitted so the template makes no irrevocable list commitment on a deployer's
+behalf; ignored over plain http, safe in local dev), and `Permissions-Policy`
+denying every powerful feature except same-origin `camera` (the QR scanner is the
+only one the wallet uses).
 
 **Honest limit (documented, not hidden):** the allow-list is fixed at deploy
 time. A user who points the wallet at a *custom* RPC/indexer origin via the Data
