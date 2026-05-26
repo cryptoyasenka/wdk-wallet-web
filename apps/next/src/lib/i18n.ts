@@ -96,6 +96,17 @@ const translations: Record<string, Record<Locale, string>> = {
   // Receive
   "receive.title": { en: "Receive", ru: "Получить" },
   "receive.no_addr": { en: "No addresses.", ru: "Нет адресов." },
+  "receive.mode_address": { en: "Address", ru: "Адрес" },
+  "receive.mode_request": { en: "Request", ru: "Запрос" },
+  "receive.req_amount": { en: "Amount (optional)", ru: "Сумма (необязательно)" },
+  "receive.req_amount_ph": { en: "0.00", ru: "0,00" },
+  "receive.req_memo": { en: "Memo / reference (optional)", ru: "Памятка / референс (необязательно)" },
+  "receive.req_memo_ph": { en: "e.g. invoice #42", ru: "напр. счёт №42" },
+  "receive.req_uri": { en: "Payment request", ru: "Запрос платежа" },
+  "receive.req_copy": { en: "Copy payment request", ru: "Скопировать запрос платежа" },
+  "receive.req_invalid": { en: "Enter a valid positive amount.", ru: "Введите корректную положительную сумму." },
+  "receive.req_none": { en: "No assets available for a payment request.", ru: "Нет активов, доступных для запроса платежа." },
+  "receive.req_qr_label": { en: "Payment request QR", ru: "QR запроса платежа" },
 
   // Activity
   "activity.title": { en: "Activity", ru: "Активность" },

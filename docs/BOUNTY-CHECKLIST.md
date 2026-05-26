@@ -20,8 +20,9 @@ Current local bar:
   (`bitcoinjs-message -> secp256k1 -> elliptic`) and has no patched range in the
   advisory.
 - `wallet-core`: 76 unit tests.
+- `apps/next`: 14 unit tests for the payment-request URI builders.
 - `apps/svelte`: 13 headless portability tests.
-- Next First Load JS: about 223 kB; the WDK/BTC graph stays in the worker chunk,
+- Next First Load JS: about 224 kB; the WDK/BTC graph stays in the worker chunk,
   not the main First Load path.
 - `corepack pnpm demo` records `docs/demo.gif` against the production Next build
   and the offline Electrum-WS fixture.
@@ -37,6 +38,7 @@ Current local bar:
 | Passphrase and passkey unlock | Passphrase remains the recovery slot; passkey enrollment adds a separate passkey-encrypted vault slot. | `packages/wallet-core/test/engine.test.ts` covers both slots after passkey enrollment. |
 | Multi-wallet and multi-account | Independent vaults for wallets; HD indices for accounts. | `packages/wallet-core/test/multi-wallet.test.ts`, `packages/wallet-core/test/multi-account.test.ts`. |
 | QR receive and QR scan send | QR render and QR scan are implemented in both app hosts. | `apps/next/app/page.tsx`, `apps/svelte/src/App.svelte`, `apps/svelte/test/extract-address.test.ts`. |
+| Payment requests (EIP-681 / BIP-21) | Receive has an Address/Request switch: pick asset + amount (+ memo for BTC), get a scannable payment-request URI and QR, not just a bare address. | `apps/next/src/lib/paymentRequest.ts`, `apps/next/test/paymentRequest.test.ts`, Receive card in `apps/next/app/page.tsx`. |
 | Framework portability | Svelte app consumes the byte-shared core with its own host ports. | `apps/svelte/test/portability.test.ts`. |
 | Honest activity model | Local outgoing send log is default. External/public history is an optional injected provider, not hardcoded in WDK core. | `packages/wallet-core/src/wallet/engine.ts`, `docs/ARCHITECTURE.md` ADR-003, history merge/failure tests in `packages/wallet-core/test/engine.test.ts`. |
 | Production honesty | Web Worker is defense-in-depth, not an XSS boundary; BTC needs an Electrum-WS endpoint. | `docs/SECURITY.md`, `README.md`. |

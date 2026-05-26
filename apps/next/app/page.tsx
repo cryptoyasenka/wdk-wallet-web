@@ -10,7 +10,7 @@
  *     address book, Max button, explorer links, improved empty states
  *   Phase 3 — settings page, PWA, recovery check, sparkline charts, i18n (EN/RU)
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   InvalidSeedPhraseError,
   UnsupportedChainError,
@@ -32,6 +32,7 @@ import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
 import { explorerUrl } from "@/lib/explorer";
 import { fetchPrices, fetchSparkline, formatUsd, type PriceMap } from "@/lib/prices";
 import { loadContacts, addContact, removeContact, type Contact } from "@/lib/contacts";
+import { buildPaymentRequestUri, canBuildRequest, InvalidAmountError } from "@/lib/paymentRequest";
 import { t, getLocale, setLocale as persistLocale, type Locale } from "@/lib/i18n";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -144,6 +145,7 @@ export default function Page() {
   const [balances, setBalances] = useState<readonly Balance[] | null>(null);
   const [balancesError, setBalancesError] = useState<string | null>(null);
   const [addresses, setAddresses] = useState<ReadonlyArray<readonly [ChainId, string]>>([]);
+  const [receiveMode, setReceiveMode] = useState<"address" | "request">("address");
   const [activeAccount, setActiveAccount] = useState(0);
   const [accountCount, setAccountCount] = useState(1);
   const [activeWallet, setActiveWallet] = useState(0);
@@ -1141,31 +1143,46 @@ export default function Page() {
 
           {/* Receive card */}
           <Card>
-            <h2 className="mb-3 font-medium" id="receive-section">{T("receive.title")}</h2>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="font-medium" id="receive-section">{T("receive.title")}</h2>
+              <div className="flex gap-1.5">
+                <Tab active={receiveMode === "address"} onClick={() => setReceiveMode("address")}>{T("receive.mode_address")}</Tab>
+                <Tab active={receiveMode === "request"} onClick={() => setReceiveMode("request")}>{T("receive.mode_request")}</Tab>
+              </div>
+            </div>
             {addresses.length === 0 && (
               <p className="text-sm text-[--color-muted]">{T("receive.no_addr")}</p>
             )}
-            <ul className="flex flex-col gap-3">
-              {addresses.map(([chain, addr]) => (
-                <li key={chain}>
-                  <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{chain}</div>
-                  <div className="flex items-start gap-2">
-                    <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
-                      {addr}
-                    </code>
-                    <button
-                      className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
-                      onClick={() => copyToClipboard(addr)}
-                      aria-label={`Copy ${chain} receive address`}
-                      title={`Copy ${chain} receive address`}
-                    >
-                      <CopyIcon size={14} />
-                    </button>
-                  </div>
-                  <Qr value={addr} chain={chain} />
-                </li>
-              ))}
-            </ul>
+            {receiveMode === "address" ? (
+              <ul className="flex flex-col gap-3">
+                {addresses.map(([chain, addr]) => (
+                  <li key={chain}>
+                    <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{chain}</div>
+                    <div className="flex items-start gap-2">
+                      <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
+                        {addr}
+                      </code>
+                      <button
+                        className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
+                        onClick={() => copyToClipboard(addr)}
+                        aria-label={`Copy ${chain} receive address`}
+                        title={`Copy ${chain} receive address`}
+                      >
+                        <CopyIcon size={14} />
+                      </button>
+                    </div>
+                    <Qr value={addr} chain={chain} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ReceiveRequest
+                balances={balances}
+                addresses={addresses}
+                copyToClipboard={copyToClipboard}
+                T={T}
+              />
+            )}
           </Card>
 
           {/* Activity card */}
@@ -1670,6 +1687,99 @@ function Qr({ value, chain }: { readonly value: string; readonly chain: string }
         <rect width={size} height={size} fill="#fff" />
         <path d={d} fill="#000" />
       </svg>
+    </div>
+  );
+}
+
+/**
+ * Receive → Request mode. Lets the user turn a receive address into a shareable
+ * payment-request URI (EIP-681 for EVM, BIP-21 for BTC) with an optional amount
+ * and — for BTC only, where the standard honours it — a memo. The URI is what
+ * gets encoded as the QR and copied, so a payer scans an amount-filled request
+ * instead of just a bare address. Invalid amounts are rejected before any URI
+ * is produced; nothing partial is ever rendered.
+ */
+function ReceiveRequest({ balances, addresses, copyToClipboard, T }: {
+  readonly balances: readonly Balance[] | null;
+  readonly addresses: ReadonlyArray<readonly [ChainId, string]>;
+  readonly copyToClipboard: (value: string) => void;
+  readonly T: (key: string) => string;
+}) {
+  const addressByChain = useMemo(() => new Map(addresses), [addresses]);
+  const requestable = useMemo(
+    () => (balances ?? []).filter((b) => canBuildRequest(b.asset) && addressByChain.has(b.asset.chain)),
+    [balances, addressByChain],
+  );
+
+  const [selectedKey, setSelectedKey] = useState("");
+  const [amount, setAmount] = useState("");
+  const [memo, setMemo] = useState("");
+
+  if (requestable.length === 0) {
+    return <p className="text-sm text-[--color-muted]">{T("receive.req_none")}</p>;
+  }
+
+  const selected = requestable.find((b) => assetKey(b.asset) === selectedKey) ?? requestable[0]!;
+  const asset = selected.asset;
+  const address = addressByChain.get(asset.chain)!;
+  const isBtc = asset.chain === "bitcoin";
+
+  let uri = "";
+  let invalid = false;
+  try {
+    uri = buildPaymentRequestUri(asset, address, amount.trim() || undefined, isBtc ? memo.trim() || undefined : undefined);
+  } catch (e) {
+    if (e instanceof InvalidAmountError) invalid = true;
+    else throw e;
+  }
+
+  return (
+    <div>
+      <Field label={T("misc.asset")}>
+        <select
+          className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+          value={assetKey(asset)}
+          onChange={(e) => setSelectedKey(e.target.value)}
+        >
+          {requestable.map((b) => (
+            <option key={assetKey(b.asset)} value={assetKey(b.asset)}>
+              {b.asset.symbol} {T("misc.on")} {b.asset.chain}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label={T("receive.req_amount")}>
+        <Input type="text" value={amount} onChange={setAmount} placeholder={T("receive.req_amount_ph")} autoComplete="off" />
+      </Field>
+
+      {isBtc && (
+        <Field label={T("receive.req_memo")}>
+          <Input type="text" value={memo} onChange={setMemo} placeholder={T("receive.req_memo_ph")} autoComplete="off" />
+        </Field>
+      )}
+
+      {invalid ? (
+        <p className="text-sm text-red-300">{T("receive.req_invalid")}</p>
+      ) : (
+        <>
+          <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{T("receive.req_uri")}</div>
+          <div className="flex items-start gap-2">
+            <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
+              {uri}
+            </code>
+            <button
+              className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
+              onClick={() => copyToClipboard(uri)}
+              aria-label={T("receive.req_copy")}
+              title={T("receive.req_copy")}
+            >
+              <CopyIcon size={14} />
+            </button>
+          </div>
+          <Qr value={uri} chain={T("receive.req_qr_label")} />
+        </>
+      )}
     </div>
   );
 }
