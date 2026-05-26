@@ -17,6 +17,7 @@ import {
   VaultDecryptError,
   WalletError,
   WalletExistsError,
+  DEFAULT_ASSETS,
   type ActivityItem,
   type Asset,
   type Balance,
@@ -29,16 +30,17 @@ import jsQR from "jsqr";
 import { getWalletApp } from "@/lib/engine";
 import { extractAddress } from "@/lib/extract-address";
 import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
-import { explorerUrl } from "@/lib/explorer";
+import { explorerUrl, addressExplorerUrl } from "@/lib/explorer";
 import { fetchPrices, fetchSparkline, formatUsd, type PriceMap } from "@/lib/prices";
 import { loadContacts, addContact, removeContact, type Contact } from "@/lib/contacts";
 import { buildPaymentRequestUri, canBuildRequest, InvalidAmountError } from "@/lib/paymentRequest";
+import { classifyRecipient, detectPoisoning, isOfficialToken, officialTokenContracts } from "@/lib/safety";
 import { t, getLocale, setLocale as persistLocale, type Locale } from "@/lib/i18n";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowDownRight, ArrowUpRight, CopyIcon, Loader2, Plus,
   Pencil, LogOut, Check, X, Settings, ExternalLink, BookUser,
-  Shield, Trash2, Globe, Timer, UserPlus, CheckCircle2, XCircle, Info,
+  Shield, Trash2, Globe, Timer, UserPlus, CheckCircle2, XCircle, Info, AlertTriangle,
 } from "lucide-react";
 
 type Phase = "loading" | "onboarding" | "backup" | "quiz" | "locked" | "unlocked" | "settings";
@@ -1073,6 +1075,15 @@ export default function Page() {
                   <Row k={T("misc.recipient")} v={quote.intent.to} mono />
                   <Row k={T("misc.network_fee")} v={`${formatUnits(quote.fee.fee, quote.fee.feeAsset.decimals)} ${quote.fee.feeAsset.symbol}`} />
                 </dl>
+                <SafetyPanel
+                  asset={quote.intent.asset}
+                  to={quote.intent.to}
+                  contacts={contacts}
+                  ownAddresses={addresses}
+                  recentRecipient={lastSentRecipient}
+                  recentChain={lastSentChain}
+                  T={T}
+                />
                 <div className="flex gap-2">
                   <Button onClick={onConfirmSend} busy={busy} workingLabel={T("misc.working")}>{T("send.confirm_btn")}</Button>
                   <button className="rounded-md border border-[--color-border] px-4 py-2.5 text-sm text-[--color-muted] hover:text-white disabled:cursor-not-allowed disabled:opacity-50" onClick={onCancelQuote} disabled={busy}>{T("send.cancel")}</button>
@@ -1780,6 +1791,101 @@ function ReceiveRequest({ balances, addresses, copyToClipboard, T }: {
           <Qr value={uri} chain={T("receive.req_qr_label")} />
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Pre-send safety panel (Phase 2). Rendered on the send confirmation screen,
+ * between the decoded transaction rows and the Confirm button. It turns the raw
+ * intent into plain-language safety signals: a known-official Tether contract
+ * badge, who the recipient is (own / saved / recent / new), an address-poisoning
+ * warning when the recipient resembles a known address without matching it, a
+ * reminder that gas is paid separately from the token amount, and an explorer
+ * preview of the recipient. Warnings are visible but non-blocking — the user can
+ * still send; they just can't say they weren't told.
+ */
+function SafetyPanel({ asset, to, contacts, ownAddresses, recentRecipient, recentChain, T }: {
+  readonly asset: Asset;
+  readonly to: string;
+  readonly contacts: readonly Contact[];
+  readonly ownAddresses: ReadonlyArray<readonly [ChainId, string]>;
+  readonly recentRecipient: string;
+  readonly recentChain: ChainId;
+  readonly T: (key: string) => string;
+}) {
+  const ctx = {
+    to,
+    chain: asset.chain,
+    contacts,
+    ownAddresses,
+    recentRecipient: recentRecipient || undefined,
+    recentChain: recentRecipient ? recentChain : undefined,
+  };
+  const status = classifyRecipient(ctx);
+  const poisoning = detectPoisoning(ctx);
+  const official = useMemo(() => officialTokenContracts(DEFAULT_ASSETS), []);
+  const isToken = asset.token !== undefined;
+  const tokenOk = isToken && isOfficialToken(asset, official);
+  const recipientUrl = addressExplorerUrl(asset.chain, to);
+
+  return (
+    <div className="mb-4 rounded-md border border-[--color-border] bg-[--color-bg] p-3 text-xs">
+      <div className="mb-2 font-medium text-[--color-muted]">{T("safety.title")}</div>
+      <ul className="flex flex-col gap-1.5">
+        <li className="flex items-center gap-2">
+          <Globe size={13} className="shrink-0 text-[--color-muted]" />
+          <span>{T("safety.sending")} {asset.symbol} {T("misc.on")} {asset.chain}</span>
+        </li>
+
+        {isToken && (
+          <li className="flex items-center gap-2">
+            {tokenOk ? <Shield size={13} className="shrink-0 text-emerald-400" /> : <AlertTriangle size={13} className="shrink-0 text-amber-400" />}
+            <span className={tokenOk ? "text-emerald-300" : "text-amber-300"}>{tokenOk ? T("safety.official_token") : T("safety.unknown_token")}</span>
+          </li>
+        )}
+
+        <li className="flex items-center gap-2">
+          {status.kind === "self" && <Info size={13} className="shrink-0 text-sky-400" />}
+          {status.kind === "saved" && <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />}
+          {status.kind === "recent" && <Info size={13} className="shrink-0 text-sky-400" />}
+          {status.kind === "new" && <UserPlus size={13} className="shrink-0 text-amber-400" />}
+          <span className={status.kind === "new" ? "text-amber-300" : ""}>
+            {status.kind === "self" && T("safety.recipient_self")}
+            {status.kind === "saved" && `${T("safety.recipient_saved")}: ${status.name}`}
+            {status.kind === "recent" && T("safety.recipient_recent")}
+            {status.kind === "new" && T("safety.recipient_new")}
+          </span>
+        </li>
+
+        {poisoning && (
+          <li className="flex items-start gap-2 rounded-md bg-red-500/10 p-2">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0 text-red-400" />
+            <span className="text-red-300">
+              {T("safety.poisoning")}
+              <span className="mt-1 block break-anywhere font-mono text-[--color-muted]">
+                {T("safety.poisoning_resembles")}: {poisoning.name ? `${poisoning.name} (${poisoning.address})` : poisoning.address}
+              </span>
+            </span>
+          </li>
+        )}
+
+        {isToken && (
+          <li className="flex items-start gap-2">
+            <Info size={13} className="mt-0.5 shrink-0 text-[--color-muted]" />
+            <span className="text-[--color-muted]">{T("safety.gas_note")}</span>
+          </li>
+        )}
+
+        {recipientUrl && (
+          <li className="flex items-center gap-2">
+            <ExternalLink size={13} className="shrink-0 text-[--color-muted]" />
+            <a href={recipientUrl} target="_blank" rel="noopener noreferrer" className="text-[--color-muted] underline-offset-2 hover:underline">
+              {T("safety.view_recipient")}
+            </a>
+          </li>
+        )}
+      </ul>
     </div>
   );
 }

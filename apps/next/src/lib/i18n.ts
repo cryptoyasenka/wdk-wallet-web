@@ -108,6 +108,20 @@ const translations: Record<string, Record<Locale, string>> = {
   "receive.req_none": { en: "No assets available for a payment request.", ru: "Нет активов, доступных для запроса платежа." },
   "receive.req_qr_label": { en: "Payment request QR", ru: "QR запроса платежа" },
 
+  // Pre-send safety panel
+  "safety.title": { en: "Before you send", ru: "Перед отправкой" },
+  "safety.official_token": { en: "Official Tether contract", ru: "Официальный контракт Tether" },
+  "safety.unknown_token": { en: "Unrecognised token contract — verify it.", ru: "Неизвестный контракт токена — проверьте его." },
+  "safety.sending": { en: "Sending", ru: "Отправка" },
+  "safety.recipient_self": { en: "This is one of your own receive addresses.", ru: "Это один из ваших адресов получения." },
+  "safety.recipient_saved": { en: "Saved contact", ru: "Сохранённый контакт" },
+  "safety.recipient_recent": { en: "Recently used recipient.", ru: "Недавно использованный получатель." },
+  "safety.recipient_new": { en: "New recipient — not in your address book.", ru: "Новый получатель — нет в адресной книге." },
+  "safety.poisoning": { en: "Looks like a known address but is NOT the same. Check every character.", ru: "Похоже на известный адрес, но это НЕ он. Проверьте каждый символ." },
+  "safety.poisoning_resembles": { en: "Resembles", ru: "Похоже на" },
+  "safety.gas_note": { en: "Network fee is paid separately in the chain's native coin, not in the token amount above.", ru: "Комиссия сети оплачивается отдельно в нативной монете сети, а не из суммы токена выше." },
+  "safety.view_recipient": { en: "View recipient on explorer", ru: "Посмотреть получателя в проводнике" },
+
   // Activity
   "activity.title": { en: "Activity", ru: "Активность" },
   "activity.refresh": { en: "Refresh", ru: "Обновить" },
