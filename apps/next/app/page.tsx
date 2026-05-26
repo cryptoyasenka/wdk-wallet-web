@@ -1679,7 +1679,7 @@ export default function Page() {
                       <option value="bitcoin">Bitcoin</option>
                       <option value="polygon">Polygon</option>
                       <option value="arbitrum">Arbitrum</option>
-                      <option value="tron">Tron</option>
+                      <option value="plasma">Plasma</option>
                     </select>
                   </div>
                 </div>

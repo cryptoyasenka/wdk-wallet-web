@@ -44,8 +44,9 @@ describe("canBuildRequest", () => {
     expect(canBuildRequest(usdtPolygon)).toBe(true);
   });
 
-  it("is false for an unconfigured chain", () => {
-    expect(canBuildRequest({ symbol: "USDT", chain: "tron", decimals: 6 } as Asset)).toBe(false);
+  it("is false for a chain outside the wallet scope", () => {
+    // `solana` is not a ChainId; the cast simulates malformed/foreign input.
+    expect(canBuildRequest({ symbol: "USDT", chain: "solana", decimals: 6 } as unknown as Asset)).toBe(false);
   });
 });
 

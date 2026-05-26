@@ -48,8 +48,8 @@ function requireChain(chains: ChainRegistry, chain: ChainId) {
  * transfer can be sponsored gasless by the protocol paymaster, but the fee
  * asset for anything quoted/charged is still XPL — labelling it XPL is the
  * honest answer, not a guess. Only the chains this build models are
- * answerable; anything else (e.g. `tron`, declared in `ChainId` but not yet
- * wired) is an honest typed error rather than a mislabelled fee asset.
+ * answerable; any chain outside the modelled set is an honest typed error
+ * rather than a mislabelled fee asset.
  */
 function feeAssetFor(chain: ChainId) {
   if (chain === "ethereum" || chain === "arbitrum") return ETH_NATIVE;

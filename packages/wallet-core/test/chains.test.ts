@@ -141,14 +141,14 @@ describe("native fee-asset consts — the values feeAssetFor returns", () => {
     expect(BTC_NATIVE).toEqual({ symbol: "BTC", chain: "bitcoin", decimals: 8 });
   });
 
-  it("models exactly the chains feeAssetFor answers; leaves `tron` an honest throw", () => {
+  it("models exactly 4 EVM chains + BTC — the precise wallet scope", () => {
     // feeAssetFor branches on ethereum/arbitrum/polygon/plasma/bitcoin and
-    // throws otherwise. `tron` is a declared ChainId member but deliberately
-    // NOT modelled here → the typed-error branch stays reachable and honest.
+    // throws otherwise. The ChainId union is exactly these five, so the scope
+    // claim "4 EVM + BTC" is exact — no dangling, unwired members.
     const r = buildChainRegistry({ btcElectrumWsUrl: "wss://e.example:50004" });
     const modelled = Object.keys(r).sort();
     expect(modelled).toEqual(["arbitrum", "bitcoin", "ethereum", "plasma", "polygon"]);
-    expect(modelled).not.toContain("tron");
-    expect(DEFAULT_ASSETS.some((a) => a.chain === "tron")).toBe(false);
+    // Every default asset sits on a modelled chain.
+    expect(DEFAULT_ASSETS.every((a) => modelled.includes(a.chain))).toBe(true);
   });
 });

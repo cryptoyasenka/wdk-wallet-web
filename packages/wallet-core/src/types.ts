@@ -14,8 +14,7 @@ export type ChainId =
   | "ethereum"
   | "polygon"
   | "arbitrum"
-  | "plasma"
-  | "tron";
+  | "plasma";
 
 export interface Asset {
   /**

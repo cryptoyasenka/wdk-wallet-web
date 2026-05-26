@@ -1,14 +1,14 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-26 22:05
-**Status:** Phase 0/1/2 done. Phase 3 data layer done (1/2). Phase 3 UI wiring (2/2) next.
+**Last touched:** 2026-05-26 23:20
+**Status:** Phase 0/1/2/3 done + pushed. Phase 4 (Data Sources / Privacy) next.
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
 - [x] Phase 0: Baseline Integrity — all working-tree work committed in 6 scoped commits + pushed; `origin/main == HEAD`; verify green (76 wallet-core + 13 svelte tests, 223 kB First Load)
 - [x] Phase 1: Payment Request QR — Receive Address/Request switch, EIP-681/BIP-21 builders (`paymentRequest.ts`), 14 vitest tests in apps/next, QR+copy. Commit 0be4966.
 - [x] Phase 2: Pre-Send Safety Panel — `safety.ts` (classify recipient, poisoning, official-token) + SafetyPanel in confirmation block + `addressExplorerUrl`; 12 tests. Commit 7d0da81.
-- [ ] Phase 3: Address Book v2 (+ audit: validate contacts shape on load)
+- [x] Phase 3: Address Book v2 — note/favorite/last-used, edit, save-as-template, Send templates row; load hardening. Commits d7a3c75 (data) + 7c2aa30 (UI). 32 apps/next tests.
 - [ ] Phase 4: Data Sources / Privacy Settings (+ audit: disclose/toggle CoinGecko; resolve `tron` dangling ChainId; this card's endpoints = CSP connect-src list)
 - [ ] Phase 5: Watch-Only Mode
 - [ ] Phase 6: E2E Smoke + SECURITY-REVIEW.md + **correct SECURITY.md** + **ship real CSP**
@@ -20,22 +20,19 @@ blind-zones are marked "(Audit 2026-05-26)" inside the relevant phases + a new
 fixes — Yana wants a very strong product, so implement the WHOLE plan.
 
 ## Next step
-Phase 3 UI wiring (2/2) — data layer ALREADY DONE in commit (contacts.ts v2:
-note/favorite/lastUsedAt/createdAt, PaymentTemplate, sanitize+sort+update/touch/
-template helpers, validation audit-fix, 6 tests). Remaining = wire UI in page.tsx:
-  - Settings → Address Book (grep `settings.contacts` / `contacts_add_title`):
-    show favorites first (loadContacts already returns sorted), a note field, last-used,
-    a favorite toggle (call `updateContact(addr, chain, {favorite})`), edit, and a
-    "save as template" action (`addTemplate`). Keep glass UI compact.
-  - Send card (grep `send.contacts` chips ~line 1028): show favorite contacts first;
-    add a templates row that prefills recipient + asset (setSendAssetKey) + amount + memo.
-  - On successful send call `touchContact(quote.intent.to, quote.intent.asset.chain)`
-    in `onConfirmSend` (page.tsx ~line 533, after send resolves) so lastUsedAt updates.
-  - Import the new helpers (updateContact, touchContact, loadTemplates, addTemplate,
-    removeTemplate, type PaymentTemplate) in page.tsx; add i18n keys.
-  - **Fix doc count:** apps/next has 32 tests (NOT 38 — the data-layer commit message
-    overstated). Update BOUNTY-CHECKLIST.md "26 unit tests" → correct total after UI tests.
-  - `corepack pnpm verify`, commit, push. Then Phase 4.
+Phase 4 — Data Sources / Privacy Settings. In `apps/next`:
+  - Add a Settings card exposing the host endpoints already used: RPC per EVM chain,
+    Electrum-WS (BTC), and the CoinGecko price source. Surface them read-only (or
+    editable via env-backed config) so the user SEES what the wallet talks to.
+  - **Disclose + toggle CoinGecko** (`apps/next/src/lib/prices.ts` fetches
+    api.coingecko.com unconditionally): add an opt-out so prices can be turned off;
+    when off, skip the fetch entirely (no silent calls). Persist the toggle.
+  - **Resolve `tron` dangling ChainId**: it's an unused member. Decide remove-vs-wire.
+    Touch points = wallet-core `ChainId` type, `explorer.ts` EXPLORERS map (still lists
+    tron), the add-contact `<option value="tron">`, root `.env.example` TRON_API_KEY.
+    Simplest honest path = drop tron everywhere (no Tron manager is configured).
+  - The endpoints listed here are the exact `connect-src` allowlist for the Phase 6 CSP.
+  - `corepack pnpm verify`, commit, push.
 
 ## Remaining after Phase 3
 - Phase 4: Data Sources/Privacy Settings (+ disclose/toggle CoinGecko in `prices.ts`;
