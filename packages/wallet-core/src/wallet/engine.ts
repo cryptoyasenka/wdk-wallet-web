@@ -46,6 +46,7 @@ import { sealSeed } from "../secrets/index.js";
 import { appendSend, readLog, writeLog } from "./activity-log.js";
 import {
   InvalidAccountIndexError,
+  InvalidAddressError,
   InvalidSeedPhraseError,
   InvalidWalletIndexError,
   NoWalletError,
@@ -114,6 +115,21 @@ function activeVaultCredentialKey(walletIndex: number): string {
 }
 function activeAccountKey(walletIndex: number): string {
   return `${ACTIVE_ACCOUNT_KEY}${walletSuffix(walletIndex)}`;
+}
+
+/**
+ * Cheap well-formedness check for an externally-supplied address, keyed on the
+ * chain's kind (not a full checksum/bech32 validation — that is the WDK
+ * adapter's job). EVM addresses must be `0x` + 40 hex; BTC addresses must be a
+ * non-empty run of base58/bech32 characters (alphanumeric only: no whitespace,
+ * control, or punctuation). Used by `getBalancesForAddress` so a malformed
+ * string never reaches a balance reader.
+ */
+function isWellFormedAddress(kind: "evm" | "btc", address: string): boolean {
+  const a = address.trim();
+  if (a === "") return false;
+  if (kind === "evm") return /^0x[0-9a-fA-F]{40}$/.test(a);
+  return /^[a-zA-Z0-9]+$/.test(a);
 }
 
 async function activeVaultKey(storage: StorageAdapter, walletIndex: number): Promise<string> {
@@ -393,11 +409,23 @@ function buildEngine(
       opts?: { readonly chains?: readonly ChainId[] },
     ): Promise<readonly Balance[]> {
       const want = opts?.chains;
+      // The assets actually in scope: configured chain, and (if given) requested.
+      const inScope = assets.filter((a) => {
+        if (!chains[a.chain]) return false; // unconfigured ⇒ omitted, like getBalances
+        return !want || want.includes(a.chain);
+      });
+      // Defense in depth: validate the address against every chain in scope
+      // BEFORE building a reader or making any network call, so a malformed
+      // string never reaches a balance reader (the watch-only UI validates too).
+      for (const asset of inScope) {
+        const cfg = chains[asset.chain]!;
+        if (!isWellFormedAddress(cfg.kind, address)) {
+          throw new InvalidAddressError(asset.chain, address);
+        }
+      }
       const reader = await readerForReads();
       const balances: Balance[] = [];
-      for (const asset of assets) {
-        if (!chains[asset.chain]) continue; // unconfigured chain ⇒ omitted, like getBalances
-        if (want && !want.includes(asset.chain)) continue;
+      for (const asset of inScope) {
         const amount = asset.token
           ? await reader.getTokenBalance(asset.chain, asset.token, address)
           : await reader.getNativeBalance(asset.chain, address);

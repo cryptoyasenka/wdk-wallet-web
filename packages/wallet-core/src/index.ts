@@ -41,6 +41,7 @@ export {
   InvalidSeedPhraseError,
   UnsupportedChainError,
   UnsupportedAssetError,
+  InvalidAddressError,
   VaultDecryptError,
   VaultFormatError,
   PhaseNotImplementedError,

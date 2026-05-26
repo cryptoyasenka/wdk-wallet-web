@@ -60,6 +60,18 @@ export class UnsupportedAssetError extends WalletError {
 }
 
 /**
+ * An address handed to the engine is not well-formed for its chain. Defense in
+ * depth: the watch-only UI already validates, but the core must not pass an
+ * arbitrary/malformed string to a balance reader (a network call keyed on it),
+ * so `getBalancesForAddress` rejects it here too.
+ */
+export class InvalidAddressError extends WalletError {
+  constructor(chain: string, address: string) {
+    super(`address "${address}" is not valid for chain "${chain}"`);
+  }
+}
+
+/**
  * The active HD account index handed to `setActiveAccount` is not a
  * non-negative safe integer. This is the one BIP-44 dimension the UI exposes
  * ("Account #N"); a fractional/negative/NaN value is a caller bug, surfaced as

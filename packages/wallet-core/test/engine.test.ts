@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWalletEngineWithAdapter } from "../src/wallet/engine.js";
 import { DEFAULT_ASSETS, USDT_ETHEREUM, buildChainRegistry } from "../src/chains/index.js";
 import {
+  InvalidAddressError,
   InvalidSeedPhraseError,
   NoWalletError,
   UnsupportedChainError,
@@ -206,7 +207,7 @@ describe("wallet engine — watch-only reads (Phase 5)", () => {
     });
 
     // Deliberately no createWallet / unlock: watch-only is seedless.
-    const balances = await engine.getBalancesForAddress("0xWATCHED");
+    const balances = await engine.getBalancesForAddress("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
     expect(balances).toHaveLength(1);
     expect(balances[0]?.asset.symbol).toBe("USDT");
     expect(balances[0]?.amount).toBe(5_000_000n);
@@ -230,7 +231,7 @@ describe("wallet engine — watch-only reads (Phase 5)", () => {
       ],
     });
 
-    const balances = await engine.getBalancesForAddress("0xWATCHED", {
+    const balances = await engine.getBalancesForAddress("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", {
       chains: ["polygon", "arbitrum"],
     });
     const chainsSeen = balances.map((b) => b.asset.chain).sort();
@@ -249,8 +250,26 @@ describe("wallet engine — watch-only reads (Phase 5)", () => {
     await engine.unlock();
     expect(adapter.readers).toHaveLength(1); // the unlock reader
 
-    await engine.getBalancesForAddress("0xWATCHED");
+    await engine.getBalancesForAddress("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
     expect(adapter.readers).toHaveLength(1); // reused, not a second reader
+  });
+
+  it("rejects a malformed address before it reaches a balance reader (defense in depth)", async () => {
+    const adapter = new FakeWdkAdapter({ token: { [`ethereum:${USDT_ETHEREUM}`]: 7n } });
+    const { deps } = makeDeps();
+    const engine = createWalletEngineWithAdapter(adapter, deps, {
+      chains: buildChainRegistry(),
+      assets: [{ symbol: "USDT", chain: "ethereum", token: USDT_ETHEREUM, decimals: 6 }],
+    });
+
+    // Not 0x + 40 hex → the core must throw, not query the reader with garbage.
+    await expect(engine.getBalancesForAddress("0xWATCHED")).rejects.toBeInstanceOf(
+      InvalidAddressError,
+    );
+    await expect(
+      engine.getBalancesForAddress("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA960"),
+    ).rejects.toBeInstanceOf(InvalidAddressError);
+    expect(adapter.readers).toHaveLength(0); // never built a reader for a bad address
   });
 });
 
