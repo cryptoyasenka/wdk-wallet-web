@@ -27,7 +27,8 @@ import {
 } from "@wdk-web/wallet-core";
 import qrcode from "qrcode-generator";
 import jsQR from "jsqr";
-import { getWalletApp } from "@/lib/engine";
+import { getWalletApp, resetWalletApp } from "@/lib/engine";
+import { loadDataSources, saveDataSources, type DataSources, type IndexerMode } from "@/lib/dataSources";
 import { extractAddress } from "@/lib/extract-address";
 import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
 import { explorerUrl, addressExplorerUrl } from "@/lib/explorer";
@@ -218,6 +219,27 @@ export default function Page() {
 
   // ---- Settings: delete wallet confirmation ----
   const [confirmDeleteWallet, setConfirmDeleteWallet] = useState(false);
+
+  // ---- Data Sources / Privacy form (text drafts; lists are comma/newline) ----
+  const [dsForm, setDsForm] = useState({
+    ethereumRpcUrls: "", polygonRpcUrls: "", arbitrumRpcUrls: "", plasmaRpcUrls: "",
+    btcElectrumWsUrl: "", indexerMode: "local" as IndexerMode, indexerUrl: "",
+    pricesEnabled: true, priceEndpoint: "",
+  });
+  useEffect(() => {
+    const ds = loadDataSources();
+    setDsForm({
+      ethereumRpcUrls: ds.ethereumRpcUrls.join("\n"),
+      polygonRpcUrls: ds.polygonRpcUrls.join("\n"),
+      arbitrumRpcUrls: ds.arbitrumRpcUrls.join("\n"),
+      plasmaRpcUrls: ds.plasmaRpcUrls.join("\n"),
+      btcElectrumWsUrl: ds.btcElectrumWsUrl,
+      indexerMode: ds.indexerMode,
+      indexerUrl: ds.indexerUrl,
+      pricesEnabled: ds.pricesEnabled,
+      priceEndpoint: ds.priceEndpoint,
+    });
+  }, []);
 
   // ---- Post-send inline save contact states ----
   const [newContactSendName, setNewContactSendName] = useState("");
@@ -726,6 +748,28 @@ export default function Page() {
     setSendAssetKey(tpl.assetKey);
     setSendAmount(tpl.amount ?? "");
     addToast("info", T("send.template_applied"));
+  };
+
+  const onSaveDataSources = () => {
+    const toList = (s: string) => s.split(/[\n,]/).map((u) => u.trim()).filter((u) => u.length > 0);
+    const next: DataSources = {
+      ethereumRpcUrls: toList(dsForm.ethereumRpcUrls),
+      polygonRpcUrls: toList(dsForm.polygonRpcUrls),
+      arbitrumRpcUrls: toList(dsForm.arbitrumRpcUrls),
+      plasmaRpcUrls: toList(dsForm.plasmaRpcUrls),
+      btcElectrumWsUrl: dsForm.btcElectrumWsUrl.trim(),
+      indexerMode: dsForm.indexerMode,
+      indexerUrl: dsForm.indexerUrl.trim(),
+      pricesEnabled: dsForm.pricesEnabled,
+      priceEndpoint: dsForm.priceEndpoint.trim(),
+    };
+    saveDataSources(next); // validates + drops malformed URLs before persisting
+    // Rebuild the engine with the new chain options; the unlocked session is
+    // discarded, so send the user back through unlock.
+    resetWalletApp();
+    clearSession();
+    setPhase("locked");
+    addToast("success", T("ds.saved_relock"));
   };
 
   // ---- Clipboard with toast ----
@@ -1729,6 +1773,103 @@ export default function Page() {
                 {T("settings.contacts_add")}
               </button>
             )}
+          </Card>
+
+          {/* Data Sources & Privacy */}
+          <Card>
+            <div className="flex items-center gap-2 mb-2">
+              <Globe size={16} className="text-[--color-muted]" />
+              <h2 className="font-medium">{T("ds.title")}</h2>
+            </div>
+            <p className="mb-3 text-xs text-[--color-muted]">{T("ds.intro")}</p>
+
+            <div className="flex flex-col gap-3">
+              {([
+                ["ds.rpc_eth", "ethereumRpcUrls"],
+                ["ds.rpc_polygon", "polygonRpcUrls"],
+                ["ds.rpc_arbitrum", "arbitrumRpcUrls"],
+                ["ds.rpc_plasma", "plasmaRpcUrls"],
+              ] as const).map(([label, key]) => (
+                <label key={key} className="block">
+                  <span className="mb-1 block text-xs text-[--color-muted]">{T(label)}</span>
+                  <textarea
+                    rows={2}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors break-anywhere"
+                    placeholder={T("ds.rpc_ph")}
+                    value={dsForm[key]}
+                    onChange={(e) => setDsForm((f) => ({ ...f, [key]: e.target.value }))}
+                  />
+                </label>
+              ))}
+
+              <label className="block">
+                <span className="mb-1 block text-xs text-[--color-muted]">{T("ds.btc_ws")}</span>
+                <input
+                  type="text"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                  placeholder={T("ds.btc_ws_ph")}
+                  value={dsForm.btcElectrumWsUrl}
+                  onChange={(e) => setDsForm((f) => ({ ...f, btcElectrumWsUrl: e.target.value }))}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs text-[--color-muted]">{T("ds.indexer_mode")}</span>
+                <select
+                  className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                  value={dsForm.indexerMode}
+                  onChange={(e) => setDsForm((f) => ({ ...f, indexerMode: e.target.value as IndexerMode }))}
+                >
+                  <option value="local">{T("ds.indexer_local")}</option>
+                  <option value="indexer">{T("ds.indexer_remote")}</option>
+                </select>
+              </label>
+
+              {dsForm.indexerMode === "indexer" && (
+                <label className="block">
+                  <span className="mb-1 block text-xs text-[--color-muted]">{T("ds.indexer_url")}</span>
+                  <input
+                    type="text"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    placeholder="https://…"
+                    value={dsForm.indexerUrl}
+                    onChange={(e) => setDsForm((f) => ({ ...f, indexerUrl: e.target.value }))}
+                  />
+                </label>
+              )}
+
+              <label className="flex items-center gap-2 text-sm text-white">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-emerald-500"
+                  checked={dsForm.pricesEnabled}
+                  onChange={(e) => setDsForm((f) => ({ ...f, pricesEnabled: e.target.checked }))}
+                />
+                {T("ds.prices_enabled")}
+              </label>
+
+              {dsForm.pricesEnabled && (
+                <label className="block">
+                  <span className="mb-1 block text-xs text-[--color-muted]">{T("ds.price_endpoint")}</span>
+                  <input
+                    type="text"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    placeholder={T("ds.price_endpoint_ph")}
+                    value={dsForm.priceEndpoint}
+                    onChange={(e) => setDsForm((f) => ({ ...f, priceEndpoint: e.target.value }))}
+                  />
+                </label>
+              )}
+
+              <ul className="flex flex-col gap-1 rounded-md border border-[--color-border] bg-[--color-bg] p-3 text-[11px] text-[--color-muted]">
+                <li>· {T("ds.priv_rpc")}</li>
+                <li>· {T("ds.priv_local")}</li>
+                <li>· {T("ds.priv_prices")}</li>
+                <li>· {T("ds.priv_indexer")}</li>
+              </ul>
+
+              <Button onClick={onSaveDataSources}>{T("ds.save")}</Button>
+            </div>
           </Card>
 
           {/* Delete Wallet */}
