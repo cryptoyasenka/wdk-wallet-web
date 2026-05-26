@@ -91,6 +91,9 @@ apps/next/              reference web wallet (the deliverable)
 apps/svelte/            portability proof (Svelte 5 + Vite; pkg svelte-proof)
 docs/
   ARCHITECTURE.md       module boundaries, data flow, ADRs
+  BOUNTY-CHECKLIST.md   reviewer map for the Tether WDK bounty
+  BOUNTY-IMPLEMENTATION-PLAN.md
+                        ordered roadmap for future bounty polish agents
   SECURITY.md           threat model & honest limits
   RN-TO-WEB-MAP.md      every RN platform API → its web replacement
 .github/workflows/ci.yml  lint · typecheck · test · build
@@ -100,15 +103,15 @@ docs/
 
 ```bash
 pnpm install
-pnpm --filter @wdk-web/wallet-core test   # 72 unit tests (vault · engine · chains · worker-protocol · multi-account · multi-wallet)
-pnpm --filter svelte-proof test           # headless portability proof
-pnpm --filter next dev
+corepack pnpm verify                      # lint, typecheck, test, build
+corepack pnpm --filter @wdk-web/wallet-core test   # 76 unit tests
+corepack pnpm --filter next dev
 ```
 
-CI (`.github/workflows/ci.yml`) runs the bar on every push and PR —
+CI (`.github/workflows/ci.yml`) runs the same bar on every push and PR —
 `lint · typecheck · test · build` across **both** apps on a Node 20 + 22
 matrix, plus a committed-secret scan. The same quartet runs locally via
-`corepack pnpm`; the caveat at the top of `ci.yml` explains why a local green
+`corepack pnpm verify`; the caveat at the top of `ci.yml` explains why a local green
 and a CI green mean the same thing. WDK is alpha; package versions are pinned
 (see `docs/ARCHITECTURE.md` → Alpha-churn containment). Never commit `.env*`.
 
