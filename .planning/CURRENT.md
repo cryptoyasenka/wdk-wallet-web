@@ -1,7 +1,7 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-26 23:45
-**Status:** Phase 0/1/2/3 done. Phase 4: tron cleanup + dataSources module done (1/2). Engine/prices/page wiring next (2/2).
+**Last touched:** 2026-05-27 00:25
+**Status:** Phase 0/1/2/3/4 done + pushed (HEAD 3455308). Phase 5 (Watch-Only Mode) in progress.
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
@@ -9,7 +9,7 @@
 - [x] Phase 1: Payment Request QR — Receive Address/Request switch, EIP-681/BIP-21 builders (`paymentRequest.ts`), 14 vitest tests in apps/next, QR+copy. Commit 0be4966.
 - [x] Phase 2: Pre-Send Safety Panel — `safety.ts` (classify recipient, poisoning, official-token) + SafetyPanel in confirmation block + `addressExplorerUrl`; 12 tests. Commit 7d0da81.
 - [x] Phase 3: Address Book v2 — note/favorite/last-used, edit, save-as-template, Send templates row; load hardening. Commits d7a3c75 (data) + 7c2aa30 (UI). 32 apps/next tests.
-- [ ] Phase 4: Data Sources / Privacy Settings (+ audit: disclose/toggle CoinGecko; resolve `tron` dangling ChainId; this card's endpoints = CSP connect-src list)
+- [x] Phase 4: Data Sources / Privacy Settings — dataSources.ts module + 12 tests, engine layering (persisted>env>defaults), CoinGecko gated+disclosed, `tron` ChainId removed everywhere, Settings card w/ 4 privacy labels. Commits 2810a37/15dea6f/283a7a1/3455308. 44 apps/next tests.
 - [ ] Phase 5: Watch-Only Mode
 - [ ] Phase 6: E2E Smoke + SECURITY-REVIEW.md + **correct SECURITY.md** + **ship real CSP**
 
@@ -20,22 +20,24 @@ blind-zones are marked "(Audit 2026-05-26)" inside the relevant phases + a new
 fixes — Yana wants a very strong product, so implement the WHOLE plan.
 
 ## Next step
-Phase 4 (2/2) — wire the dataSources module into the app:
-  - `engine.ts`: in chainOptionsFromEnv (rename → chainOptions), layer persisted
-    overrides from loadDataSources() OVER env OVER public defaults; wire all four
-    EVM rpc lists (ethereum/polygon/arbitrum/plasma) + btcElectrumWsUrl
-    (buildChainRegistry already accepts polygon/arbitrum/plasmaRpcUrls). Add
-    `resetWalletApp()` nulling the `app` singleton so a settings save rebuilds it.
-  - `prices.ts`: gate fetchPrices + fetchSparkline on arePricesEnabled(); use
-    priceBase() instead of the hardcoded host. Return {}/[] immediately when off
-    (NO silent fetch).
-  - `page.tsx`: add a "Data Sources" Card in settings (near Address Book ~1474):
-    inputs for the 4 RPC lists, electrum-ws, indexer mode+url, price toggle+endpoint;
-    privacy labels (public RPC sees queried addresses; local-only = no inbound fetch;
-    price oracle sees IP+static asset set, never addresses; custom indexer changes
-    privacy model). On save → saveDataSources + resetWalletApp + toast + reload view.
-    Add i18n keys (EN+RU). Update BOUNTY-CHECKLIST (+row, test count 44).
-  - `corepack pnpm verify` GREEN → commit → push. Then Phase 5.
+Phase 5 — Watch-Only Mode (plan §341-405). Host-level first, avoid touching seed vault:
+  - NEW `apps/next/src/lib/watchOnly.ts`: pure module. Type WatchedWallet
+    { id, chain: ChainId, address, label?, createdAt }. localStorage key
+    `wdk-watch-wallets`. Helpers: sanitize/load/save/add/remove, isValidEvmAddress.
+    Unit-test it (target ~10 tests; pure, imports only types from wallet-core).
+  - `page.tsx`: onboarding gets a 3rd path "Watch" (Create/Import/Watch). Watch flow:
+    chain selector + address input + optional label → read-only portfolio.
+    Read-only constraints: send disabled w/ copy "Watch-only wallets cannot sign";
+    NO seed quiz / passkey enrollment / Recovery Check; receive can show watched addr;
+    portfolio queries balances. Visually distinct badge but still glass-beautiful.
+  - i18n keys EN+RU (watch.*). Update BOUNTY-CHECKLIST (+row, test count).
+  - `corepack pnpm verify` GREEN → commit → push. Then Phase 6.
+
+Decide before coding: does wallet-core expose a read-only balance path that works
+without a seed/signer? Check engine API — if balances need a wallet instance, the
+host watch-only mode may query the chain registry / RPC directly for balances, or
+add a minimal explicit wallet-core read-only method (plan §382 allows explicit
+methods, NOT overloading seed wallets). Read engine.test.ts + wallet/engine.ts first.
 
 ## Remaining after Phase 3
 - Phase 4: Data Sources/Privacy Settings (+ disclose/toggle CoinGecko in `prices.ts`;
