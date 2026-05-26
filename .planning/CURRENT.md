@@ -1,7 +1,7 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-27 (a11y pass DONE)
-**Status:** Cold review CLOSED + product-depth A11y pass DONE (HEAD 4458dc7, pushed). Yana picked depth = #1 BTC testnet e2e + #3 a11y. A11y done first; BTC e2e NEXT; live Railway deploy LAST. verify green (80+63+13 tests), smoke PASS (6), a11y PASS (0 violations across 8 screens, WCAG 2.0/2.1 A+AA).
+**Last touched:** 2026-05-27 (product depth DONE — a11y + BTC live e2e)
+**Status:** Cold review CLOSED + BOTH product-depth items DONE (HEAD 0d79470, pushed): #3 a11y pass (0 axe violations, 8 screens) + #1 BTC live e2e (real Electrum-WS read, 57.2 BTC). Only LAST phase remains: live Railway deploy. Green: verify (80+63+13), smoke (6), a11y (0 violations), btc:live (PASS).
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
@@ -45,26 +45,33 @@ Fixes to apply (priority order):
   `bg-[--color-bg]`; native control was scored dark-on-dark by axe); added
   `color-scheme: dark` to globals.css. 0 violations across all 8 screens.
   verify + smoke + a11y all green. Commit 4458dc7, pushed.
-- [ ] #1 BTC testnet e2e — NOT started. RESEARCH FIRST (п.5): browsers need
-  Electrum-over-**wss**; most public Electrum servers are raw TCP/SSL (this is
-  why the project uses operator-supplied `NEXT_PUBLIC_BTC_ELECTRUM_WS_URL` +
-  offline fixture). Find a public testnet/signet Electrum-WSS endpoint OR
-  document a local TCP→WS bridge. A balance-read against a funded testnet addr
-  is the automatable proof. Config: engine.ts:50 + chains/index.ts
-  `btcElectrumWsUrl`. If it needs infra/secret, report to Yana rather than thrash.
+- [x] #1 BTC live e2e — DONE (commit 0d79470). New `tools/e2e/btc-live.mjs` +
+  `pnpm btc:live`. Runs the REAL WDK adapter (createWdkAdapter() on Node →
+  WdkCoreAdapter in-process, no Worker) and reads a live on-chain balance over a
+  real Electrum-WS endpoint — the genuine @tetherto transport that FakeWdkAdapter
+  (pnpm test) and BTC-unconfigured smoke never exercised (gap was called out in
+  engine.test.ts bitcoin block). Outside the workspace → vitest never collects it,
+  verify stays offline; opt-in only. Default = genesis coinbase on mainnet over
+  Blockstream `wss://blockstream.info/electrum-websocket/api`, assert ≥ 50 BTC
+  (genesis balance only grows → never flakes). Env-overridable
+  (BTC_LIVE_WS_URL/NETWORK/ADDRESS/MIN_SATS) for testnet/signet. Verified live:
+  read 57.2 BTC, PASS. NOTE for Yana: she said "testnet"; I used mainnet-genesis
+  read-only as a STRONGER proof (same network the product ships, immutable
+  balance, zero risk) — testnet endpoint plugs into the same harness via env.
 
 ## Next step
-Start #1 BTC testnet e2e: WebSearch for a public **testnet/signet Electrum-over-WSS**
-endpoint (e.g. blockstream/mempool electrs ws, or a known wss proxy). If one exists,
-wire a network-gated e2e (skipped without the env var, like smoke leaves BTC
-unconfigured) that does a real balance read against a funded testnet address. If no
-public wss endpoint exists, document the local bridge option and report to Yana.
-THEN LAST = "Живой деплой" on Railway (NOT Vercel — see MEMORY feedback_avoid_vercel).
+BOTH product-depth items DONE (#1 BTC live e2e + #3 a11y). LAST PHASE = "Живой
+деплой" on **Railway** (NOT Vercel — MEMORY feedback_avoid_vercel). Next.js 15
+standalone; needs: Railway project, build (`corepack pnpm --filter @wdk-web/wallet-core build`
+then `next build` in apps/next), start (`next start`), and the env var
+`NEXT_PUBLIC_ETHEREUM_RPC_URLS` (+ optional `NEXT_PUBLIC_BTC_ELECTRUM_WS_URL`).
+Run `/cso` before exposing publicly (п.4). Confirm with Yana before first deploy.
 
-Final green this session (HEAD 4458dc7):
+Final green this session (HEAD 0d79470):
   - `corepack pnpm verify`: lint+typecheck+build OK, 80 (wallet-core) + 63 (next) + 13 (svelte) tests.
   - `corepack pnpm smoke`: PASS under live nonce CSP, 6 assertions (zero blocking CSP violations).
   - `corepack pnpm a11y`: PASS, 0 violations across 8 screens (WCAG 2.0/2.1 A+AA, threshold serious).
+  - `corepack pnpm btc:live`: PASS, live Blockstream read 57.2 BTC ≥ 50 BTC floor.
 
 ## CSP rework note (important for any future toucher)
 The first CSP attempt (static header in next.config) was WRONG — `script-src 'self'`
