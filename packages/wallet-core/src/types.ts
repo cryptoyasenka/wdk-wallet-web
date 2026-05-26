@@ -149,6 +149,9 @@ export interface WalletEngine {
 
   quoteSend(intent: TxIntent): Promise<FeeQuote>;
   send(intent: TxIntent): Promise<TxResult>;
+
+  /** Add a passkey-encrypted vault slot while keeping the passphrase slot intact. */
+  reencrypt(newKey: CryptoKey): Promise<void>;
 }
 
 export type CreateWalletEngine = (deps: WalletEngineDeps) => WalletEngine;

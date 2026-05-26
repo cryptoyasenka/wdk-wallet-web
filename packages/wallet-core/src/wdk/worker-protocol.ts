@@ -35,6 +35,7 @@ export type WorkerRequest =
   | { id: number; kind: "signer.deriveAddress"; handle: number; chain: ChainId; index: number }
   | { id: number; kind: "signer.quoteSend"; handle: number; intent: TxIntent; accountIndex: number }
   | { id: number; kind: "signer.send"; handle: number; intent: TxIntent; accountIndex: number }
+  | { id: number; kind: "signer.reencrypt"; handle: number; key: CryptoKey }
   | { id: number; kind: "signer.dispose"; handle: number }
   | { id: number; kind: "createBalanceReader"; chains: ChainRegistry }
   | { id: number; kind: "reader.getNativeBalance"; handle: number; chain: ChainId; address: string }

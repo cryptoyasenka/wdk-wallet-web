@@ -62,6 +62,8 @@ export interface WdkSigner {
    * resolves once accepted by the network.
    */
   send(intent: TxIntent, accountIndex: number): Promise<TxResult>;
+  /** Re-encrypt the underlying seed phrase under a new key. */
+  reencrypt(newKey: CryptoKey): Promise<Uint8Array>;
   /** Zeroise the seed + WDK manager. Async for the worker-backed proxy. */
   dispose(): void | Promise<void>;
 }

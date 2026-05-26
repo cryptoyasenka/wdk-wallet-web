@@ -54,6 +54,8 @@ async function handle(req: WorkerRequest): Promise<unknown> {
       return { feeQuote: await signer(req.handle).quoteSend(req.intent, req.accountIndex) };
     case "signer.send":
       return { txResult: await signer(req.handle).send(req.intent, req.accountIndex) };
+    case "signer.reencrypt":
+      return { sealed: await signer(req.handle).reencrypt(req.key) };
     case "signer.dispose": {
       await signer(req.handle).dispose();
       signers.delete(req.handle);

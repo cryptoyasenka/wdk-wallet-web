@@ -22,7 +22,7 @@ import type {
   WdkBalanceReader,
   WdkSigner,
 } from "../src/wdk/types.js";
-import { deriveAesGcmKey, openSeed } from "../src/secrets/index.js";
+import { deriveAesGcmKey, openSeed, sealSeed } from "../src/secrets/index.js";
 import { BTC_NATIVE, ETH_NATIVE } from "../src/chains/index.js";
 
 type TxStatus = "pending" | "confirmed" | "failed";
@@ -115,6 +115,10 @@ class FakeSigner implements WdkSigner {
       `${this.seedPhrase}|${intent.asset.chain}|${accountIndex}|${intent.to}|${intent.amount}`,
     )}`;
     return { hash, chain: intent.asset.chain };
+  }
+  async reencrypt(newKey: CryptoKey): Promise<Uint8Array> {
+    if (this.disposed) throw new Error("signer disposed");
+    return sealSeed(this.seedPhrase, newKey);
   }
   dispose(): void {
     this.disposed = true;

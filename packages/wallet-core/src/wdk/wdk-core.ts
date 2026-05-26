@@ -23,7 +23,7 @@ import WalletManagerBtc, { WalletAccountReadOnlyBtc } from "@tetherto/wdk-wallet
 import type { ChainId, FeeQuote, TxIntent, TxResult } from "../types.js";
 import { UnsupportedAssetError, UnsupportedChainError } from "../errors.js";
 import { BTC_NATIVE, ETH_NATIVE, POL_NATIVE, XPL_NATIVE } from "../chains/index.js";
-import { openSeed } from "../secrets/index.js";
+import { openSeed, sealSeed } from "../secrets/index.js";
 import type {
   BtcChainConfig,
   ChainRegistry,
@@ -102,9 +102,11 @@ function registerAll(wdk: WDK, chains: ChainRegistry): void {
 class WdkSignerImpl implements WdkSigner {
   readonly #wdk: WDK;
   readonly #chains: ChainRegistry;
+  readonly #seedPhrase: string;
 
   constructor(seedPhrase: string, chains: ChainRegistry) {
     this.#chains = chains;
+    this.#seedPhrase = seedPhrase;
     this.#wdk = new WDK(seedPhrase);
     registerAll(this.#wdk, chains);
   }
@@ -142,6 +144,10 @@ class WdkSignerImpl implements WdkSigner {
         })
       : await account.sendTransaction({ to: intent.to, value: intent.amount });
     return { hash, chain: intent.asset.chain };
+  }
+
+  async reencrypt(newKey: CryptoKey): Promise<Uint8Array> {
+    return sealSeed(this.#seedPhrase, newKey);
   }
 
   dispose(): void {

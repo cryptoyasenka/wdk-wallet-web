@@ -130,6 +130,16 @@ class WorkerSigner implements WdkSigner {
     return txResult;
   }
 
+  async reencrypt(newKey: CryptoKey): Promise<Uint8Array> {
+    const { sealed } = await this.#a.rpc<{ sealed: Uint8Array }>((id) => ({
+      id,
+      kind: "signer.reencrypt",
+      handle: this.#h,
+      key: newKey,
+    }));
+    return sealed;
+  }
+
   async dispose(): Promise<void> {
     await this.#a.rpc((id) => ({ id, kind: "signer.dispose", handle: this.#h }));
   }

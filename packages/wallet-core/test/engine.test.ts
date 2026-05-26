@@ -15,7 +15,7 @@ import {
   WalletExistsError,
   WalletLockedError,
 } from "../src/errors.js";
-import type { WalletEngine, WalletEngineDeps } from "../src/types.js";
+import type { ActivityItem, WalletEngine, WalletEngineDeps } from "../src/types.js";
 import type { ChainRegistry, WdkBalanceReader } from "../src/wdk/types.js";
 import { FakeWdkAdapter, MemoryStorage, PassphraseUnlock, SpyCryptoWorker } from "./fakes.js";
 
@@ -114,6 +114,39 @@ describe("wallet engine — lifecycle", () => {
       makeDeps(storage, "WRONG passphrase").deps,
     );
     await expect(wrong.unlock()).rejects.toBeInstanceOf(VaultDecryptError);
+  });
+
+  it("adds a passkey vault slot without breaking passphrase unlock", async () => {
+    await engine.createWallet();
+    await engine.unlock();
+    const passphraseAddress = await engine.getAddress("ethereum");
+    const passkeyKey = await new PassphraseUnlock("passkey credential").unlock();
+
+    await engine.reencrypt(passkeyKey);
+    await engine.lock();
+
+    await storage.set(
+      "wdk:unlock:active-vault:v1",
+      new TextEncoder().encode("webauthn"),
+    );
+    const passkeyEngine = createWalletEngineWithAdapter(
+      new FakeWdkAdapter(),
+      makeDeps(storage, "passkey credential").deps,
+    );
+    await passkeyEngine.unlock();
+    expect(await passkeyEngine.getAddress("ethereum")).toBe(passphraseAddress);
+    await passkeyEngine.lock();
+
+    await storage.set(
+      "wdk:unlock:active-vault:v1",
+      new TextEncoder().encode("passphrase"),
+    );
+    const reopened = createWalletEngineWithAdapter(
+      new FakeWdkAdapter(),
+      makeDeps(storage).deps,
+    );
+    await reopened.unlock();
+    expect(await reopened.getAddress("ethereum")).toBe(passphraseAddress);
   });
 });
 
@@ -258,6 +291,72 @@ describe("wallet engine — send / quote / activity (Phase 2)", () => {
     await expect(
       fresh.send({ asset: USDT, to: "0xrecipient", amount: 1n }),
     ).rejects.toBeInstanceOf(WalletLockedError);
+  });
+
+  it("keeps activity local-only unless a host injects a history provider", async () => {
+    await engine.send({ asset: USDT, to: "0xrecipient", amount: 1n });
+    const activity = await engine.getActivity();
+
+    expect(activity).toHaveLength(1);
+    expect(activity[0]?.direction).toBe("out");
+  });
+
+  it("merges injected history, preferring indexed chain state over local sends", async () => {
+    const local = await engine.send({ asset: USDT, to: "0xrecipient", amount: 1n });
+    const indexedSame: ActivityItem = {
+      hash: local.hash,
+      asset: USDT,
+      amount: 1n,
+      direction: "out",
+      timestamp: Date.now() + 1000,
+      status: "confirmed",
+    };
+    const indexedInbound: ActivityItem = {
+      hash: "0xinbound",
+      asset: USDT,
+      amount: 9n,
+      direction: "in",
+      timestamp: Date.now() + 2000,
+      status: "confirmed",
+    };
+
+    const withHistory = createWalletEngineWithAdapter(
+      new FakeWdkAdapter({ txStatus }),
+      makeDeps(storage).deps,
+      {
+        historyProvider: {
+          async getTransactionHistory() {
+            return [indexedSame, indexedInbound];
+          },
+        },
+      },
+    );
+    await withHistory.unlock();
+
+    const activity = await withHistory.getActivity();
+    expect(activity).toHaveLength(2);
+    expect(activity.map((item) => item.hash)).toEqual(["0xinbound", local.hash]);
+    expect(activity.find((item) => item.hash === local.hash)?.status).toBe("confirmed");
+  });
+
+  it("keeps local activity when an injected history provider fails", async () => {
+    const local = await engine.send({ asset: USDT, to: "0xrecipient", amount: 1n });
+    const withFailingHistory = createWalletEngineWithAdapter(
+      new FakeWdkAdapter({ txStatus }),
+      makeDeps(storage).deps,
+      {
+        historyProvider: {
+          async getTransactionHistory() {
+            throw new Error("indexer down");
+          },
+        },
+      },
+    );
+    await withFailingHistory.unlock();
+
+    const activity = await withFailingHistory.getActivity();
+    expect(activity).toHaveLength(1);
+    expect(activity[0]?.hash).toBe(local.hash);
   });
 });
 

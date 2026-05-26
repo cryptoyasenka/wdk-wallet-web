@@ -63,10 +63,19 @@ import {
 export interface WalletEngineConfig {
   readonly chains?: ChainRegistry;
   readonly assets?: readonly Asset[];
+  readonly historyProvider?: {
+    getTransactionHistory(
+      chain: ChainId,
+      address: string,
+      tokenAddress?: string,
+    ): Promise<readonly ActivityItem[]>;
+  };
 }
 
 /** Storage key for the sealed seed blob. Versioned so a format bump is a key bump. */
 const VAULT_KEY = "wdk:vault:v1";
+const ACTIVE_VAULT_CREDENTIAL_KEY = "wdk:unlock:active-vault:v1";
+const PASSKEY_VAULT_SUFFIX = ":webauthn";
 
 /**
  * Storage key for the active HD account index. Plaintext decimal — this is a
@@ -97,8 +106,20 @@ function walletSuffix(walletIndex: number): string {
 function vaultKey(walletIndex: number): string {
   return `${VAULT_KEY}${walletSuffix(walletIndex)}`;
 }
+function passkeyVaultKey(walletIndex: number): string {
+  return `${vaultKey(walletIndex)}${PASSKEY_VAULT_SUFFIX}`;
+}
+function activeVaultCredentialKey(walletIndex: number): string {
+  return `${ACTIVE_VAULT_CREDENTIAL_KEY}${walletSuffix(walletIndex)}`;
+}
 function activeAccountKey(walletIndex: number): string {
   return `${ACTIVE_ACCOUNT_KEY}${walletSuffix(walletIndex)}`;
+}
+
+async function activeVaultKey(storage: StorageAdapter, walletIndex: number): Promise<string> {
+  const raw = await storage.get(activeVaultCredentialKey(walletIndex));
+  const credential = raw === null ? "passphrase" : new TextDecoder().decode(raw);
+  return credential === "webauthn" ? passkeyVaultKey(walletIndex) : vaultKey(walletIndex);
 }
 
 /** Read a plaintext-decimal non-negative integer at `key`; absent/bad ⇒ `fallback`. */
@@ -274,10 +295,12 @@ function buildEngine(
 
     async unlock(): Promise<void> {
       if (signer && balanceReader) return; // idempotent
-      const blob = await deps.storage.get(vaultKey(await currentWallet()));
-      if (blob === null) throw new NoWalletError();
+      const w = await currentWallet();
+      if ((await deps.storage.get(vaultKey(w))) === null) throw new NoWalletError();
       const adapter = await adapterReady();
       const key = await deps.unlock.unlock();
+      const blob = await deps.storage.get(await activeVaultKey(deps.storage, w));
+      if (blob === null) throw new NoWalletError();
       // The adapter decrypts the sealed vault itself — worker-side for the
       // real impl (ADR-004), so the plaintext seed never materialises on this
       // thread. Only the opaque blob + the non-extractable CryptoKey handle
@@ -348,9 +371,8 @@ function buildEngine(
       const w = await currentWallet();
       const acct = await currentAccount();
       const items = await readLog(deps.storage, w, acct);
-      // Refresh pending entries only when unlocked (the seedless reader is
-      // built at unlock). Locked → return last-known statuses, never guessed;
-      // a flaky RPC on one entry must not fail the whole activity read.
+      
+      // Refresh pending entries from receipt status when unlocked.
       if (balanceReader) {
         const r = balanceReader;
         let changed = false;
@@ -370,16 +392,66 @@ function buildEngine(
         );
         if (changed) await writeLog(deps.storage, items, w, acct);
       }
+
+      let mergedItems: ActivityItem[] = [...items];
+      if (balanceReader && signer && config?.historyProvider) {
+        const s = signer;
+        const historyProvider = config.historyProvider;
+        const indexerItems: ActivityItem[] = [];
+
+        await Promise.all(
+          assets.map(async (ast) => {
+            if (!chains[ast.chain]) return;
+            try {
+              const address = await s.deriveAddress(ast.chain, acct);
+              const txs = await historyProvider.getTransactionHistory(
+                ast.chain,
+                address,
+                ast.token,
+              );
+              indexerItems.push(...txs);
+            } catch {
+              // ignore fetch failure for a specific chain
+            }
+          }),
+        );
+
+        const seen = new Set<string>();
+        const merged: ActivityItem[] = [];
+        const itemKey = (item: ActivityItem) =>
+          `${item.asset.chain}:${item.hash.toLowerCase()}`;
+
+        // Prefer indexer items (actual on-chain state)
+        for (const it of indexerItems) {
+          const key = itemKey(it);
+          if (!seen.has(key)) {
+            seen.add(key);
+            merged.push(it);
+          }
+        }
+
+        // Merge local sends not yet shown in indexer (e.g. pending ones)
+        for (const it of items) {
+          const key = itemKey(it);
+          if (!seen.has(key)) {
+            seen.add(key);
+            merged.push(it);
+          }
+        }
+        mergedItems = merged;
+      }
+
       const filtered =
         asset === undefined
-          ? items
-          : items.filter(
+          ? mergedItems
+          : mergedItems.filter(
               (it) =>
                 it.asset.symbol === asset.symbol &&
                 it.asset.chain === asset.chain &&
                 it.asset.token === asset.token,
             );
-      // Newest first; project to the frozen public shape (drop internal `from`).
+
+      // Newest first; project to the public shape.
       return filtered
         .slice()
         .sort((a, b) => b.timestamp - a.timestamp)
@@ -464,6 +536,12 @@ function buildEngine(
       await saveActiveWallet(deps.storage, newIndex);
       selectWallet(newIndex);
       return newIndex;
+    },
+
+    async reencrypt(newKey: CryptoKey): Promise<void> {
+      const { signer: s } = ensureUnlocked();
+      const blob = await s.reencrypt(newKey);
+      await deps.storage.set(passkeyVaultKey(await currentWallet()), blob);
     },
   };
 }
