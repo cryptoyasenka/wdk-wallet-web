@@ -95,6 +95,7 @@ docs/
   BOUNTY-IMPLEMENTATION-PLAN.md
                         ordered roadmap for future bounty polish agents
   SECURITY.md           threat model & honest limits
+  SECURITY-REVIEW.md    structured review: CSP rationale, secrets lifecycle, audit advisory
   RN-TO-WEB-MAP.md      every RN platform API → its web replacement
 .github/workflows/ci.yml  lint · typecheck · test · build
 ```
@@ -103,10 +104,16 @@ docs/
 
 ```bash
 pnpm install
-corepack pnpm verify                      # lint, typecheck, test, build
-corepack pnpm --filter @wdk-web/wallet-core test   # 76 unit tests
+corepack pnpm verify                      # lint, typecheck, test, build (all 3 packages)
+corepack pnpm smoke                       # E2E: create → seed quiz → portfolio → receive a11y → Recovery Check
+corepack pnpm demo                        # records docs/demo.gif (one-time: playwright install chromium)
+corepack pnpm audit --audit-level moderate  # one accepted low advisory (docs/SECURITY-REVIEW.md §7)
 corepack pnpm --filter next dev
 ```
+
+`corepack pnpm smoke` builds the production app, serves it on a free port, and
+drives a real browser through the reviewer walkthrough under the live strict
+CSP — a passing run is also proof of zero CSP violations.
 
 CI (`.github/workflows/ci.yml`) runs the same bar on every push and PR —
 `lint · typecheck · test · build` across **both** apps on a Node 20 + 22

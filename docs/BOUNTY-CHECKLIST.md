@@ -7,8 +7,10 @@ and how to verify it locally.
 
 ```bash
 corepack pnpm install
-corepack pnpm verify
-corepack pnpm demo
+corepack pnpm verify                          # lint · typecheck · test · build (all 3 packages)
+corepack pnpm smoke                            # E2E walkthrough under the live CSP (see below)
+corepack pnpm demo                             # records docs/demo.gif
+corepack pnpm audit --audit-level moderate     # one accepted low advisory
 ```
 
 Current local bar:
@@ -26,6 +28,13 @@ Current local bar:
   not the main First Load path.
 - `corepack pnpm demo` records `docs/demo.gif` against the production Next build
   and the offline Electrum-WS fixture.
+- `corepack pnpm smoke` (`tools/e2e/smoke.mjs`) builds + serves the production
+  app and drives a real browser through create → seed quiz → portfolio → receive
+  copy accessible name → Recovery Check, under the live strict CSP — a passing
+  run also proves zero CSP violations.
+- A strict, per-request-nonce **Content-Security-Policy** ships from
+  `apps/next/middleware.ts`; every directive is justified in
+  `docs/SECURITY-REVIEW.md` → "CSP".
 
 ## Bounty Requirements
 

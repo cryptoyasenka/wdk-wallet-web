@@ -65,12 +65,13 @@ state the real model and its limits rather than imply parity.
   worker-isolated; see ARCHITECTURE.md → ADR-004 for the precise boundary.
 - **Supply chain.** A malicious dependency on the page can exfiltrate. Mitigations:
   pinned/locked deps, no remote code, audited lockfile in CI, and a strict
-  Content-Security-Policy shipped as a real response header (`script-src 'self'`,
-  no inline/eval scripts, `connect-src` pinned to the wallet's RPC/price/Electrum
-  endpoints, `object-src 'none'`, `frame-ancestors 'none'` — see
-  `apps/next/next.config.mjs` and the CSP section of `docs/SECURITY-REVIEW.md`).
-  The CSP is static (build-time), so a user-supplied *custom* RPC origin set at
-  runtime is not in the allow-list — an honest limit documented in the review.
+  Content-Security-Policy shipped as a real response header with a strict,
+  per-request-nonce `script-src` (`'self' 'nonce-…' 'strict-dynamic'` — no
+  inline/eval scripts), `connect-src` pinned to the wallet's RPC/price/Electrum
+  endpoints, `object-src 'none'`, `frame-ancestors 'none'` (see
+  `apps/next/middleware.ts` and the CSP section of `docs/SECURITY-REVIEW.md`).
+  The allow-list is fixed at deploy time, so a user-supplied *custom* RPC origin
+  set at runtime is not in it — an honest limit documented in the review.
 
 ## Hard rules enforced in this repo
 
