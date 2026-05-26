@@ -49,7 +49,7 @@ running BTC wallet.
 
 **Verified empirically:** `corepack pnpm verify` is green in both apps; the BTC crypto graph
 lands in the code-split WDK worker chunk, off the main thread (no `@tetherto/*`
-in First Load). Current First Load: Next ≈ 223 kB, Svelte main ≈ 226 kB — the
+in First Load). Current First Load: Next ≈ 232 kB, Svelte main ≈ 226 kB — the
 post-P1 growth is the app-side QR codec (`qrcode-generator` + `jsqr`), not WDK.
 
 **Portable as-is (copied, not rewritten):** WDK provider/orchestration layer,

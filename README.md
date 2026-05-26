@@ -8,7 +8,7 @@ which Tether ships **only for React Native**.
 
 **Bitcoin and USD₮ both work, on the web, client-side.** Create or import a
 seed, unlock with a passkey or passphrase, then send and receive real BTC and
-USD₮ (plus ETH / XAUT). Key material never leaves the browser, the WDK signer
+USD₮ (plus XAUT). Key material never leaves the browser, the WDK signer
 runs in a dedicated Web Worker, and there is nothing custodial in between.
 
 ![Wallet demo: create → back up seed → portfolio (BTC + USD₮) → receive (real client-derived addresses)](docs/demo.gif)
@@ -26,7 +26,8 @@ pnpm install
 pnpm --filter next dev          # → http://localhost:3000
 ```
 
-That boots the full wallet on Ethereum (ETH + USD₮ / XAUT) with zero config. To
+That boots the full wallet on Ethereum (USD₮ + XAUT, with ETH only as the gas
+token) with zero config. To
 enable Bitcoin, point it at an Electrum-over-WebSocket endpoint:
 
 ```bash

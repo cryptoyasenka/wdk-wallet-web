@@ -49,6 +49,14 @@ delete:  IndexedDB record removed; no localStorage.clear() of unrelated host dat
   browser wallet avoids this; the RN starter has the identical property.
 - **Vault decryption runs in the worker** — the AES-GCM key crosses as a
   non-extractable, structured-cloneable `CryptoKey` handle, never as raw bytes.
+- **What "zeroise" can and cannot cover (honest limit):** the binary key
+  buffers (`Uint8Array`) are wiped in place via libsodium's `sodium_memzero`.
+  The seed *phrase* itself, though, is a JS `string` — immutable, so it can only
+  be dropped for garbage collection, never overwritten in place. We minimise its
+  lifetime (decrypt → bind straight into the WDK manager → drop the local
+  reference and the signer's copy on `dispose()`) rather than claiming a wipe the
+  platform cannot deliver. This is a property of every JS wallet, RN starter
+  included; we state it instead of implying the string is scrubbed.
 
 ## 3. Passphrase / passkey design
 
@@ -112,7 +120,7 @@ rendering so the nonce reaches Next's inline bootstrap scripts.
 | `style-src` | `'self' 'unsafe-inline'` | Next/Tailwind inject inline `<style>`. Inline *style* is not a script-execution vector the way inline script is; nonce-ing every style block is not worth the breakage. |
 | `img-src` | `'self' blob: data:` | App icons/QR; `data:`/`blob:` for client-generated images. |
 | `font-src` | `'self'` | Self-hosted Outfit font. |
-| `connect-src` | `'self'` + default RPC origins + `https://api.coingecko.com` + `NEXT_PUBLIC_*` env origins + `wss:` | Pins network egress. RPC origins mirror `chains/index.ts` public lists. CoinGecko is the disclosed price oracle. `wss:` is allowed wholesale because the Electrum endpoint is always operator-supplied (no public default to pin). |
+| `connect-src` | `'self'` + default RPC origins + `https://api.coingecko.com` + `NEXT_PUBLIC_ETHEREUM_RPC_URLS` origins + `wss:` | Pins network egress. RPC origins mirror `chains/index.ts` public lists; the only deploy-env origin folded in is `NEXT_PUBLIC_ETHEREUM_RPC_URLS` (the same var `engine.ts` reads — `middleware.ts` parses it into this list). CoinGecko is the disclosed price oracle. `wss:` is allowed wholesale because the Electrum endpoint is always operator-supplied (no public default to pin). |
 | `worker-src` | `'self' blob:` | The WDK crypto worker is spawned from a bundler URL/blob. |
 | `object-src` | `'none'` | No plugins/embeds. |
 | `base-uri` | `'self'` | Blocks `<base>` tag hijacking of relative URLs. |
@@ -134,6 +142,14 @@ that fetch is CSP-blocked. The shipped defaults + `NEXT_PUBLIC_*` deploy env
 cover the out-of-the-box configuration; a self-hoster who needs a custom origin
 adds it to their own deployment's CSP. We accept this trade-off rather than widen
 `connect-src` to `https:` (which would gut the egress pin).
+
+**Scope — `apps/next` only.** This CSP and the static headers above ship from the
+Next app, which is the deployable surface. `apps/svelte` is the portability proof
+(ADR-005): a Vite SPA that exercises the same wallet-core engine to show the seam
+is framework-agnostic, and it ships **without** these headers. It is not a
+hardened deploy target — if a Svelte build were ever shipped to users, its host
+would have to supply an equivalent nonce-CSP and header set. We say so rather than
+let the Svelte app imply parity it does not carry.
 
 ## 7. Residual audit advisory
 
