@@ -47,6 +47,18 @@ function nonEmptyString(v: unknown): v is string {
 }
 
 /**
+ * Address identity for matching the same payee. EVM addresses are
+ * case-insensitive, BTC addresses are not — this mirrors `addressesEqual` in
+ * safety.ts so the address book stays in sync with recipient classification.
+ * Without this, a send to `0xabc…` would not stamp a contact saved as `0xABC…`,
+ * silently breaking the last-used / recent-sort feature.
+ */
+function sameAddress(a: string, b: string, chain: string): boolean {
+  if (chain === "bitcoin") return a.trim() === b.trim();
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
  * Validate + coerce one untrusted record into a Contact, or null if it lacks
  * the required name/address/chain strings. Optional fields are kept only when
  * well-typed, so a partially-corrupt row degrades instead of breaking.
@@ -120,7 +132,7 @@ function saveContacts(contacts: Contact[]): void {
 
 export function addContact(contact: Contact): Contact[] {
   const contacts = sanitizeContacts(parse(CONTACTS_KEY));
-  const exists = contacts.some((c) => c.address === contact.address && c.chain === contact.chain);
+  const exists = contacts.some((c) => c.chain === contact.chain && sameAddress(c.address, contact.address, contact.chain));
   if (!exists) contacts.push({ createdAt: Date.now(), ...contact });
   saveContacts(contacts);
   return sortContacts(contacts);
@@ -128,7 +140,7 @@ export function addContact(contact: Contact): Contact[] {
 
 export function removeContact(address: string, chain: string): Contact[] {
   const contacts = sanitizeContacts(parse(CONTACTS_KEY)).filter(
-    (c) => !(c.address === address && c.chain === chain),
+    (c) => !(c.chain === chain && sameAddress(c.address, address, chain)),
   );
   saveContacts(contacts);
   return sortContacts(contacts);
@@ -137,7 +149,7 @@ export function removeContact(address: string, chain: string): Contact[] {
 /** Merge a partial patch into a matching contact (e.g. note/favorite edits). */
 export function updateContact(address: string, chain: string, patch: Partial<Contact>): Contact[] {
   const contacts = sanitizeContacts(parse(CONTACTS_KEY)).map((c) =>
-    c.address === address && c.chain === chain ? { ...c, ...patch } : c,
+    c.chain === chain && sameAddress(c.address, address, chain) ? { ...c, ...patch } : c,
   );
   saveContacts(contacts);
   return sortContacts(contacts);
