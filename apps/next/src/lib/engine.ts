@@ -70,7 +70,7 @@ export function getWalletApp(): WalletApp {
   app = {
     engine,
     setPassphrase: (passphrase: string) => unlock.setPassphrase(passphrase),
-    enrollPasskey: () => unlock.enrollPasskey(),
+    enrollPasskey: () => unlock.enrollPasskey(engine),
   };
   return app;
 }

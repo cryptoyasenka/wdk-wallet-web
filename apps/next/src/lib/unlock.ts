@@ -27,11 +27,32 @@ import type { StorageAdapter, UnlockProvider } from "@wdk-web/wallet-core";
 
 /** Versioned, distinct from wallet-core's `wdk:vault:v1` seed-blob key. */
 const UNLOCK_SALT_KEY = "wdk:unlock:salt:v1";
+const ACTIVE_VAULT_CREDENTIAL_KEY = "wdk:unlock:active-vault:v1";
 
 export class PassphraseUnlock implements UnlockProvider {
   #passphrase: string | null = null;
 
   constructor(private readonly storage: StorageAdapter) {}
+
+  async #key(): Promise<string> {
+    let walletIndex = 0;
+    try {
+      const bytes = await this.storage.get("wdk:active-wallet:v1");
+      if (bytes !== null) {
+        const n = Number.parseInt(new TextDecoder().decode(bytes), 10);
+        if (Number.isSafeInteger(n) && n >= 0) walletIndex = n;
+      }
+    } catch {
+      // fallback to wallet 0
+    }
+    const suffix = walletIndex === 0 ? "" : `:w${walletIndex}`;
+    return `${UNLOCK_SALT_KEY}${suffix}`;
+  }
+
+  async #activeVaultCredentialKey(): Promise<string> {
+    const key = await this.#key();
+    return key.replace(UNLOCK_SALT_KEY, ACTIVE_VAULT_CREDENTIAL_KEY);
+  }
 
   /** Set (or clear) the session passphrase. Call before an unlock-triggering op. */
   setPassphrase(passphrase: string | null): void {
@@ -39,18 +60,24 @@ export class PassphraseUnlock implements UnlockProvider {
   }
 
   async isEnrolled(): Promise<boolean> {
-    return (await this.storage.get(UNLOCK_SALT_KEY)) !== null;
+    const key = await this.#key();
+    return (await this.storage.get(key)) !== null;
   }
 
   async unlock(): Promise<CryptoKey> {
     if (!this.#passphrase) {
       throw new Error("no passphrase set; call setPassphrase() before unlocking");
     }
-    let salt = await this.storage.get(UNLOCK_SALT_KEY);
+    const key = await this.#key();
+    let salt = await this.storage.get(key);
     if (salt === null) {
       salt = generateSalt();
-      await this.storage.set(UNLOCK_SALT_KEY, salt);
+      await this.storage.set(key, salt);
     }
+    await this.storage.set(
+      await this.#activeVaultCredentialKey(),
+      new TextEncoder().encode("passphrase"),
+    );
     return deriveAesGcmKey(this.#passphrase, salt);
   }
 }

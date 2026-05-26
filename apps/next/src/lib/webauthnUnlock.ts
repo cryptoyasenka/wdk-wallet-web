@@ -41,11 +41,12 @@
  * the selection/fallback wiring here is covered by typecheck + lint + build.
  */
 import { deriveAesGcmKeyFromEntropy } from "@wdk-web/wallet-core";
-import type { StorageAdapter, UnlockProvider } from "@wdk-web/wallet-core";
+import type { StorageAdapter, UnlockProvider, WalletEngine } from "@wdk-web/wallet-core";
 import { PassphraseUnlock } from "./unlock";
 
 /** Versioned, distinct from the passphrase salt key and the vault blob key. */
 const WEBAUTHN_KEY = "wdk:unlock:webauthn:v1";
+const ACTIVE_VAULT_CREDENTIAL_KEY = "wdk:unlock:active-vault:v1";
 
 /** HKDF info label — domain-separates the WebAuthn path from any other use. */
 const HKDF_INFO = "wdk-web/unlock/webauthn-prf/v1";
@@ -159,8 +160,29 @@ function prfResultToBytes(first: BufferSource): Uint8Array {
 export class WebAuthnUnlock implements UnlockProvider {
   constructor(private readonly storage: StorageAdapter) {}
 
+  async #key(): Promise<string> {
+    let walletIndex = 0;
+    try {
+      const bytes = await this.storage.get("wdk:active-wallet:v1");
+      if (bytes !== null) {
+        const n = Number.parseInt(new TextDecoder().decode(bytes), 10);
+        if (Number.isSafeInteger(n) && n >= 0) walletIndex = n;
+      }
+    } catch {
+      // fallback to wallet 0
+    }
+    const suffix = walletIndex === 0 ? "" : `:w${walletIndex}`;
+    return `${WEBAUTHN_KEY}${suffix}`;
+  }
+
+  async #activeVaultCredentialKey(): Promise<string> {
+    const key = await this.#key();
+    return key.replace(WEBAUTHN_KEY, ACTIVE_VAULT_CREDENTIAL_KEY);
+  }
+
   async #readRecord(): Promise<EnrollmentRecord | null> {
-    const raw = await this.storage.get(WEBAUTHN_KEY);
+    const key = await this.#key();
+    const raw = await this.storage.get(key);
     if (raw === null) return null;
     try {
       const parsed: unknown = JSON.parse(new TextDecoder().decode(raw));
@@ -185,12 +207,12 @@ export class WebAuthnUnlock implements UnlockProvider {
   }
 
   /**
-   * Create a passkey requesting the PRF extension and persist its public
-   * handle + app salt. Not part of `UnlockProvider` — the UI calls this to
-   * opt in. Throws (and persists nothing) if the authenticator reports PRF is
+   * Create a passkey requesting the PRF extension, derive the new wrapping key,
+   * add a passkey-encrypted vault slot, and persist its public handle + app salt.
+   * Throws (and persists nothing) if the authenticator reports PRF is
    * unavailable, so the passphrase path stays the honest selection.
    */
-  async enroll(): Promise<void> {
+  async enroll(engine?: WalletEngine): Promise<void> {
     if (!isWebAuthnSupported()) {
       throw new WebAuthnUnavailableError("WebAuthn is not available in this browser");
     }
@@ -217,11 +239,52 @@ export class WebAuthnUnlock implements UnlockProvider {
         "the created passkey does not support the PRF extension; use the passphrase",
       );
     }
+
+    // Retrieve PRF outputs (might be present directly on creation, or we run a quick assertion)
+    let prfResult = (cred.getClientExtensionResults() as PrfClientOutputs).prf?.results?.first;
+    if (!prfResult) {
+      const publicKeyReq: PublicKeyCredentialRequestOptions = {
+        challenge: randomBytes(32),
+        rpId: rpId(),
+        allowCredentials: [
+          { type: "public-key", id: cred.rawId },
+        ],
+        userVerification: "preferred",
+        timeout: CEREMONY_TIMEOUT_MS,
+        extensions: { prf: { eval: { first: prfSalt } } } as PrfClientInputs,
+      };
+      const assertion = (await navigator.credentials.get({ publicKey: publicKeyReq })) as PublicKeyCredential | null;
+      if (!assertion) {
+        throw new WebAuthnUnavailableError("passkey assertion returned no credential");
+      }
+      prfResult = (assertion.getClientExtensionResults() as PrfClientOutputs).prf?.results?.first;
+    }
+
+    if (!prfResult) {
+      throw new WebAuthnPrfUnsupportedError("authenticator did not deliver a PRF secret during enrollment");
+    }
+
+    const ikm = prfResultToBytes(prfResult);
+    if (ikm.length < 32) {
+      ikm.fill(0);
+      throw new WebAuthnPrfUnsupportedError("PRF result too short to be a key");
+    }
+
+    try {
+      const newKey = await deriveAesGcmKeyFromEntropy(ikm, prfSalt, HKDF_INFO);
+      if (engine) {
+        await engine.reencrypt(newKey);
+      }
+    } finally {
+      ikm.fill(0);
+    }
+
     const record: EnrollmentRecord = {
       credentialId: bytesToBase64Url(new Uint8Array(cred.rawId)),
       prfSalt: bytesToBase64(prfSalt),
     };
-    await this.storage.set(WEBAUTHN_KEY, new TextEncoder().encode(JSON.stringify(record)));
+    const key = await this.#key();
+    await this.storage.set(key, new TextEncoder().encode(JSON.stringify(record)));
   }
 
   /** Derive the vault-wrapping key via a PRF assertion on the enrolled passkey. */
@@ -263,7 +326,12 @@ export class WebAuthnUnlock implements UnlockProvider {
     try {
       // HKDF salt reuses the per-enrolment PRF salt: it is random, unique, and
       // independent of the IKM, which is all HKDF asks of its salt.
-      return await deriveAesGcmKeyFromEntropy(ikm, prfSalt, HKDF_INFO);
+      const key = await deriveAesGcmKeyFromEntropy(ikm, prfSalt, HKDF_INFO);
+      await this.storage.set(
+        await this.#activeVaultCredentialKey(),
+        new TextEncoder().encode("webauthn"),
+      );
+      return key;
     } finally {
       ikm.fill(0); // best-effort wipe of the high-entropy secret
     }
@@ -308,8 +376,8 @@ export class SelectingUnlockProvider implements UnlockProvider {
   }
 
   /** Opt into a passkey. UI-triggered; not part of `UnlockProvider`. */
-  async enrollPasskey(): Promise<void> {
-    await this.#webauthn.enroll();
+  async enrollPasskey(engine?: WalletEngine): Promise<void> {
+    await this.#webauthn.enroll(engine);
   }
 
   async #active(): Promise<UnlockProvider> {
