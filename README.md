@@ -19,6 +19,14 @@ runs in a dedicated Web Worker, and there is nothing custodial in between.
 > `corepack pnpm demo` (one-time `corepack pnpm exec playwright install
 > chromium`, plus `ffmpeg` on PATH).
 
+**Live demo:** **https://wdk-wallet-web-production.up.railway.app** — the real
+built app, served under the same strict per-request-nonce CSP and security
+headers as production. It boots with zero config, so it runs EVM-only
+(Ethereum, Polygon, Arbitrum, Plasma); BTC surfaces the honest "unsupported
+chain" notice until an Electrum-WS endpoint is configured, exactly as described
+below. Your seed is generated and encrypted in your own browser — the deploy
+holds no keys and nothing custodial.
+
 ## Run it in two minutes
 
 ```bash
