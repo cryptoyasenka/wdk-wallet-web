@@ -16,11 +16,13 @@ import {
   createWalletEngine,
   type BuildChainsOptions,
   type WalletEngine,
+  type WalletEngineConfig,
 } from "@wdk-web/wallet-core";
 import { IndexedDbStorage } from "./storage";
 import { SelectingUnlockProvider } from "./webauthnUnlock";
 import { StubCryptoWorker } from "./cryptoWorker";
-import { loadDataSources } from "./dataSources";
+import { loadDataSources, type DataSources } from "./dataSources";
+import { createIndexerHistoryProvider } from "./historyProvider";
 
 export interface WalletApp {
   readonly engine: WalletEngine;
@@ -37,7 +39,7 @@ export interface WalletApp {
  * holds and `buildChainRegistry` falls back to its public RPC list / omits BTC
  * honestly. `loadDataSources` is storage-safe during SSR (returns defaults).
  */
-function chainOptions(): BuildChainsOptions {
+function chainOptions(ds: DataSources): BuildChainsOptions {
   const opts: BuildChainsOptions = {};
 
   // Deploy-time env defaults (only Ethereum RPC + BTC Electrum are env-driven).
@@ -51,7 +53,6 @@ function chainOptions(): BuildChainsOptions {
   if (envBtc) opts.btcElectrumWsUrl = envBtc;
 
   // Runtime user overrides win when set (the Data Sources settings card).
-  const ds = loadDataSources();
   if (ds.ethereumRpcUrls.length > 0) opts.ethereumRpcUrls = ds.ethereumRpcUrls;
   if (ds.polygonRpcUrls.length > 0) opts.polygonRpcUrls = ds.polygonRpcUrls;
   if (ds.arbitrumRpcUrls.length > 0) opts.arbitrumRpcUrls = ds.arbitrumRpcUrls;
@@ -71,10 +72,24 @@ export function getWalletApp(): WalletApp {
   const unlock = new SelectingUnlockProvider(storage);
   const crypto = new StubCryptoWorker();
 
-  const engine = createWalletEngine(
-    { storage, crypto, unlock },
-    { chains: buildChainRegistry(chainOptions()) },
-  );
+  // Read settings once: chain options + the optional remote history provider
+  // both derive from the same persisted Data Sources snapshot.
+  const ds = loadDataSources();
+  // Opt-in remote history: only wired when the user chose "Use configured
+  // indexer" AND supplied a URL. Otherwise activity stays local-log only and no
+  // indexer request is ever made (the privacy-preserving default). The key is
+  // added by conditional spread (not assigned) to satisfy the config's readonly
+  // optional property under exactOptionalPropertyTypes.
+  const historyProvider =
+    ds.indexerMode === "indexer" && ds.indexerUrl
+      ? createIndexerHistoryProvider(ds.indexerUrl)
+      : undefined;
+  const config: WalletEngineConfig = {
+    chains: buildChainRegistry(chainOptions(ds)),
+    ...(historyProvider ? { historyProvider } : {}),
+  };
+
+  const engine = createWalletEngine({ storage, crypto, unlock }, config);
 
   app = {
     engine,
