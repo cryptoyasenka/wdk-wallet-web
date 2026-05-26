@@ -1,7 +1,7 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-27 00:25
-**Status:** Phase 0/1/2/3/4 done + pushed (HEAD 3455308). Phase 5 (Watch-Only Mode) in progress.
+**Last touched:** 2026-05-27 01:05
+**Status:** Phase 0/1/2/3/4/5 done + pushed. Phase 6 (E2E smoke + SECURITY docs + real CSP) next.
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
@@ -10,7 +10,7 @@
 - [x] Phase 2: Pre-Send Safety Panel — `safety.ts` (classify recipient, poisoning, official-token) + SafetyPanel in confirmation block + `addressExplorerUrl`; 12 tests. Commit 7d0da81.
 - [x] Phase 3: Address Book v2 — note/favorite/last-used, edit, save-as-template, Send templates row; load hardening. Commits d7a3c75 (data) + 7c2aa30 (UI). 32 apps/next tests.
 - [x] Phase 4: Data Sources / Privacy Settings — dataSources.ts module + 12 tests, engine layering (persisted>env>defaults), CoinGecko gated+disclosed, `tron` ChainId removed everywhere, Settings card w/ 4 privacy labels. Commits 2810a37/15dea6f/283a7a1/3455308. 44 apps/next tests.
-- [ ] Phase 5: Watch-Only Mode
+- [x] Phase 5: Watch-Only Mode — seedless `getBalancesForAddress` in wallet-core (+3 tests), `watchOnly.ts` host module (+15 tests), onboarding Watch tab + read-only portfolio + disabled-send notice + receive. wallet-core 79 / apps/next 59 tests. Commits: core (1/2), module (2/2a), UI (2/2b).
 - [ ] Phase 6: E2E Smoke + SECURITY-REVIEW.md + **correct SECURITY.md** + **ship real CSP**
 
 ## Plan source of truth
@@ -20,24 +20,25 @@ blind-zones are marked "(Audit 2026-05-26)" inside the relevant phases + a new
 fixes — Yana wants a very strong product, so implement the WHOLE plan.
 
 ## Next step
-Phase 5 — Watch-Only Mode (plan §341-405). Host-level first, avoid touching seed vault:
-  - NEW `apps/next/src/lib/watchOnly.ts`: pure module. Type WatchedWallet
-    { id, chain: ChainId, address, label?, createdAt }. localStorage key
-    `wdk-watch-wallets`. Helpers: sanitize/load/save/add/remove, isValidEvmAddress.
-    Unit-test it (target ~10 tests; pure, imports only types from wallet-core).
-  - `page.tsx`: onboarding gets a 3rd path "Watch" (Create/Import/Watch). Watch flow:
-    chain selector + address input + optional label → read-only portfolio.
-    Read-only constraints: send disabled w/ copy "Watch-only wallets cannot sign";
-    NO seed quiz / passkey enrollment / Recovery Check; receive can show watched addr;
-    portfolio queries balances. Visually distinct badge but still glass-beautiful.
-  - i18n keys EN+RU (watch.*). Update BOUNTY-CHECKLIST (+row, test count).
-  - `corepack pnpm verify` GREEN → commit → push. Then Phase 6.
-
-Decide before coding: does wallet-core expose a read-only balance path that works
-without a seed/signer? Check engine API — if balances need a wallet instance, the
-host watch-only mode may query the chain registry / RPC directly for balances, or
-add a minimal explicit wallet-core read-only method (plan §382 allows explicit
-methods, NOT overloading seed wallets). Read engine.test.ts + wallet/engine.ts first.
+Phase 6 — E2E smoke + security docs + real CSP (plan §407-491). Order:
+  1. `docs/SECURITY.md` correction: remove/reclassify the phantom hardware-wallet
+     path (lines ~37/39/51 — `ledger-bitcoin` is stubbed false in both bundlers);
+     stop claiming "strict CSP" until the CSP below actually ships.
+  2. Ship real CSP via `apps/next/next.config.mjs` `headers()`: script-src 'self';
+     connect-src = connectSrcOrigins() (from dataSources.ts) UNIONED with the public
+     RPC default origins + https://api.coingecko.com + 'self'; object-src 'none';
+     base-uri 'self'; frame-ancestors 'none'; img-src 'self' data:; style-src 'self'
+     'unsafe-inline'; worker-src 'self' blob:; default-src 'self'. NOTE: only
+     ETHEREUM_PUBLIC_RPCS is exported from wallet-core — the polygon/arbitrum/plasma
+     public RPC origins are NOT exported; either widen wallet-core exports or hardcode
+     the known default origins in next.config (cross-check buildChainRegistry source).
+  3. `docs/SECURITY-REVIEW.md`: threat model, secrets lifecycle, passphrase/passkey,
+     worker boundary, data-source privacy, CSP rationale (each connect-src entry),
+     residual audit issue, verification commands, browser caveats.
+  4. `tools/e2e/smoke.mjs` + `smoke` script in root package.json: build, start prod
+     Next on a free port, create wallet, seed quiz, portfolio, receive copy a11y name,
+     Recovery Check, stop. Update README (verify/demo/smoke/audit) + BOUNTY-CHECKLIST.
+  5. `corepack pnpm verify` GREEN (+ smoke if feasible on Windows) → commit → push.
 
 ## Remaining after Phase 3
 - Phase 4: Data Sources/Privacy Settings (+ disclose/toggle CoinGecko in `prices.ts`;

@@ -40,17 +40,22 @@ import {
 } from "@/lib/contacts";
 import { buildPaymentRequestUri, canBuildRequest, InvalidAmountError } from "@/lib/paymentRequest";
 import { classifyRecipient, detectPoisoning, isOfficialToken, officialTokenContracts } from "@/lib/safety";
+import {
+  WATCH_CHAINS, addWatchWallet, removeWatchWallet, loadWatchWallets,
+  isValidEvmAddress, watchChainToChainId,
+  type WatchedWallet, type WatchChain,
+} from "@/lib/watchOnly";
 import { t, getLocale, setLocale as persistLocale, type Locale } from "@/lib/i18n";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowDownRight, ArrowUpRight, CopyIcon, Loader2, Plus,
   Pencil, LogOut, Check, X, Settings, ExternalLink, BookUser,
   Shield, Trash2, Globe, Timer, UserPlus, CheckCircle2, XCircle, Info, AlertTriangle,
-  Star, FileText,
+  Star, FileText, Eye,
 } from "lucide-react";
 
-type Phase = "loading" | "onboarding" | "backup" | "quiz" | "locked" | "unlocked" | "settings";
-type OnboardMode = "create" | "import";
+type Phase = "loading" | "onboarding" | "backup" | "quiz" | "locked" | "unlocked" | "settings" | "watch";
+type OnboardMode = "create" | "import" | "watch";
 type ToastType = "success" | "error" | "info";
 interface ToastItem { id: number; type: ToastType; message: string }
 
@@ -201,6 +206,13 @@ export default function Page() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [templates, setTemplates] = useState<PaymentTemplate[]>([]);
 
+  // Watch-only (Phase 5): seedless read-only monitoring of external addresses.
+  const [watchWallets, setWatchWallets] = useState<WatchedWallet[]>([]);
+  const [activeWatchId, setActiveWatchId] = useState<string | null>(null);
+  const [watchChainInput, setWatchChainInput] = useState<WatchChain>("ethereum");
+  const [watchAddressInput, setWatchAddressInput] = useState("");
+  const [watchLabelInput, setWatchLabelInput] = useState("");
+
   // ---- Contacts add inline form states ----
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [newContactName, setNewContactName] = useState("");
@@ -284,6 +296,16 @@ export default function Page() {
     setContacts(loadContacts());
     setTemplates(loadTemplates());
   }, []);
+
+  // Init watch-only wallets from localStorage
+  useEffect(() => {
+    setWatchWallets(loadWatchWallets());
+  }, []);
+
+  const activeWatch = useMemo(
+    () => watchWallets.find((w) => w.id === activeWatchId) ?? null,
+    [watchWallets, activeWatchId],
+  );
 
   const clearSession = useCallback(() => {
     setBalances(null);
@@ -463,6 +485,83 @@ export default function Page() {
     void loadPrices();
     void loadSparkline();
   }, [loadActivity, loadWalletMeta, loadPrices, loadSparkline]);
+
+  /**
+   * Read-only portfolio for a watched address — the seedless engine path
+   * (`getBalancesForAddress`). No unlock, no signer, no activity: a watch-only
+   * session can show balances but never sign. Constructing the engine is inert,
+   * so this works with no wallet at all.
+   */
+  const loadWatchView = useCallback(
+    async (w: WatchedWallet) => {
+      setBalances(null);
+      setBalancesError(null);
+      try {
+        const { engine } = getWalletApp();
+        setBalances(
+          await engine.getBalancesForAddress(w.address, { chains: [watchChainToChainId(w.chain)] }),
+        );
+      } catch (e) {
+        setBalances(null);
+        setBalancesError(messageFor(e));
+      }
+      void loadPrices();
+      void loadSparkline();
+    },
+    [loadPrices, loadSparkline],
+  );
+
+  const onStartWatch = () => {
+    const address = watchAddressInput.trim();
+    if (!isValidEvmAddress(address)) {
+      setError(T("watch.addr_invalid"));
+      return;
+    }
+    const next = addWatchWallet(watchWallets, {
+      chain: watchChainInput,
+      address,
+      ...(watchLabelInput.trim() ? { label: watchLabelInput.trim() } : {}),
+    });
+    if (!next) {
+      setError(T("watch.addr_invalid"));
+      return;
+    }
+    const id = `${address.toLowerCase()}|${watchChainInput}`;
+    const entry = next.find((w) => w.id === id);
+    setWatchWallets(next);
+    setError(null);
+    setWatchAddressInput("");
+    setWatchLabelInput("");
+    setActiveWatchId(id);
+    setPhase("watch");
+    if (entry) void loadWatchView(entry);
+  };
+
+  const onOpenWatch = (w: WatchedWallet) => {
+    setError(null);
+    setActiveWatchId(w.id);
+    setPhase("watch");
+    void loadWatchView(w);
+  };
+
+  const onRemoveWatch = (id: string) => {
+    const next = removeWatchWallet(watchWallets, id);
+    setWatchWallets(next);
+    if (id === activeWatchId) {
+      setActiveWatchId(null);
+      setBalances(null);
+      setPhase("onboarding");
+    }
+  };
+
+  const onExitWatch = () => {
+    setActiveWatchId(null);
+    setBalances(null);
+    setBalancesError(null);
+    setPrices({});
+    setSparklineData([]);
+    setPhase("onboarding");
+  };
 
   const enter = useCallback(
     (next: Phase) => {
@@ -916,6 +1015,7 @@ export default function Page() {
           <div className="mb-4 flex gap-2 text-sm">
             <Tab active={mode === "create"} onClick={() => setMode("create")}>{T("onboard.create")}</Tab>
             <Tab active={mode === "import"} onClick={() => setMode("import")}>{T("onboard.import")}</Tab>
+            <Tab active={mode === "watch"} onClick={() => setMode("watch")}>{T("onboard.watch")}</Tab>
           </div>
 
           {mode === "import" && (
@@ -931,19 +1031,68 @@ export default function Page() {
             </Field>
           )}
 
-          <Field label={T("onboard.pass_label")}>
-            <Input type="password" value={passphrase} onChange={setPassphrase} placeholder={T("onboard.pass_placeholder")} autoComplete="new-password" />
-          </Field>
+          {mode === "watch" ? (
+            <>
+              <p className="mb-3 text-sm text-[--color-muted]">{T("watch.onboard_hint")}</p>
 
-          {mode === "create" && (
-            <Field label={T("onboard.confirm_label")}>
-              <Input type="password" value={confirmPass} onChange={setConfirmPass} placeholder={T("onboard.confirm_placeholder")} autoComplete="new-password" />
-            </Field>
+              {watchWallets.length > 0 && (
+                <div className="mb-4">
+                  <div className="mb-1.5 text-[10px] uppercase tracking-wide text-[--color-muted]">{T("watch.existing")}</div>
+                  <ul className="flex flex-col gap-1.5">
+                    {watchWallets.map((w) => (
+                      <li key={w.id}>
+                        <button
+                          className="flex w-full items-center gap-2 rounded-md border border-[--color-border] bg-white/5 px-3 py-2 text-left text-sm hover:bg-white/10 transition-colors"
+                          onClick={() => onOpenWatch(w)}
+                        >
+                          <Eye size={14} className="shrink-0 text-amber-400" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-white">{w.label || w.address}</span>
+                            <span className="block truncate text-[10px] text-[--color-muted]">{w.chain} · {w.address}</span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <Field label={T("watch.chain_label")}>
+                <select
+                  className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                  value={watchChainInput}
+                  onChange={(e) => setWatchChainInput(e.target.value as WatchChain)}
+                >
+                  {WATCH_CHAINS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={T("watch.address_label")}>
+                <Input type="text" value={watchAddressInput} onChange={setWatchAddressInput} placeholder="0x…" autoComplete="off" />
+              </Field>
+              <Field label={T("watch.label_label")}>
+                <Input type="text" value={watchLabelInput} onChange={setWatchLabelInput} placeholder={T("watch.label_placeholder")} autoComplete="off" />
+              </Field>
+              <Button onClick={onStartWatch} busy={busy} workingLabel={T("misc.working")}>{T("watch.start")}</Button>
+            </>
+          ) : (
+            <>
+              <Field label={T("onboard.pass_label")}>
+                <Input type="password" value={passphrase} onChange={setPassphrase} placeholder={T("onboard.pass_placeholder")} autoComplete="new-password" />
+              </Field>
+
+              {mode === "create" && (
+                <Field label={T("onboard.confirm_label")}>
+                  <Input type="password" value={confirmPass} onChange={setConfirmPass} placeholder={T("onboard.confirm_placeholder")} autoComplete="new-password" />
+                </Field>
+              )}
+
+              <Button onClick={mode === "create" ? onCreate : onImport} busy={busy} workingLabel={T("misc.working")}>
+                {mode === "create" ? T("onboard.btn_create") : T("onboard.btn_import")}
+              </Button>
+            </>
           )}
-
-          <Button onClick={mode === "create" ? onCreate : onImport} busy={busy} workingLabel={T("misc.working")}>
-            {mode === "create" ? T("onboard.btn_create") : T("onboard.btn_import")}
-          </Button>
         </Card>
       )}
 
@@ -1438,6 +1587,163 @@ export default function Page() {
               )}
             </Card>
           )}
+        </>
+      )}
+
+      {/* ---- WATCH-ONLY ---- */}
+      {phase === "watch" && activeWatch && (
+        <>
+          {/* Watch-only badge + switcher */}
+          <Card>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 font-medium text-lg">
+                <span className="flex h-6 items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 text-xs font-medium text-amber-300">
+                  <Eye size={12} />{T("watch.badge")}
+                </span>
+              </h2>
+              <button
+                className="flex items-center gap-1.5 text-sm text-[--color-muted] hover:text-white transition-colors"
+                onClick={onExitWatch}
+              >
+                <LogOut size={14} />
+                {T("watch.exit")}
+              </button>
+            </div>
+
+            {watchWallets.length > 1 && (
+              <select
+                className="mb-3 w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                value={activeWatch.id}
+                onChange={(e) => {
+                  const w = watchWallets.find((x) => x.id === e.target.value);
+                  if (w) onOpenWatch(w);
+                }}
+              >
+                {watchWallets.map((w) => (
+                  <option key={w.id} value={w.id}>{w.label || w.address} · {w.chain}</option>
+                ))}
+              </select>
+            )}
+
+            <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{activeWatch.chain}</div>
+            <div className="flex items-start gap-2">
+              <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
+                {activeWatch.address}
+              </code>
+              <button
+                className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
+                onClick={() => copyToClipboard(activeWatch.address)}
+                aria-label={T("watch.copy_addr")}
+                title={T("watch.copy_addr")}
+              >
+                <CopyIcon size={14} />
+              </button>
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <button
+                className="flex items-center gap-1.5 rounded-md border border-[--color-border] bg-white/5 px-3 py-2 text-xs text-[--color-muted] hover:text-white transition-colors"
+                onClick={() => { setMode("watch"); setPhase("onboarding"); }}
+              >
+                <Plus size={14} />{T("watch.add_another")}
+              </button>
+              <button
+                className="flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300 hover:bg-red-500/20 transition-colors"
+                onClick={() => onRemoveWatch(activeWatch.id)}
+              >
+                <Trash2 size={14} />{T("watch.remove")}
+              </button>
+            </div>
+          </Card>
+
+          {/* Portfolio card (read-only) */}
+          <Card>
+            <h2 className="mb-3 font-medium text-lg">{T("portfolio.title")}</h2>
+
+            {balances && balances.length > 0 && totalUsd > 0 && (
+              <div className="mb-4 text-center">
+                <p className="text-3xl font-bold text-white tracking-tight">{formatUsd(totalUsd)}</p>
+                <p className="text-xs text-[--color-muted] mt-1">{T("portfolio.total")}</p>
+              </div>
+            )}
+
+            {balances === null && !balancesError && (
+              <div className="flex flex-col gap-3 mt-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            )}
+            {balancesError && (
+              <div className="text-sm">
+                <p className="mb-2 text-red-300">{balancesError}</p>
+                <button className="text-[--color-accent] underline-offset-2 hover:underline" onClick={() => void loadWatchView(activeWatch)}>{T("misc.retry")}</button>
+              </div>
+            )}
+            {balances && balances.length === 0 && (
+              <p className="py-6 text-center text-sm text-[--color-muted]">{T("watch.empty")}</p>
+            )}
+            {balances && balances.length > 0 && (
+              <>
+                <motion.ul variants={listVariants} initial="hidden" animate="show" className="divide-y divide-[--color-border]">
+                  {balances.map((b) => {
+                    const price = prices[b.asset.symbol] ?? 0;
+                    const amount = Number(formatUnits(b.amount, b.asset.decimals));
+                    const usdValue = amount * price;
+                    return (
+                      <motion.li
+                        variants={itemVariants}
+                        key={`${b.asset.symbol}-${b.asset.chain}`}
+                        className="flex items-center justify-between py-2.5 text-sm transition-colors hover:bg-white/[0.02] px-1 rounded"
+                      >
+                        <span>
+                          <span className="font-semibold text-white">{b.asset.symbol}</span>{" "}
+                          <span className="text-[--color-muted] text-xs">{T("misc.on")} {b.asset.chain}</span>
+                        </span>
+                        <span className="text-right">
+                          <span className="font-mono text-emerald-400 font-medium block">
+                            {formatUnits(b.amount, b.asset.decimals)}
+                          </span>
+                          {price > 0 && (
+                            <span className="text-[10px] text-[--color-muted]">{formatUsd(usdValue)}</span>
+                          )}
+                        </span>
+                      </motion.li>
+                    );
+                  })}
+                </motion.ul>
+                {sparklineData.length > 0 && <Sparkline data={sparklineData} />}
+              </>
+            )}
+          </Card>
+
+          {/* Send is disabled for watch-only */}
+          <Card>
+            <h2 className="mb-2 font-medium">{T("send.title")}</h2>
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-200">
+              <Info size={16} className="mt-0.5 shrink-0" />
+              <span>{T("watch.cannot_sign")}</span>
+            </div>
+          </Card>
+
+          {/* Receive card — the watched address + QR */}
+          <Card>
+            <h2 className="mb-3 font-medium">{T("receive.title")}</h2>
+            <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{activeWatch.chain}</div>
+            <div className="flex items-start gap-2">
+              <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
+                {activeWatch.address}
+              </code>
+              <button
+                className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
+                onClick={() => copyToClipboard(activeWatch.address)}
+                aria-label={T("watch.copy_addr")}
+                title={T("watch.copy_addr")}
+              >
+                <CopyIcon size={14} />
+              </button>
+            </div>
+            <Qr value={activeWatch.address} chain={activeWatch.chain} />
+          </Card>
         </>
       )}
 

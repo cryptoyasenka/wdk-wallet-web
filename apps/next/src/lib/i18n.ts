@@ -47,6 +47,24 @@ const translations: Record<string, Record<Locale, string>> = {
   "onboard.confirm_placeholder": { en: "repeat it", ru: "повторите" },
   "onboard.btn_create": { en: "Create wallet", ru: "Создать кошелёк" },
   "onboard.btn_import": { en: "Import wallet", ru: "Импортировать кошелёк" },
+  "onboard.watch": { en: "Watch", ru: "Наблюдение" },
+
+  // Watch-only (Phase 5)
+  "watch.onboard_hint": { en: "Monitor any EVM address read-only — no seed, no signing.", ru: "Наблюдайте за любым EVM-адресом только для чтения — без seed-фразы и подписи." },
+  "watch.existing": { en: "Watched addresses", ru: "Отслеживаемые адреса" },
+  "watch.chain_label": { en: "Chain", ru: "Сеть" },
+  "watch.address_label": { en: "Address to watch", ru: "Адрес для наблюдения" },
+  "watch.label_label": { en: "Label (optional)", ru: "Метка (необязательно)" },
+  "watch.label_placeholder": { en: "e.g. Cold storage", ru: "напр. Холодный кошелёк" },
+  "watch.start": { en: "Start watching", ru: "Начать наблюдение" },
+  "watch.addr_invalid": { en: "Enter a valid EVM address (0x + 40 hex characters).", ru: "Введите корректный EVM-адрес (0x + 40 hex-символов)." },
+  "watch.badge": { en: "Watch-only", ru: "Только наблюдение" },
+  "watch.exit": { en: "Exit", ru: "Выйти" },
+  "watch.add_another": { en: "Watch another", ru: "Ещё адрес" },
+  "watch.remove": { en: "Remove", ru: "Удалить" },
+  "watch.copy_addr": { en: "Copy watched address", ru: "Копировать адрес" },
+  "watch.cannot_sign": { en: "Watch-only wallets cannot sign. Import the seed to send.", ru: "Кошельки в режиме наблюдения не могут подписывать. Импортируйте seed-фразу для отправки." },
+  "watch.empty": { en: "No balances on this chain for the watched address.", ru: "Нет балансов в этой сети для отслеживаемого адреса." },
 
   // Backup
   "backup.title": { en: "Back up your seed phrase", ru: "Сохраните вашу seed-фразу" },

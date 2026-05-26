@@ -19,8 +19,8 @@ Current local bar:
   advisory is upstream in the pinned alpha BTC WDK dependency chain
   (`bitcoinjs-message -> secp256k1 -> elliptic`) and has no patched range in the
   advisory.
-- `wallet-core`: 76 unit tests.
-- `apps/next`: 44 unit tests (payment-request URI builders + pre-send safety heuristics + address-book/template load hardening + data-source/privacy validation).
+- `wallet-core`: 79 unit tests.
+- `apps/next`: 59 unit tests (payment-request URI builders + pre-send safety heuristics + address-book/template load hardening + data-source/privacy validation + watch-only storage validation).
 - `apps/svelte`: 13 headless portability tests.
 - Next First Load JS: about 228 kB; the WDK/BTC graph stays in the worker chunk,
   not the main First Load path.
@@ -42,6 +42,7 @@ Current local bar:
 | Pre-send safety panel | Confirmation screen shows official-contract badge, recipient status (own/saved/recent/new), address-poisoning warning, gas-paid-separately note, and a recipient explorer link. | `apps/next/src/lib/safety.ts`, `apps/next/test/safety.test.ts`, confirmation block in `apps/next/app/page.tsx`. |
 | Address book v2 + payment templates | Contacts carry a note, favorite flag, and last-used stamp (favorites and recent payees sort first); reusable payment templates prefill recipient+asset+amount on Send. Persisted JSON is shape-validated on load — corrupt rows are dropped, never thrown on. | `apps/next/src/lib/contacts.ts`, `apps/next/test/contacts.test.ts`, Settings address book + Send templates row in `apps/next/app/page.tsx`. |
 | Data sources / privacy | A Settings card exposes every endpoint the wallet uses (EVM RPCs, Electrum-WS, optional indexer, CoinGecko price oracle) with privacy labels. Defaults are privacy-preserving; the price call is a disclosed opt-out toggle. Overrides are validated, stored on-device only, and rebuild the engine on save — never threaded into wallet-core. | `apps/next/src/lib/dataSources.ts`, `apps/next/test/dataSources.test.ts`, `apps/next/src/lib/engine.ts`, `apps/next/src/lib/prices.ts`, Data Sources card in `apps/next/app/page.tsx`. |
+| Watch-only mode | Onboarding offers a third path — Watch — that monitors any EVM address read-only with no seed: a seedless engine read (`getBalancesForAddress`) shows the portfolio, signing is disabled with clear copy, and no seed-quiz/passkey/recovery is shown. Watched addresses are validated and stored on-device only. | `packages/wallet-core/src/wallet/engine.ts` (`getBalancesForAddress`), `apps/next/src/lib/watchOnly.ts`, `apps/next/test/watchOnly.test.ts`, watch view in `apps/next/app/page.tsx`. |
 | Framework portability | Svelte app consumes the byte-shared core with its own host ports. | `apps/svelte/test/portability.test.ts`. |
 | Honest activity model | Local outgoing send log is default. External/public history is an optional injected provider, not hardcoded in WDK core. | `packages/wallet-core/src/wallet/engine.ts`, `docs/ARCHITECTURE.md` ADR-003, history merge/failure tests in `packages/wallet-core/test/engine.test.ts`. |
 | Production honesty | Web Worker is defense-in-depth, not an XSS boundary; BTC needs an Electrum-WS endpoint. | `docs/SECURITY.md`, `README.md`. |
