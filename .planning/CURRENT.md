@@ -1,7 +1,7 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-27 02:30
-**Status:** COMPLETE. Phases 0-6 + cross-cutting cleanups all done + pushed. Whole BOUNTY-IMPLEMENTATION-PLAN delivered.
+**Last touched:** 2026-05-27 03:10
+**Status:** COMPLETE. Phases 0-6 + cross-cutting cleanups + 3 optional polish items all done + pushed. Whole BOUNTY-IMPLEMENTATION-PLAN delivered.
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
@@ -19,10 +19,15 @@ blind-zones are marked "(Audit 2026-05-26)" inside the relevant phases + a new
 "## Phase 0" + "## Cross-cutting cleanups" section. Do NOT remove existing
 fixes — Yana wants a very strong product, so implement the WHOLE plan.
 
+## Optional polish (all 3 done this session, after Yana picked "Всё три")
+- [x] HSTS + Permissions-Policy headers in next.config.mjs headers() + documented in SECURITY-REVIEW.md §6. Commit 5466e6b.
+- [x] Run E2E smoke in CI — new `smoke` job in .github/workflows/ci.yml (only job proving nonce-CSP/hydration at runtime). Commit a38ba84.
+- [x] Expand smoke to cover Phase 1 (payment-request panel) + Phase 5 (watch-only signing-disabled), via walletFlow()/watchOnlyFlow(). 6 assertions PASS. Commit 15845c1.
+
 ## Next step
 NONE — plan fully delivered. Final verification all green this session:
   - `corepack pnpm verify`: lint+typecheck+build OK, 79 (wallet-core) + 59 (next) + 13 (svelte) tests.
-  - `corepack pnpm smoke`: PASS under the live nonce CSP (proves zero blocking CSP violations).
+  - `corepack pnpm smoke`: PASS under the live nonce CSP, 6 assertions (proves zero blocking CSP violations).
   - `corepack pnpm audit --audit-level moderate`: exit 0, 1 accepted low advisory (BTC elliptic, no patch).
 Possible future polish only if Yana asks: optional indexer UI, more chains, BTC payment-request memo edge cases.
 
