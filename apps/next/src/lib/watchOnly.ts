@@ -118,6 +118,11 @@ export function saveWatchWallets(wallets: readonly WatchedWallet[]): WatchedWall
  * Add (or update the label of) a watched address. Returns the new list, or
  * null when the address is invalid (caller surfaces the error). Idempotent on
  * the (address, chain) pair — re-adding refreshes the label, never duplicates.
+ *
+ * Label semantics on re-add: omitting `label` leaves the existing one untouched;
+ * passing `label` (even an empty/whitespace string) is an explicit set — a blank
+ * value clears the label back to unnamed, so a user can rename AND un-name an
+ * entry. (A blank label on a brand-new entry is simply stored as unnamed.)
  */
 export function addWatchWallet(
   wallets: readonly WatchedWallet[],
@@ -126,7 +131,8 @@ export function addWatchWallet(
   if (!isValidEvmAddress(input.address)) return null;
   const address = normalizeEvmAddress(input.address);
   const id = watchId(input.chain, address);
-  const label = input.label?.trim();
+  const labelProvided = input.label !== undefined;
+  const label = input.label?.trim() ?? "";
   const entry: WatchedWallet = {
     id,
     chain: input.chain,
@@ -138,7 +144,14 @@ export function addWatchWallet(
   if (existingIdx >= 0) {
     const next = wallets.slice();
     const prev = next[existingIdx]!;
-    next[existingIdx] = { ...prev, ...(label ? { label } : {}) };
+    if (labelProvided) {
+      // Explicit set: drop the old label, then re-add only if non-empty so a
+      // blank value clears it.
+      const { label: _previousLabel, ...rest } = prev;
+      next[existingIdx] = { ...rest, ...(label ? { label } : {}) };
+    } else {
+      next[existingIdx] = prev;
+    }
     return saveWatchWallets(next);
   }
   return saveWatchWallets([entry, ...wallets]);

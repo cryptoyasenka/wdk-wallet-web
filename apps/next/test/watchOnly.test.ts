@@ -117,6 +117,20 @@ describe("addWatchWallet", () => {
     expect(second[0]?.label).toBe("b");
   });
 
+  it("clears the label when re-added with a blank string (rename to unnamed)", () => {
+    const named = addWatchWallet([], { chain: "ethereum", address: ADDR, label: "cold" })!;
+    expect(named[0]?.label).toBe("cold");
+    const cleared = addWatchWallet(named, { chain: "ethereum", address: ADDR, label: "  " })!;
+    expect(cleared).toHaveLength(1);
+    expect(cleared[0]).not.toHaveProperty("label");
+  });
+
+  it("leaves the existing label untouched when re-added with no label field", () => {
+    const named = addWatchWallet([], { chain: "ethereum", address: ADDR, label: "cold" })!;
+    const again = addWatchWallet(named, { chain: "ethereum", address: ADDR })!;
+    expect(again[0]?.label).toBe("cold");
+  });
+
   it("adds a second distinct address without dropping the first", () => {
     const first = addWatchWallet([], { chain: "ethereum", address: ADDR })!;
     const second = addWatchWallet(first, { chain: "ethereum", address: ADDR2 })!;

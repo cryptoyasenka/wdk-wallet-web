@@ -517,10 +517,12 @@ export default function Page() {
       setError(T("watch.addr_invalid"));
       return;
     }
+    // Pass label unconditionally (even blank): on a re-add this lets the user
+    // clear a previously-set label back to unnamed, not just rename it.
     const next = addWatchWallet(watchWallets, {
       chain: watchChainInput,
       address,
-      ...(watchLabelInput.trim() ? { label: watchLabelInput.trim() } : {}),
+      label: watchLabelInput.trim(),
     });
     if (!next) {
       setError(T("watch.addr_invalid"));
