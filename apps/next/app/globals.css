@@ -2,12 +2,14 @@
 
 /* Tailwind v4: design tokens live in CSS, not a JS config file. */
 @theme {
-  --color-bg: #0b0f17;
-  --color-surface: #131a26;
-  --color-border: #233044;
-  --color-accent: #26a17b; /* Tether green */
+  --color-bg: #060913;
+  --color-surface: rgba(15, 23, 42, 0.45);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-accent: #10b981; /* Premium emerald green */
   --color-accent-fg: #ffffff;
-  --color-muted: #8a97ab;
+  --color-muted: #94a3b8;
+  
+  --font-outfit: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
 }
 
 html,
@@ -16,15 +18,251 @@ body {
 }
 
 body {
-  background-color: var(--color-bg);
-  color: #e7edf5;
-  font-family:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
+  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+  background-color: #050811;
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(16, 185, 129, 0.22) 0%, transparent 28rem),
+    radial-gradient(circle at 86% 18%, rgba(59, 130, 246, 0.16) 0%, transparent 30rem),
+    linear-gradient(160deg, #07111f 0%, #050811 48%, #071322 100%);
+  background-attachment: fixed;
+  color: #f1f5f9;
+  font-family: var(--font-outfit);
+  overflow-x: hidden;
+}
+
+/* Ambient Web3 Background Glows */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(120px);
+  z-index: -1;
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+body::before {
+  top: -10%;
+  left: -20%;
+  background: rgba(16, 185, 129, 0.25); /* Emerald */
+}
+
+body::after {
+  bottom: -18%;
+  right: -20%;
+  background: rgba(59, 130, 246, 0.2); /* Blue */
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body::before,
+  body::after {
+    animation: drift 20s infinite alternate ease-in-out;
+  }
+
+  body::after {
+    animation-delay: -10s;
+  }
+
+  @keyframes drift {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(8%, 12%) scale(1.08); }
+    100% { transform: translate(-4%, 4%) scale(0.94); }
+  }
+}
+
+/* Skeleton Loading Animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: 0.375rem;
+}
+
+/* Premium Glassmorphism & Custom Elements */
+.glass-card {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  transition:
+    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(16, 185, 129, 0.2);
+  box-shadow: 0 12px 40px 0 rgba(16, 185, 129, 0.05);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  transition: all 0.2s ease-in-out;
+}
+
+.glass-input:focus {
+  border-color: #10b981;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+}
+
+.glow-btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.2s ease-in-out,
+    box-shadow 0.2s ease-in-out,
+    opacity 0.2s ease-in-out;
+  box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.2);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .glow-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.35);
+  }
+
+  .glow-btn:active {
+    transform: translateY(0);
+  }
 }
 
 /* Long seed phrases / addresses must wrap, never overflow the card. */
 .break-anywhere {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+/* Pulse animation for worker status indicator */
+@keyframes pulse-green {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.pulse-indicator {
+  animation: pulse-green 2s infinite;
+}
+
+/* Toast notifications */
+.toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+  max-width: 22rem;
+  width: calc(100% - 2rem);
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.toast-success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+.toast-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.toast-info {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+/* Sparkline chart */
+.sparkline-container {
+  height: 3rem;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: rgba(16, 185, 129, 0.03);
+  border: 1px solid rgba(16, 185, 129, 0.08);
+  position: relative;
+  margin-top: 0.5rem;
+}
+
+/* Seed blur-to-reveal — click only, never hover (security) */
+.seed-blurred {
+  filter: blur(6px);
+  user-select: none;
+  transition: filter 0.3s ease;
+}
+
+.seed-blurred.revealed {
+  filter: blur(0);
+  user-select: auto;
+}
+
+/* Contact badge */
+.contact-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.contact-chip:hover {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+/* Settings grid */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
 }

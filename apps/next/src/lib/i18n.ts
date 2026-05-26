@@ -1,0 +1,175 @@
+/**
+ * Minimal i18n for EN/RU.
+ *
+ * A flat key → translation map. The active locale is stored in
+ * localStorage so it survives reload.
+ */
+
+export type Locale = "en" | "ru";
+
+const STORAGE_KEY = "wdk-locale";
+
+export function getLocale(): Locale {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === "ru" || stored === "en") return stored;
+  } catch {
+    // Fall through to browser language detection when storage is unavailable.
+  }
+  // Auto-detect from browser
+  if (typeof navigator !== "undefined" && navigator.language?.startsWith("ru")) return "ru";
+  return "en";
+}
+
+export function setLocale(locale: Locale): void {
+  localStorage.setItem(STORAGE_KEY, locale);
+}
+
+const translations: Record<string, Record<Locale, string>> = {
+  // Header
+  "app.title": { en: "WDK Web Wallet", ru: "WDK Веб Кошелёк" },
+  "app.subtitle": { en: "Reference self-custodial WDK multi-chain wallet", ru: "Референсный самостоятельный мультичейн WDK кошелёк" },
+  "app.worker": { en: "Core worker active", ru: "Ядро активно" },
+
+  // Wallet card
+  "wallets.title": { en: "Your Wallets", ru: "Ваши кошельки" },
+  "wallets.new": { en: "New Wallet", ru: "Новый кошелёк" },
+  "wallets.hint": { en: "Each wallet is an independent seed. Switching locks the current wallet — you unlock the one you pick.", ru: "Каждый кошелёк — это независимый seed. Переключение блокирует текущий — вы разблокируете выбранный." },
+
+  // Onboarding
+  "onboard.create": { en: "Create", ru: "Создать" },
+  "onboard.import": { en: "Import", ru: "Импорт" },
+  "onboard.seed_label": { en: "Seed phrase", ru: "Seed-фраза" },
+  "onboard.seed_placeholder": { en: "twelve or twenty-four words separated by spaces", ru: "двенадцать или двадцать четыре слова через пробел" },
+  "onboard.pass_label": { en: "Passphrase (encrypts the vault on this device)", ru: "Пароль (шифрует хранилище на этом устройстве)" },
+  "onboard.pass_placeholder": { en: "at least 8 characters", ru: "минимум 8 символов" },
+  "onboard.confirm_label": { en: "Confirm passphrase", ru: "Подтвердите пароль" },
+  "onboard.confirm_placeholder": { en: "repeat it", ru: "повторите" },
+  "onboard.btn_create": { en: "Create wallet", ru: "Создать кошелёк" },
+  "onboard.btn_import": { en: "Import wallet", ru: "Импортировать кошелёк" },
+
+  // Backup
+  "backup.title": { en: "Back up your seed phrase", ru: "Сохраните вашу seed-фразу" },
+  "backup.desc": { en: "This is the only way to recover the wallet. Write it down offline. It is shown once.", ru: "Это единственный способ восстановить кошелёк. Запишите офлайн. Показывается один раз." },
+  "backup.checkbox": { en: "I have written it down somewhere safe.", ru: "Я записал(а) это в безопасном месте." },
+  "backup.continue": { en: "Continue", ru: "Продолжить" },
+
+  // Backup quiz
+  "quiz.title": { en: "Verify your seed phrase", ru: "Проверьте вашу seed-фразу" },
+  "quiz.desc": { en: "Select the correct word for each position to verify you saved your seed phrase.", ru: "Выберите правильное слово для каждой позиции, чтобы подтвердить, что вы сохранили seed-фразу." },
+  "quiz.word_n": { en: "Word #", ru: "Слово #" },
+
+  // Lock
+  "lock.title": { en: "Unlock", ru: "Разблокировать" },
+  "lock.pass_label": { en: "Passphrase", ru: "Пароль" },
+  "lock.pass_placeholder": { en: "your passphrase", ru: "ваш пароль" },
+  "lock.btn": { en: "Unlock", ru: "Разблокировать" },
+
+  // Account
+  "account.title": { en: "Account", ru: "Аккаунт" },
+  "account.add": { en: "Add account", ru: "Добавить аккаунт" },
+  "account.hint": { en: "Every account derives from the one seed at a distinct HD index. Switching scopes the portfolio, receive address, and activity below; the selection is remembered on this device.", ru: "Каждый аккаунт происходит от одного seed по уникальному HD-индексу. Переключение меняет портфель, адрес и активность; выбор сохраняется на устройстве." },
+
+  // Portfolio
+  "portfolio.title": { en: "Portfolio", ru: "Портфель" },
+  "portfolio.lock": { en: "Lock / Menu", ru: "Блок. / Меню" },
+  "portfolio.total": { en: "Total value", ru: "Общая стоимость" },
+
+  // Send
+  "send.title": { en: "Send", ru: "Отправить" },
+  "send.no_assets": { en: "No sendable assets on configured chains.", ru: "Нет доступных активов на настроенных сетях." },
+  "send.asset": { en: "Asset", ru: "Актив" },
+  "send.recipient": { en: "Recipient address", ru: "Адрес получателя" },
+  "send.recipient_placeholder": { en: "destination address", ru: "адрес назначения" },
+  "send.amount": { en: "Amount", ru: "Сумма" },
+  "send.review": { en: "Review transaction", ru: "Проверить транзакцию" },
+  "send.confirm_hint": { en: "Decoded from the transaction — not raw hex. Check every line.", ru: "Декодировано из транзакции — не сырой hex. Проверьте каждую строку." },
+  "send.confirm_btn": { en: "Confirm & send", ru: "Подтвердить и отправить" },
+  "send.cancel": { en: "Cancel", ru: "Отмена" },
+  "send.broadcast": { en: "Broadcast. It appears below as pending until the network confirms it.", ru: "Отправлено. Появится ниже как ожидающее до подтверждения сетью." },
+  "send.another": { en: "Send another", ru: "Отправить ещё" },
+  "send.save_contact": { en: "Save contact", ru: "Сохранить контакт" },
+  "send.contacts": { en: "Contacts", ru: "Контакты" },
+  "send.max": { en: "Send entire balance", ru: "Отправить весь баланс" },
+  "send.save_contact_prompt": { en: "Recipient not in contacts. Save recipient?", ru: "Получателя нет в контактах. Сохранить получателя?" },
+
+  // Receive
+  "receive.title": { en: "Receive", ru: "Получить" },
+  "receive.no_addr": { en: "No addresses.", ru: "Нет адресов." },
+
+  // Activity
+  "activity.title": { en: "Activity", ru: "Активность" },
+  "activity.refresh": { en: "Refresh", ru: "Обновить" },
+  "activity.empty": { en: "No transactions yet. Send or receive funds to see activity here.", ru: "Транзакций пока нет. Отправьте или получите средства, чтобы увидеть активность." },
+  "activity.hint": { en: "Outgoing sends made in this wallet via this app. Inbound and external transfers need a WDK indexer — see docs/ARCHITECTURE.md (ADR-003). Statuses come from the on-chain receipt, never guessed.", ru: "Исходящие отправки из этого кошелька через это приложение. Входящие и внешние переводы требуют WDK-индексер. Статусы из блокчейна, не угаданы." },
+
+  // Security
+  "security.title": { en: "Security", ru: "Безопасность" },
+  "security.passkey_added": { en: "Passkey added. It will be the preferred unlock next time; your passphrase still works.", ru: "Passkey добавлен. Будет предпочтительным способом разблокировки; пароль по-прежнему работает." },
+  "security.passkey_desc": { en: "Add a passkey (Face ID / Touch ID / security key) for unlock. Optional — your passphrase keeps working unchanged; the passkey is just preferred once enrolled.", ru: "Добавьте passkey (Face ID / Touch ID / ключ безопасности) для разблокировки. Опционально — пароль продолжает работать; passkey становится предпочтительным." },
+  "security.add_passkey": { en: "Add passkey unlock", ru: "Добавить passkey разблокировку" },
+
+  // Settings
+  "settings.title": { en: "Settings", ru: "Настройки" },
+  "settings.back": { en: "← Back", ru: "← Назад" },
+  "settings.autolock": { en: "Auto-Lock Timer", ru: "Автоблокировка" },
+  "settings.autolock_desc": { en: "Lock wallet after inactivity", ru: "Блокировать кошелёк после бездействия" },
+  "settings.minutes": { en: "minutes", ru: "минут" },
+  "settings.language": { en: "Language", ru: "Язык" },
+  "settings.reveal": { en: "Recovery Check", ru: "Проверка восстановления" },
+  "settings.reveal_desc": { en: "Enter your passphrase to verify that this wallet can still be decrypted. Seed words stay hidden after onboarding.", ru: "Введите пароль, чтобы проверить, что кошелёк всё ещё расшифровывается. Seed-фраза остаётся скрытой после онбординга." },
+  "settings.reveal_btn": { en: "Verify passphrase", ru: "Проверить пароль" },
+  "settings.recovery_success": { en: "Passphrase verified. Keep your offline seed backup available before deleting or moving this wallet.", ru: "Пароль проверен. Перед удалением или переносом кошелька убедитесь, что офлайн backup seed-фразы доступен." },
+  "settings.contacts_title": { en: "Address Book", ru: "Адресная книга" },
+  "settings.contacts_empty": { en: "No saved contacts yet.", ru: "Нет сохранённых контактов." },
+  "settings.contacts_add": { en: "Add contact", ru: "Добавить контакт" },
+  "settings.contacts_name": { en: "Contact Name", ru: "Имя контакта" },
+  "settings.contacts_address": { en: "Address", ru: "Адрес" },
+  "settings.contacts_chain": { en: "Chain", ru: "Сеть" },
+  "settings.contacts_add_title": { en: "Add New Contact", ru: "Добавить новый контакт" },
+  "settings.delete": { en: "Delete Wallet", ru: "Удалить кошелёк" },
+  "settings.delete_desc": { en: "Permanently erase this wallet from this device. This cannot be undone. Make sure you have your seed phrase backed up.", ru: "Безвозвратно удалить этот кошелёк с устройства. Это нельзя отменить. Убедитесь, что у вас есть резервная копия seed-фразы." },
+  "settings.delete_btn": { en: "Delete this wallet", ru: "Удалить этот кошелёк" },
+  "settings.delete_confirm": { en: "Are you absolutely sure? This will wipe all data for this wallet from this device.", ru: "Вы абсолютно уверены? Это сотрет все данные этого кошелька с этого устройства." },
+
+  // Toast messages
+  "toast.copied": { en: "Copied to clipboard", ru: "Скопировано" },
+  "toast.sent": { en: "Transaction broadcast successfully", ru: "Транзакция успешно отправлена" },
+  "toast.locked": { en: "Wallet locked", ru: "Кошелёк заблокирован" },
+  "toast.autolock": { en: "Wallet auto-locked due to inactivity", ru: "Кошелёк заблокирован из-за бездействия" },
+  "toast.contact_saved": { en: "Contact saved", ru: "Контакт сохранён" },
+  "toast.contact_removed": { en: "Contact removed", ru: "Контакт удалён" },
+  "toast.wallet_renamed": { en: "Wallet renamed", ru: "Кошелёк переименован" },
+  "toast.wallet_deleted": { en: "Wallet deleted successfully", ru: "Кошелёк успешно удалён" },
+  "toast.wallet_verified": { en: "Wallet created and verified", ru: "Кошелёк создан и проверен" },
+  "toast.passkey_added": { en: "Passkey enrolled successfully", ru: "Passkey успешно добавлен" },
+  "error.contact_required": { en: "Name and address are required.", ru: "Имя и адрес обязательны." },
+  "error.delete_failed": { en: "Failed to wipe wallet storage.", ru: "Не удалось стереть хранилище кошелька." },
+
+  // Empty states
+  "empty.portfolio": { en: "Your portfolio is empty. Receive funds to get started!", ru: "Ваш портфель пуст. Получите средства, чтобы начать!" },
+  "empty.portfolio_cta": { en: "View receive addresses ↓", ru: "Посмотреть адреса для получения ↓" },
+
+  // Misc & Hardcoded replacements
+  "misc.working": { en: "Working…", ru: "Работаем…" },
+  "misc.loading": { en: "Loading wallet…", ru: "Загрузка кошелька…" },
+  "misc.retry": { en: "Retry", ru: "Повторить" },
+  "misc.scan_qr": { en: "Scan QR", ru: "Сканировать QR" },
+  "misc.close": { en: "Close", ru: "Закрыть" },
+  "misc.skip": { en: "Skip", ru: "Пропустить" },
+  "misc.cancel": { en: "Cancel", ru: "Отмена" },
+  "misc.save": { en: "Save", ru: "Сохранить" },
+  "misc.remove": { en: "Remove", ru: "Удалить" },
+  "misc.on": { en: "on", ru: "на" },
+  "misc.view_explorer": { en: "View on explorer", ru: "Посмотреть в проводнике" },
+  "misc.amount": { en: "Amount", ru: "Сумма" },
+  "misc.asset": { en: "Asset", ru: "Актив" },
+  "misc.chain": { en: "Chain", ru: "Сеть" },
+  "misc.recipient": { en: "Recipient", ru: "Получатель" },
+  "misc.network_fee": { en: "Network fee", ru: "Комиссия сети" },
+  "account.name_template": { en: "Account #", ru: "Аккаунт #" },
+};
+
+export function t(key: string, locale: Locale): string {
+  return translations[key]?.[locale] ?? translations[key]?.en ?? key;
+}

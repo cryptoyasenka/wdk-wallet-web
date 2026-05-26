@@ -72,6 +72,7 @@ const nextConfig = {
       https: false,
       os: false,
       zlib: false,
+      events: false,
       net: false,
       tls: false,
       fs: false,

@@ -3,14 +3,12 @@
 /**
  * The whole wallet UI as one client-side state machine.
  *
- * Scope (see docs/ARCHITECTURE.md → Phasing): create / import / unlock /
- * portfolio / receive (Phase 1) and send / itemised tx-confirm / activity
- * (Phase 2). Activity is the local outgoing send-log (ADR-003) — outgoing,
- * this-wallet-via-this-app only; statuses come from the on-chain receipt and
- * are never fabricated. The send confirm screen renders decoded transaction
- * fields (amount, asset, chain, recipient, fee), never opaque hex, per
- * docs/SECURITY.md. Every wallet-core call goes through `act()` which maps the
- * package's typed error surface to a human message instead of string-matching.
+ * Features:
+ *   Phase 1 — create / import / seed-quiz / unlock / portfolio / receive /
+ *     send / itemised tx-confirm / activity (ADR-003)
+ *   Phase 2 — toast notifications, auto-lock timer, USD prices (CoinGecko),
+ *     address book, Max button, explorer links, improved empty states
+ *   Phase 3 — settings page, PWA, recovery check, sparkline charts, i18n (EN/RU)
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -31,11 +29,41 @@ import jsQR from "jsqr";
 import { getWalletApp } from "@/lib/engine";
 import { extractAddress } from "@/lib/extract-address";
 import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
+import { explorerUrl } from "@/lib/explorer";
+import { fetchPrices, fetchSparkline, formatUsd, type PriceMap } from "@/lib/prices";
+import { loadContacts, addContact, removeContact, type Contact } from "@/lib/contacts";
+import { t, getLocale, setLocale as persistLocale, type Locale } from "@/lib/i18n";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowDownRight, ArrowUpRight, CopyIcon, Loader2, Plus,
+  Pencil, LogOut, Check, X, Settings, ExternalLink, BookUser,
+  Shield, Trash2, Globe, Timer, UserPlus, CheckCircle2, XCircle, Info,
+} from "lucide-react";
 
-type Phase = "loading" | "onboarding" | "backup" | "locked" | "unlocked";
+type Phase = "loading" | "onboarding" | "backup" | "quiz" | "locked" | "unlocked" | "settings";
 type OnboardMode = "create" | "import";
+type ToastType = "success" | "error" | "info";
+interface ToastItem { id: number; type: ToastType; message: string }
 
 const RECEIVE_CHAINS: readonly ChainId[] = ["bitcoin", "ethereum"];
+const WALLET_NAMES_KEY = "wdk-wallet-names";
+const LOCAL_STORAGE_KEYS_ON_WALLET_DELETE = [WALLET_NAMES_KEY, "wdk-contacts"] as const;
+const AUTO_LOCK_KEY = "wdk-autolock-min";
+const DEFAULT_AUTOLOCK_MIN = 5;
+
+// BIP-39 word list subset for quiz decoys (common, non-confusing words)
+const DECOY_WORDS = [
+  "abandon","ability","able","about","above","absent","absorb","abstract",
+  "absurd","abuse","access","accident","account","accuse","achieve","acid",
+  "acoustic","acquire","across","act","action","actor","actual","adapt",
+  "add","addict","address","adjust","admit","adult","advance","advice",
+  "aerobic","afraid","again","age","agent","agree","ahead","aim","air",
+  "airport","aisle","alarm","album","alcohol","alert","alien","all",
+  "alley","allow","almost","alone","alpha","already","also","alter",
+  "always","amazing","among","amount","amused","analyst","anchor","ancient",
+  "anger","angle","angry","animal","ankle","announce","annual","another",
+  "answer","antenna","apple","area","arena","argue","army","arrow",
+];
 
 /** bigint minor units → decimal string, trailing zeros trimmed. */
 function formatUnits(amount: bigint, decimals: number): string {
@@ -47,12 +75,6 @@ function formatUnits(amount: bigint, decimals: number): string {
   return `${neg ? "-" : ""}${whole}${frac ? `.${frac}` : ""}`;
 }
 
-/**
- * Decimal string → bigint minor units (inverse of `formatUnits`). Rejects
- * anything that is not a positive amount and refuses to silently truncate
- * money: more fraction digits than the asset has decimals is an error, not a
- * round. `decimals === 0` (no fractional unit) only accepts a whole number.
- */
 function parseUnits(input: string, decimals: number): bigint {
   const s = input.trim();
   if (!/^\d+(\.\d+)?$/.test(s)) throw new Error("Enter a positive amount, e.g. 12.5");
@@ -67,19 +89,16 @@ function parseUnits(input: string, decimals: number): bigint {
   return value;
 }
 
-/** Stable option/lookup key for an asset (symbol is not unique across chains). */
 function assetKey(a: Asset): string {
   return `${a.symbol}-${a.chain}`;
 }
 
-/** Status → badge classes. Pending is the honest default (never fabricated). */
 function statusClass(status: ActivityItem["status"]): string {
   if (status === "confirmed") return "bg-green-500/15 text-green-300";
   if (status === "failed") return "bg-red-500/15 text-red-300";
   return "bg-yellow-500/15 text-yellow-300";
 }
 
-/** Friendly copy for the typed errors the core throws (and a safe fallback). */
 function messageFor(err: unknown): string {
   if (err instanceof VaultDecryptError) return "Wrong passphrase, or the vault is corrupt.";
   if (err instanceof InvalidSeedPhraseError) return "That is not a valid BIP-39 seed phrase.";
@@ -87,6 +106,27 @@ function messageFor(err: unknown): string {
   if (err instanceof WalletError) return err.message;
   if (err instanceof Error) return err.message;
   return "Something went wrong.";
+}
+
+/** Generate 3 quiz questions from a seed phrase */
+function generateQuiz(seed: string): { index: number; correct: string; options: string[] }[] {
+  const words = seed.split(" ");
+  const positions: number[] = [];
+  while (positions.length < 3) {
+    const idx = Math.floor(Math.random() * words.length);
+    if (!positions.includes(idx)) positions.push(idx);
+  }
+  positions.sort((a, b) => a - b);
+  return positions.map((idx) => {
+    const correct = words[idx]!;
+    const decoys: string[] = [];
+    while (decoys.length < 3) {
+      const d = DECOY_WORDS[Math.floor(Math.random() * DECOY_WORDS.length)]!;
+      if (!words.includes(d) && !decoys.includes(d)) decoys.push(d);
+    }
+    const options = [correct, ...decoys].sort(() => Math.random() - 0.5);
+    return { index: idx, correct, options };
+  });
 }
 
 export default function Page() {
@@ -112,18 +152,180 @@ export default function Page() {
   const [sendAssetKey, setSendAssetKey] = useState("");
   const [sendTo, setSendTo] = useState("");
   const [sendAmount, setSendAmount] = useState("");
-  const [quote, setQuote] = useState<{ readonly intent: TxIntent; readonly fee: FeeQuote } | null>(
-    null,
-  );
+  const [quote, setQuote] = useState<{ readonly intent: TxIntent; readonly fee: FeeQuote } | null>(null);
   const [sentHash, setSentHash] = useState<string | null>(null);
   const [activity, setActivity] = useState<readonly ActivityItem[] | null>(null);
   const [activityError, setActivityError] = useState<string | null>(null);
 
-  // WebAuthn detection is client-only: resolving it in an effect (not at
-  // render) keeps the static prerender and the first client render identical,
-  // so there is no hydration mismatch.
   const [webauthnOk, setWebauthnOk] = useState(false);
   const [passkeyAdded, setPasskeyAdded] = useState(false);
+
+  // ---- Wallet names ----
+  const [walletNames, setWalletNames] = useState<Record<number, string>>({});
+  const [editingWalletIndex, setEditingWalletIndex] = useState<number | null>(null);
+  const [editWalletNameInput, setEditWalletNameInput] = useState("");
+
+  // ---- Toast system ----
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastIdRef = useRef(0);
+  const addToast = useCallback((type: ToastType, message: string) => {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev.slice(-4), { id, type, message }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
+  }, []);
+
+  // ---- i18n ----
+  const [locale, setLocaleState] = useState<Locale>("en");
+  useEffect(() => { setLocaleState(getLocale()); }, []);
+  const changeLocale = useCallback((l: Locale) => {
+    setLocaleState(l);
+    persistLocale(l);
+  }, []);
+  const T = useCallback((key: string) => t(key, locale), [locale]);
+
+  // ---- USD prices ----
+  const [prices, setPrices] = useState<PriceMap>({});
+  const [sparklineData, setSparklineData] = useState<number[]>([]);
+
+  // ---- Contacts ----
+  const [contacts, setContacts] = useState<Contact[]>([]);
+
+  // ---- Contacts add inline form states ----
+  const [isAddingContact, setIsAddingContact] = useState(false);
+  const [newContactName, setNewContactName] = useState("");
+  const [newContactAddress, setNewContactAddress] = useState("");
+  const [newContactChain, setNewContactChain] = useState("ethereum");
+
+  // ---- Settings: delete wallet confirmation ----
+  const [confirmDeleteWallet, setConfirmDeleteWallet] = useState(false);
+
+  // ---- Post-send inline save contact states ----
+  const [newContactSendName, setNewContactSendName] = useState("");
+  const [isContactSavedPostSend, setIsContactSavedPostSend] = useState(false);
+  const [lastSentRecipient, setLastSentRecipient] = useState("");
+  const [lastSentChain, setLastSentChain] = useState<ChainId>("ethereum");
+
+  // ---- Auto-lock ----
+  const [autolockMin, setAutolockMin] = useState(DEFAULT_AUTOLOCK_MIN);
+  const lastActivityRef = useRef(Date.now());
+
+  // ---- Settings: recovery check ----
+  const [settingsPassphrase, setSettingsPassphrase] = useState("");
+  const [settingsRevealedSeed, setSettingsRevealedSeed] = useState<string | null>(null);
+
+  // ---- Seed quiz state ----
+  const [quizQuestions, setQuizQuestions] = useState<ReturnType<typeof generateQuiz>>([]);
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
+
+  // Init wallet names from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(WALLET_NAMES_KEY);
+      if (stored) setWalletNames(JSON.parse(stored));
+    } catch {
+      // Non-secret display metadata; ignore malformed local values.
+    }
+  }, []);
+
+  // Init autolock from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(AUTO_LOCK_KEY);
+      if (stored) setAutolockMin(Number(stored));
+    } catch {
+      // Keep the default timer if localStorage is unavailable or malformed.
+    }
+  }, []);
+
+  // Init contacts from localStorage
+  useEffect(() => {
+    setContacts(loadContacts());
+  }, []);
+
+  const clearSession = useCallback(() => {
+    setBalances(null);
+    setAddresses([]);
+    setActiveAccount(0);
+    setAccountCount(1);
+    setQuote(null);
+    setSentHash(null);
+    setSendTo("");
+    setSendAmount("");
+    setActivity(null);
+    setActivityError(null);
+    setPasskeyAdded(false);
+    setPrices({});
+    setSparklineData([]);
+    setIsContactSavedPostSend(false);
+    setNewContactSendName("");
+  }, []);
+
+  const autoLock = useCallback(async () => {
+    try {
+      await getWalletApp().engine.lock();
+      clearSession();
+      setPhase("locked");
+      addToast("info", T("toast.autolock"));
+    } catch {
+      // Locking is best-effort during idle teardown.
+    }
+  }, [addToast, T, clearSession]);
+
+  // ---- Auto-lock timer ----
+  useEffect(() => {
+    if (phase !== "unlocked" && phase !== "settings") return;
+
+    const resetTimer = () => { lastActivityRef.current = Date.now(); };
+    const events = ["mousedown", "keypress", "scroll", "touchstart"] as const;
+    for (const e of events) document.addEventListener(e, resetTimer, { passive: true });
+
+    const handleVisibility = () => {
+      if (document.hidden) return;
+      // Re-check when tab becomes visible
+      const elapsed = Date.now() - lastActivityRef.current;
+      if (elapsed > autolockMin * 60_000) {
+        void autoLock();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - lastActivityRef.current;
+      if (elapsed > autolockMin * 60_000) {
+        void autoLock();
+      }
+    }, 10_000); // check every 10 seconds
+
+    return () => {
+      for (const e of events) document.removeEventListener(e, resetTimer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      clearInterval(interval);
+    };
+  }, [phase, autolockMin, autoLock]);
+
+  // ---- Wallet rename helpers ----
+  const renameWallet = (index: number) => {
+    const current = walletNames[index] || `Wallet #${index}`;
+    setEditingWalletIndex(index);
+    setEditWalletNameInput(current);
+  };
+
+  const saveWalletName = () => {
+    if (editingWalletIndex !== null) {
+      const trimmed = editWalletNameInput.trim();
+      if (trimmed) {
+        const updated = { ...walletNames, [editingWalletIndex]: trimmed };
+        setWalletNames(updated);
+        localStorage.setItem(WALLET_NAMES_KEY, JSON.stringify(updated));
+        addToast("success", T("toast.wallet_renamed"));
+      }
+      setEditingWalletIndex(null);
+    }
+  };
+
+  const cancelWalletRename = () => {
+    setEditingWalletIndex(null);
+  };
 
   /** Run a wallet-core call with shared busy/error handling. */
   const act = useCallback(async (fn: () => Promise<void>) => {
@@ -138,37 +340,10 @@ export default function Page() {
     }
   }, []);
 
-  /**
-   * Wallet-level meta: which seed is active and how many wallets exist. Both
-   * are non-secret plaintext keys, readable while the engine is locked, so
-   * the Wallet switcher works pre-unlock (you must see the list to pick which
-   * seed to unlock). `walletCount` is the populated count; the option list
-   * widens to the active index so a freshly-added empty slot still shows.
-   */
   const loadWalletMeta = useCallback(async () => {
     const { engine } = getWalletApp();
     setActiveWallet(await engine.getActiveWallet());
     setWalletCount(await engine.getWalletCount());
-  }, []);
-
-  /**
-   * Drop every piece of unlocked-session UI state. Shared by lock and by a
-   * wallet switch, which tears the engine session down the same way (a
-   * different seed must be unlocked on its own). Active wallet is NOT reset
-   * here — the caller has just chosen it.
-   */
-  const clearSession = useCallback(() => {
-    setBalances(null);
-    setAddresses([]);
-    setActiveAccount(0);
-    setAccountCount(1);
-    setQuote(null);
-    setSentHash(null);
-    setSendTo("");
-    setSendAmount("");
-    setActivity(null);
-    setActivityError(null);
-    setPasskeyAdded(false);
   }, []);
 
   useEffect(() => {
@@ -178,7 +353,7 @@ export default function Page() {
         const { engine } = getWalletApp();
         const has = await engine.hasWallet();
         if (!alive) return;
-        await loadWalletMeta(); // non-secret; lets the Wallet card show pre-unlock
+        await loadWalletMeta();
         if (alive) setPhase(has ? "locked" : "onboarding");
       } catch (e) {
         if (alive) {
@@ -187,9 +362,7 @@ export default function Page() {
         }
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [loadWalletMeta]);
 
   useEffect(() => {
@@ -199,13 +372,21 @@ export default function Page() {
   const loadActivity = useCallback(async () => {
     setActivityError(null);
     try {
-      // getActivity refreshes pending entries from the on-chain receipt when
-      // unlocked and never fabricates a status (see activity-log.ts / ADR-003).
       setActivity(await getWalletApp().engine.getActivity());
     } catch (e) {
       setActivity(null);
       setActivityError(messageFor(e));
     }
+  }, []);
+
+  const loadPrices = useCallback(async () => {
+    const p = await fetchPrices();
+    setPrices(p);
+  }, []);
+
+  const loadSparkline = useCallback(async () => {
+    const data = await fetchSparkline("BTC");
+    if (data.length > 0) setSparklineData(data);
   }, []);
 
   const loadUnlockedView = useCallback(async () => {
@@ -222,7 +403,7 @@ export default function Page() {
       try {
         found.push([chain, await engine.getAddress(chain, acct)]);
       } catch (e) {
-        if (!(e instanceof UnsupportedChainError)) throw e; // chain just not configured
+        if (!(e instanceof UnsupportedChainError)) throw e;
       }
     }
     setAddresses(found);
@@ -236,7 +417,9 @@ export default function Page() {
     }
 
     await loadActivity();
-  }, [loadActivity, loadWalletMeta]);
+    void loadPrices();
+    void loadSparkline();
+  }, [loadActivity, loadWalletMeta, loadPrices, loadSparkline]);
 
   const enter = useCallback(
     (next: Phase) => {
@@ -254,6 +437,8 @@ export default function Page() {
     setSeedInput("");
     setRevealedSeed("");
     setBackedUp(false);
+    setQuizQuestions([]);
+    setQuizAnswers({});
   }
 
   const onCreate = () =>
@@ -280,7 +465,29 @@ export default function Page() {
       enter("unlocked");
     });
 
-  const onConfirmBackup = () =>
+  const onConfirmBackup = () => {
+    // Generate quiz questions instead of going straight to unlocked
+    const questions = generateQuiz(revealedSeed);
+    setQuizQuestions(questions);
+    setQuizAnswers({});
+    setError(null);
+    setPhase("quiz");
+  };
+
+  const onQuizSubmit = () =>
+    act(async () => {
+      for (const q of quizQuestions) {
+        if (quizAnswers[q.index] !== q.correct) {
+          throw new Error(`Incorrect answer for word #${q.index + 1}. Please try again.`);
+        }
+      }
+      await getWalletApp().engine.unlock();
+      resetSecrets();
+      addToast("success", T("toast.wallet_verified"));
+      enter("unlocked");
+    });
+
+  const onSkipQuiz = () =>
     act(async () => {
       await getWalletApp().engine.unlock();
       resetSecrets();
@@ -301,15 +508,14 @@ export default function Page() {
     act(async () => {
       await getWalletApp().engine.lock();
       clearSession();
+      addToast("info", T("toast.locked"));
       enter("locked");
     });
 
-  /** Build the intent, get a fee quote, and move to the itemised confirm. */
   const onReview = () =>
     act(async () => {
       const list = balances ?? [];
-      const asset =
-        list.find((b) => assetKey(b.asset) === sendAssetKey)?.asset ?? list[0]?.asset;
+      const asset = list.find((b) => assetKey(b.asset) === sendAssetKey)?.asset ?? list[0]?.asset;
       if (!asset) throw new Error("No sendable assets on configured chains.");
       const to = sendTo.trim();
       if (!to) throw new Error("Enter a recipient address.");
@@ -323,11 +529,16 @@ export default function Page() {
     act(async () => {
       if (!quote) return;
       const res = await getWalletApp().engine.send(quote.intent);
+      setLastSentRecipient(quote.intent.to);
+      setLastSentChain(quote.intent.asset.chain);
+      setIsContactSavedPostSend(false);
+      setNewContactSendName("");
       setQuote(null);
       setSendTo("");
       setSendAmount("");
       setSentHash(res.hash);
-      await loadUnlockedView(); // balance now reflects the pending spend; log gained an entry
+      addToast("success", T("toast.sent"));
+      await loadUnlockedView();
     });
 
   const onCancelQuote = () => {
@@ -335,11 +546,6 @@ export default function Page() {
     setQuote(null);
   };
 
-  /**
-   * Switch the active HD account. Every account derives from the one seed at
-   * a distinct BIP-44 index; the engine persists the selection and it scopes
-   * the portfolio, receive address, and activity below.
-   */
   const onSelectAccount = (index: number) =>
     act(async () => {
       await getWalletApp().engine.setActiveAccount(index);
@@ -353,13 +559,6 @@ export default function Page() {
     void onSelectAccount(next);
   };
 
-  /**
-   * Switch the active wallet. A wallet is an independent BIP-39 seed in its
-   * own vault; selecting another one tears the engine's unlocked session
-   * down (a different seed must be unlocked on its own), so the UI drops to
-   * the lock screen for the chosen wallet. The selector only lists existing
-   * wallets, so the target always has a vault to unlock.
-   */
   const onSelectWallet = (index: number) =>
     act(async () => {
       await getWalletApp().engine.setActiveWallet(index);
@@ -369,12 +568,6 @@ export default function Page() {
       enter("locked");
     });
 
-  /**
-   * Create another wallet. `addWallet` allocates the next empty seed slot
-   * and tears the session down; that slot has no vault yet, so the user
-   * lands on onboarding (create or import a seed) for it, exactly like
-   * first run. The previous wallet is untouched and stays switchable here.
-   */
   const onAddWallet = () =>
     act(async () => {
       const newIndex = await getWalletApp().engine.addWallet();
@@ -385,88 +578,211 @@ export default function Page() {
       enter("onboarding");
     });
 
-  /**
-   * Opt into a WebAuthn passkey. Honest UX: this *adds* a passkey and makes it
-   * the preferred unlock; the passphrase keeps working unchanged. The browser
-   * ceremony runs inside `enrollPasskey()`; a no-PRF authenticator surfaces a
-   * typed error here rather than silently doing nothing (ADR-005).
-   */
   const onEnrollPasskey = () =>
     act(async () => {
       await getWalletApp().enrollPasskey();
       setPasskeyAdded(true);
+      addToast("success", T("toast.passkey_added"));
     });
 
+  // ---- Max button handler ----
+  const onMaxAmount = () => {
+    if (!balances || balances.length === 0) return;
+    const key = sendAssetKey || assetKey(balances[0]!.asset);
+    const found = balances.find((b) => assetKey(b.asset) === key);
+    if (found) {
+      setSendAmount(formatUnits(found.amount, found.asset.decimals));
+    }
+  };
+
+  // ---- Settings handlers ----
+  const onOpenSettings = () => {
+    setSettingsPassphrase("");
+    setSettingsRevealedSeed(null);
+    setPhase("settings");
+  };
+
+  const onBackFromSettings = () => {
+    setSettingsPassphrase("");
+    setSettingsRevealedSeed(null);
+    enter("unlocked");
+  };
+
+  const onChangeAutolock = (min: number) => {
+    setAutolockMin(min);
+    localStorage.setItem(AUTO_LOCK_KEY, String(min));
+  };
+
+  const onVerifyRecovery = () =>
+    act(async () => {
+      if (!settingsPassphrase) throw new Error("Enter your passphrase.");
+      // Re-authenticate without exposing seed material in the UI.
+      const app = getWalletApp();
+      app.setPassphrase(settingsPassphrase);
+      await app.engine.unlock();
+      setSettingsRevealedSeed(T("settings.recovery_success"));
+      setSettingsPassphrase("");
+    });
+
+
+
+  const onRemoveContact = (address: string, chain: string) => {
+    const updated = removeContact(address, chain);
+    setContacts(updated);
+    addToast("info", T("toast.contact_removed"));
+  };
+
+  // ---- Clipboard with toast ----
+  const copyToClipboard = useCallback((value: string) => {
+    void navigator.clipboard.writeText(value).then(() => {
+      addToast("success", T("toast.copied"));
+    });
+  }, [addToast, T]);
+
+  // ---- USD calculations ----
+  const totalUsd = balances
+    ? balances.reduce((sum, b) => {
+        const price = prices[b.asset.symbol] ?? 0;
+        const amount = Number(formatUnits(b.amount, b.asset.decimals));
+        return sum + amount * price;
+      }, 0)
+    : 0;
+
+  // ---- Animation variants ----
+  const pageVariants = {
+    initial: { opacity: 0, y: 15 },
+    in: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
+    out: { opacity: 0, y: -15, transition: { duration: 0.3 } }
+  };
+
+  const listVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, x: -10 },
+    show: { opacity: 1, x: 0 }
+  };
+
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col gap-6 px-5 py-10">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">WDK Web Wallet</h1>
-        <p className="text-sm text-[--color-muted]">
-          Reference self-custodial wallet on the Tether Wallet Development Kit.
-        </p>
+    <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-5 py-8 font-sans sm:py-10">
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-50 drop-shadow-sm">{T("app.title")}</h1>
+          <p className="mt-1 max-w-[16rem] text-xs leading-5 text-slate-300">{T("app.subtitle")}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Language toggle */}
+          <button
+            className="flex min-h-10 items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70"
+            onClick={() => changeLocale(locale === "en" ? "ru" : "en")}
+            title="Switch language"
+          >
+            <Globe size={10} />
+            {locale.toUpperCase()}
+          </button>
+          <div className="flex min-h-10 items-center gap-1.5 rounded-full border border-emerald-500/15 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-emerald-300">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="pulse-indicator absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            </span>
+            <span className="max-w-16 leading-3 sm:max-w-none sm:whitespace-nowrap">{T("app.worker")}</span>
+          </div>
+        </div>
       </header>
 
       {error && (
-        <p
+        <motion.p
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
           role="alert"
           className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300"
         >
           {error}
-        </p>
+        </motion.p>
       )}
 
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={phase}
+          className="flex flex-col gap-6"
+          variants={pageVariants}
+          initial="initial"
+          animate="in"
+          exit="out"
+        >
+
+      {/* ---- Wallet switcher (show on onboarding/locked/unlocked) ---- */}
       {(phase === "onboarding" || phase === "locked" || phase === "unlocked") &&
         (walletCount >= 1 || activeWallet > 0) && (
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-medium">Wallet</h2>
+              <h2 className="font-medium text-lg">{T("wallets.title")}</h2>
               <button
-                className="text-sm text-[--color-muted] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-1.5 text-sm font-medium text-emerald-400 hover:text-emerald-300 disabled:opacity-50 transition-colors"
                 onClick={onAddWallet}
                 disabled={busy}
               >
-                Add wallet
+                <Plus size={16} />
+                {T("wallets.new")}
               </button>
             </div>
-            <select
-              className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
-              value={activeWallet}
-              onChange={(e) => onSelectWallet(Number(e.target.value))}
-              disabled={busy}
-            >
-              {Array.from({ length: Math.max(walletCount, activeWallet + 1) }, (_, i) => (
-                <option key={i} value={i}>
-                  Wallet #{i}
-                </option>
-              ))}
-            </select>
-            <p className="mt-2 text-xs text-[--color-muted]">
-              Each wallet is an independent seed with its own accounts,
-              balances, and activity. Switching locks the current wallet —
-              you unlock the one you pick. Add wallet starts a fresh, empty
-              seed slot.
-            </p>
+            {editingWalletIndex === activeWallet ? (
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  className="flex-1 rounded-md border border-[--color-accent] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[--color-accent] text-white"
+                  value={editWalletNameInput}
+                  onChange={(e) => setEditWalletNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveWalletName();
+                    else if (e.key === "Escape") cancelWalletRename();
+                  }}
+                  autoFocus
+                />
+                <button className="flex items-center justify-center rounded-md border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 text-emerald-400 hover:text-emerald-300 transition-colors" onClick={saveWalletName} aria-label={T("misc.save")} title={T("misc.save")}><Check size={14} /></button>
+                <button className="flex items-center justify-center rounded-md border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 px-3 text-red-400 hover:text-red-300 transition-colors" onClick={cancelWalletRename} aria-label={T("misc.cancel")} title={T("misc.cancel")}><X size={14} /></button>
+              </div>
+            ) : (
+              <div className="flex gap-2 mb-2">
+                <select
+                  className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                  value={activeWallet}
+                  onChange={(e) => onSelectWallet(Number(e.target.value))}
+                  disabled={busy}
+                >
+                  {Array.from({ length: Math.max(walletCount, activeWallet + 1) }, (_, i) => (
+                    <option key={i} value={i}>{walletNames[i] || `Wallet #${i}`}</option>
+                  ))}
+                </select>
+                <button
+                  className="flex items-center justify-center rounded-md border border-[--color-border] bg-white/5 hover:bg-white/10 px-3 text-[--color-muted] hover:text-white transition-colors"
+                  onClick={() => renameWallet(activeWallet)}
+                  aria-label="Rename this wallet"
+                  title="Rename this wallet"
+                ><Pencil size={14} /></button>
+              </div>
+            )}
+            <p className="text-xs text-[--color-muted]">{T("wallets.hint")}</p>
           </Card>
         )}
 
-      {phase === "loading" && <Card>Loading wallet…</Card>}
+      {phase === "loading" && <Card>{T("misc.loading")}</Card>}
 
+      {/* ---- ONBOARDING ---- */}
       {phase === "onboarding" && (
         <Card>
           <div className="mb-4 flex gap-2 text-sm">
-            <Tab active={mode === "create"} onClick={() => setMode("create")}>
-              Create
-            </Tab>
-            <Tab active={mode === "import"} onClick={() => setMode("import")}>
-              Import
-            </Tab>
+            <Tab active={mode === "create"} onClick={() => setMode("create")}>{T("onboard.create")}</Tab>
+            <Tab active={mode === "import"} onClick={() => setMode("import")}>{T("onboard.import")}</Tab>
           </div>
 
           {mode === "import" && (
-            <Field label="Seed phrase">
+            <Field label={T("onboard.seed_label")}>
               <textarea
                 className="h-24 w-full resize-none rounded-md border border-[--color-border] bg-[--color-bg] p-3 text-sm break-anywhere outline-none focus:border-[--color-accent]"
-                placeholder="twelve or twenty-four words separated by spaces"
+                placeholder={T("onboard.seed_placeholder")}
                 value={seedInput}
                 onChange={(e) => setSeedInput(e.target.value)}
                 autoComplete="off"
@@ -475,88 +791,107 @@ export default function Page() {
             </Field>
           )}
 
-          <Field label="Passphrase (encrypts the vault on this device)">
-            <Input
-              type="password"
-              value={passphrase}
-              onChange={setPassphrase}
-              placeholder="at least 8 characters"
-              autoComplete="new-password"
-            />
+          <Field label={T("onboard.pass_label")}>
+            <Input type="password" value={passphrase} onChange={setPassphrase} placeholder={T("onboard.pass_placeholder")} autoComplete="new-password" />
           </Field>
 
           {mode === "create" && (
-            <Field label="Confirm passphrase">
-              <Input
-                type="password"
-                value={confirmPass}
-                onChange={setConfirmPass}
-                placeholder="repeat it"
-                autoComplete="new-password"
-              />
+            <Field label={T("onboard.confirm_label")}>
+              <Input type="password" value={confirmPass} onChange={setConfirmPass} placeholder={T("onboard.confirm_placeholder")} autoComplete="new-password" />
             </Field>
           )}
 
-          <Button onClick={mode === "create" ? onCreate : onImport} busy={busy}>
-            {mode === "create" ? "Create wallet" : "Import wallet"}
+          <Button onClick={mode === "create" ? onCreate : onImport} busy={busy} workingLabel={T("misc.working")}>
+            {mode === "create" ? T("onboard.btn_create") : T("onboard.btn_import")}
           </Button>
         </Card>
       )}
 
+      {/* ---- BACKUP ---- */}
       {phase === "backup" && (
         <Card>
-          <h2 className="mb-1 font-medium">Back up your seed phrase</h2>
-          <p className="mb-3 text-sm text-[--color-muted]">
-            This is the only way to recover the wallet. Write it down offline. It
-            is shown once.
-          </p>
+          <h2 className="mb-1 font-medium">{T("backup.title")}</h2>
+          <p className="mb-3 text-sm text-[--color-muted]">{T("backup.desc")}</p>
           <pre className="mb-4 rounded-md border border-[--color-border] bg-[--color-bg] p-3 text-sm leading-relaxed break-anywhere whitespace-pre-wrap">
             {revealedSeed}
           </pre>
           <label className="mb-4 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={backedUp}
-              onChange={(e) => setBackedUp(e.target.checked)}
-            />
-            I have written it down somewhere safe.
+            <input type="checkbox" checked={backedUp} onChange={(e) => setBackedUp(e.target.checked)} />
+            {T("backup.checkbox")}
           </label>
-          <Button onClick={onConfirmBackup} busy={busy} disabled={!backedUp}>
-            Continue
+          <Button onClick={onConfirmBackup} busy={busy} disabled={!backedUp} workingLabel={T("misc.working")}>
+            {T("backup.continue")}
           </Button>
         </Card>
       )}
 
+      {/* ---- SEED QUIZ ---- */}
+      {phase === "quiz" && (
+        <Card>
+          <h2 className="mb-1 font-medium">{T("quiz.title")}</h2>
+          <p className="mb-4 text-sm text-[--color-muted]">{T("quiz.desc")}</p>
+          <div className="flex flex-col gap-4 mb-4">
+            {quizQuestions.map((q) => (
+              <div key={q.index}>
+                <p className="text-sm font-medium mb-2 text-white">{T("quiz.word_n")}{q.index + 1}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {q.options.map((opt) => (
+                    <button
+                      key={opt}
+                      className={`rounded-md border px-3 py-2 text-sm transition-all ${
+                        quizAnswers[q.index] === opt
+                          ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
+                          : "border-[--color-border] bg-white/5 text-[--color-muted] hover:bg-white/10 hover:text-white"
+                      }`}
+                      onClick={() => setQuizAnswers((prev) => ({ ...prev, [q.index]: opt }))}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={onQuizSubmit}
+              busy={busy}
+              disabled={Object.keys(quizAnswers).length < quizQuestions.length}
+              workingLabel={T("misc.working")}
+            >
+              {T("backup.continue")}
+            </Button>
+            <button
+              className="rounded-md border border-[--color-border] px-4 py-2.5 text-sm text-[--color-muted] hover:text-white"
+              onClick={onSkipQuiz}
+              disabled={busy}
+            >
+              {T("misc.skip")}
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {/* ---- LOCKED ---- */}
       {phase === "locked" && (
         <Card>
-          <h2 className="mb-3 font-medium">Unlock</h2>
-          <Field label="Passphrase">
-            <Input
-              type="password"
-              value={passphrase}
-              onChange={setPassphrase}
-              placeholder="your passphrase"
-              autoComplete="current-password"
-              onEnter={onUnlock}
-            />
+          <h2 className="mb-3 font-medium">{T("lock.title")}</h2>
+          <Field label={T("lock.pass_label")}>
+            <Input type="password" value={passphrase} onChange={setPassphrase} placeholder={T("lock.pass_placeholder")} autoComplete="current-password" onEnter={onUnlock} />
           </Field>
-          <Button onClick={onUnlock} busy={busy}>
-            Unlock
-          </Button>
+          <Button onClick={onUnlock} busy={busy} workingLabel={T("misc.working")}>{T("lock.btn")}</Button>
         </Card>
       )}
 
+      {/* ---- UNLOCKED ---- */}
       {phase === "unlocked" && (
         <>
+          {/* Account card */}
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-medium">Account</h2>
-              <button
-                className="text-sm text-[--color-muted] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={onAddAccount}
-                disabled={busy}
-              >
-                Add account
+              <h2 className="font-medium">{T("account.title")}</h2>
+              <button className="text-sm text-[--color-muted] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50" onClick={onAddAccount} disabled={busy}>
+                {T("account.add")}
               </button>
             </div>
             <select
@@ -566,78 +901,113 @@ export default function Page() {
               disabled={busy}
             >
               {Array.from({ length: accountCount }, (_, i) => (
-                <option key={i} value={i}>
-                  Account #{i}
-                </option>
+                <option key={i} value={i}>{T("account.name_template")}{i}</option>
               ))}
             </select>
-            <p className="mt-2 text-xs text-[--color-muted]">
-              Every account derives from the one seed at a distinct HD index.
-              Switching scopes the portfolio, receive address, and activity
-              below; the selection is remembered on this device.
-            </p>
+            <p className="mt-2 text-xs text-[--color-muted]">{T("account.hint")}</p>
           </Card>
 
+          {/* Portfolio card */}
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-medium">Portfolio</h2>
-              <button
-                className="text-sm text-[--color-muted] underline-offset-2 hover:underline"
-                onClick={onLock}
-                disabled={busy}
-              >
-                Lock
-              </button>
+              <h2 className="font-medium text-lg">{T("portfolio.title")}</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  className="flex items-center gap-1 text-sm text-[--color-muted] hover:text-white transition-colors"
+                  onClick={onOpenSettings}
+                  aria-label={T("settings.title")}
+                  title={T("settings.title")}
+                >
+                  <Settings size={14} />
+                </button>
+                <button
+                  className="flex items-center gap-1.5 text-sm text-[--color-muted] hover:text-white transition-colors"
+                  onClick={onLock}
+                  disabled={busy}
+                >
+                  <LogOut size={14} />
+                  {T("portfolio.lock")}
+                </button>
+              </div>
             </div>
+
+            {/* Total USD value */}
+            {balances && balances.length > 0 && totalUsd > 0 && (
+              <div className="mb-4 text-center">
+                <p className="text-3xl font-bold text-white tracking-tight">{formatUsd(totalUsd)}</p>
+                <p className="text-xs text-[--color-muted] mt-1">{T("portfolio.total")}</p>
+              </div>
+            )}
+
             {balances === null && !balancesError && (
-              <p className="text-sm text-[--color-muted]">Loading balances…</p>
+              <div className="flex flex-col gap-3 mt-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
             )}
             {balancesError && (
               <div className="text-sm">
                 <p className="mb-2 text-red-300">{balancesError}</p>
-                <button
-                  className="text-[--color-accent] underline-offset-2 hover:underline"
-                  onClick={() => void loadUnlockedView()}
-                >
-                  Retry
-                </button>
+                <button className="text-[--color-accent] underline-offset-2 hover:underline" onClick={() => void loadUnlockedView()}>{T("misc.retry")}</button>
               </div>
             )}
             {balances && balances.length === 0 && (
-              <p className="text-sm text-[--color-muted]">No configured assets.</p>
+              <div className="text-center py-6">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+                  <ArrowDownRight size={24} />
+                </div>
+                <p className="text-sm text-[--color-muted] mb-2">{T("empty.portfolio")}</p>
+                <button className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors" onClick={() => document.getElementById("receive-section")?.scrollIntoView({ behavior: "smooth" })}>
+                  {T("empty.portfolio_cta")}
+                </button>
+              </div>
             )}
             {balances && balances.length > 0 && (
-              <ul className="divide-y divide-[--color-border]">
-                {balances.map((b) => (
-                  <li
-                    key={`${b.asset.symbol}-${b.asset.chain}`}
-                    className="flex items-center justify-between py-2 text-sm"
-                  >
-                    <span>
-                      <span className="font-medium">{b.asset.symbol}</span>{" "}
-                      <span className="text-[--color-muted]">on {b.asset.chain}</span>
-                    </span>
-                    <span className="font-mono">
-                      {formatUnits(b.amount, b.asset.decimals)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <motion.ul variants={listVariants} initial="hidden" animate="show" className="divide-y divide-[--color-border]">
+                  {balances.map((b) => {
+                    const price = prices[b.asset.symbol] ?? 0;
+                    const amount = Number(formatUnits(b.amount, b.asset.decimals));
+                    const usdValue = amount * price;
+                    return (
+                      <motion.li
+                        variants={itemVariants}
+                        key={`${b.asset.symbol}-${b.asset.chain}`}
+                        className="flex items-center justify-between py-2.5 text-sm transition-colors hover:bg-white/[0.02] px-1 rounded"
+                      >
+                        <span>
+                          <span className="font-semibold text-white">{b.asset.symbol}</span>{" "}
+                          <span className="text-[--color-muted] text-xs">{T("misc.on")} {b.asset.chain}</span>
+                        </span>
+                        <span className="text-right">
+                          <span className="font-mono text-emerald-400 font-medium block">
+                            {formatUnits(b.amount, b.asset.decimals)}
+                          </span>
+                          {price > 0 && (
+                            <span className="text-[10px] text-[--color-muted]">{formatUsd(usdValue)}</span>
+                          )}
+                        </span>
+                      </motion.li>
+                    );
+                  })}
+                </motion.ul>
+                {/* Sparkline chart */}
+                {sparklineData.length > 0 && <Sparkline data={sparklineData} />}
+              </>
             )}
           </Card>
 
+          {/* Send card */}
           <Card>
-            <h2 className="mb-3 font-medium">Send</h2>
+            <h2 className="mb-3 font-medium">{T("send.title")}</h2>
 
             {(!balances || balances.length === 0) && (
-              <p className="text-sm text-[--color-muted]">
-                No sendable assets on configured chains.
-              </p>
+              <p className="text-sm text-[--color-muted]">{T("send.no_assets")}</p>
             )}
 
             {balances && balances.length > 0 && !quote && sentHash === null && (
               <>
-                <Field label="Asset">
+                <Field label={T("send.asset")}>
                   <select
                     className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
                     value={sendAssetKey || assetKey(balances[0]!.asset)}
@@ -645,110 +1015,152 @@ export default function Page() {
                   >
                     {balances.map((b) => (
                       <option key={assetKey(b.asset)} value={assetKey(b.asset)}>
-                        {b.asset.symbol} on {b.asset.chain}
+                        {b.asset.symbol} {T("misc.on")} {b.asset.chain}
                       </option>
                     ))}
                   </select>
                 </Field>
-                <Field label="Recipient address">
-                  <Input
-                    type="text"
-                    value={sendTo}
-                    onChange={setSendTo}
-                    placeholder="destination address"
-                    autoComplete="off"
-                  />
+                <Field label={T("send.recipient")}>
+                  <Input type="text" value={sendTo} onChange={setSendTo} placeholder={T("send.recipient_placeholder")} autoComplete="off" />
                 </Field>
-                <QrScanner onResult={setSendTo} />
-                <Field label="Amount">
-                  <Input
-                    type="text"
-                    value={sendAmount}
-                    onChange={setSendAmount}
-                    placeholder="0.0"
-                    autoComplete="off"
-                  />
+
+                {/* Contacts dropdown */}
+                {contacts.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {contacts.map((c) => (
+                      <button
+                        key={`${c.address}-${c.chain}`}
+                        className="contact-chip"
+                        onClick={() => { setSendTo(c.address); }}
+                        title={c.address}
+                      >
+                        <BookUser size={10} />
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <QrScanner onResult={setSendTo} label={T("misc.scan_qr")} closeLabel={T("misc.close")} cancelLabel={T("misc.cancel")} />
+
+                <Field label={T("send.amount")}>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Input type="text" value={sendAmount} onChange={setSendAmount} placeholder="0.0" autoComplete="off" />
+                    </div>
+                    <button
+                      className="shrink-0 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors"
+                      onClick={onMaxAmount}
+                      title={T("send.max")}
+                    >
+                      MAX
+                    </button>
+                  </div>
                 </Field>
-                <Button onClick={onReview} busy={busy}>
-                  Review transaction
-                </Button>
+                <Button onClick={onReview} busy={busy} workingLabel={T("misc.working")}>{T("send.review")}</Button>
               </>
             )}
 
             {quote && (
               <div className="text-sm">
-                <p className="mb-3 text-[--color-muted]">
-                  Decoded from the transaction — not raw hex. Check every line.
-                </p>
+                <p className="mb-3 text-[--color-muted]">{T("send.confirm_hint")}</p>
                 <dl className="mb-4 divide-y divide-[--color-border] rounded-md border border-[--color-border]">
-                  <Row
-                    k="Amount"
-                    v={`${formatUnits(quote.intent.amount, quote.intent.asset.decimals)} ${quote.intent.asset.symbol}`}
-                  />
-                  <Row
-                    k="Asset"
-                    v={
-                      quote.intent.asset.token
-                        ? `${quote.intent.asset.symbol} (${quote.intent.asset.token})`
-                        : quote.intent.asset.symbol
-                    }
-                  />
-                  <Row k="Chain" v={quote.intent.asset.chain} />
-                  <Row k="Recipient" v={quote.intent.to} mono />
-                  <Row
-                    k="Network fee"
-                    v={`${formatUnits(quote.fee.fee, quote.fee.feeAsset.decimals)} ${quote.fee.feeAsset.symbol}`}
-                  />
+                  <Row k={T("misc.amount")} v={`${formatUnits(quote.intent.amount, quote.intent.asset.decimals)} ${quote.intent.asset.symbol}`} />
+                  <Row k={T("misc.asset")} v={quote.intent.asset.token ? `${quote.intent.asset.symbol} (${quote.intent.asset.token})` : quote.intent.asset.symbol} />
+                  <Row k={T("misc.chain")} v={quote.intent.asset.chain} />
+                  <Row k={T("misc.recipient")} v={quote.intent.to} mono />
+                  <Row k={T("misc.network_fee")} v={`${formatUnits(quote.fee.fee, quote.fee.feeAsset.decimals)} ${quote.fee.feeAsset.symbol}`} />
                 </dl>
                 <div className="flex gap-2">
-                  <Button onClick={onConfirmSend} busy={busy}>
-                    Confirm &amp; send
-                  </Button>
-                  <button
-                    className="rounded-md border border-[--color-border] px-4 py-2.5 text-sm text-[--color-muted] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                    onClick={onCancelQuote}
-                    disabled={busy}
-                  >
-                    Cancel
-                  </button>
+                  <Button onClick={onConfirmSend} busy={busy} workingLabel={T("misc.working")}>{T("send.confirm_btn")}</Button>
+                  <button className="rounded-md border border-[--color-border] px-4 py-2.5 text-sm text-[--color-muted] hover:text-white disabled:cursor-not-allowed disabled:opacity-50" onClick={onCancelQuote} disabled={busy}>{T("send.cancel")}</button>
                 </div>
               </div>
             )}
 
             {sentHash !== null && (
               <div className="text-sm">
-                <p className="mb-2 text-green-300">
-                  Broadcast. It appears below as pending until the network confirms it.
-                </p>
+                <p className="mb-2 text-green-300">{T("send.broadcast")}</p>
+                <a
+                  href={explorerUrl(
+                    lastSentChain || "bitcoin",
+                    sentHash,
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 transition-colors mb-2"
+                >
+                  <ExternalLink size={12} />
+                  {T("misc.view_explorer")}
+                </a>
                 <code className="block break-anywhere rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs">
                   {sentHash}
                 </code>
-                <button
-                  className="mt-3 text-[--color-accent] underline-offset-2 hover:underline"
-                  onClick={() => setSentHash(null)}
-                >
-                  Send another
+
+                {/* Post-send inline save contact form */}
+                {lastSentRecipient &&
+                 !contacts.some(c => c.address.toLowerCase() === lastSentRecipient.toLowerCase() && c.chain === lastSentChain) &&
+                 !isContactSavedPostSend && (
+                  <div className="glass-card rounded-xl p-4 mt-4 flex flex-col gap-3 border border-emerald-500/20 bg-emerald-500/5">
+                    <span className="text-sm font-medium text-white">{T("send.save_contact_prompt")}</span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                        placeholder={T("settings.contacts_name")}
+                        value={newContactSendName}
+                        onChange={(e) => setNewContactSendName(e.target.value)}
+                      />
+                      <button
+                        className="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-black font-semibold text-xs px-4 py-2 rounded-lg transition-colors flex items-center shrink-0"
+                        onClick={() => {
+                          if (newContactSendName.trim()) {
+                            const updated = addContact({
+                              name: newContactSendName.trim(),
+                              address: lastSentRecipient,
+                              chain: lastSentChain
+                            });
+                            setContacts(updated);
+                            setIsContactSavedPostSend(true);
+                            addToast("success", T("toast.contact_saved"));
+                          }
+                        }}
+                      >
+                        {T("send.save_contact")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button className="mt-3 text-[--color-accent] underline-offset-2 hover:underline" onClick={() => setSentHash(null)}>
+                  {T("send.another")}
                 </button>
               </div>
             )}
           </Card>
 
+          {/* Receive card */}
           <Card>
-            <h2 className="mb-3 font-medium">Receive</h2>
+            <h2 className="mb-3 font-medium" id="receive-section">{T("receive.title")}</h2>
             {addresses.length === 0 && (
-              <p className="text-sm text-[--color-muted]">No addresses.</p>
+              <p className="text-sm text-[--color-muted]">{T("receive.no_addr")}</p>
             )}
             <ul className="flex flex-col gap-3">
               {addresses.map(([chain, addr]) => (
                 <li key={chain}>
-                  <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">
-                    {chain}
-                  </div>
+                  <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{chain}</div>
                   <div className="flex items-start gap-2">
                     <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
                       {addr}
                     </code>
-                    <CopyButton value={addr} />
+                    <button
+                      className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
+                      onClick={() => copyToClipboard(addr)}
+                      aria-label={`Copy ${chain} receive address`}
+                      title={`Copy ${chain} receive address`}
+                    >
+                      <CopyIcon size={14} />
+                    </button>
                   </div>
                   <Qr value={addr} chain={chain} />
                 </li>
@@ -756,107 +1168,413 @@ export default function Page() {
             </ul>
           </Card>
 
+          {/* Activity card */}
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-medium">Activity</h2>
-              <button
-                className="text-sm text-[--color-muted] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={() => void loadActivity()}
-                disabled={busy}
-              >
-                Refresh
+              <h2 className="font-medium">{T("activity.title")}</h2>
+              <button className="text-sm text-[--color-muted] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void loadActivity()} disabled={busy}>
+                {T("activity.refresh")}
               </button>
             </div>
 
             {activity === null && !activityError && (
-              <p className="text-sm text-[--color-muted]">Loading activity…</p>
+              <div className="flex flex-col gap-3 mt-4">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
             )}
             {activityError && <p className="text-sm text-red-300">{activityError}</p>}
             {activity && activity.length === 0 && (
-              <p className="text-sm text-[--color-muted]">No sends yet.</p>
+              <div className="text-center py-6">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-400">
+                  <ArrowUpRight size={24} />
+                </div>
+                <p className="text-sm text-[--color-muted]">{T("activity.empty")}</p>
+              </div>
             )}
             {activity && activity.length > 0 && (
-              <ul className="divide-y divide-[--color-border]">
+              <motion.ul variants={listVariants} initial="hidden" animate="show" className="divide-y divide-[--color-border]">
                 {activity.map((it) => (
-                  <li
+                  <motion.li
+                    variants={itemVariants}
                     key={it.hash}
-                    className="flex items-center justify-between gap-3 py-2 text-sm"
+                    className="flex items-center justify-between gap-3 py-3 text-sm transition-colors hover:bg-white/[0.02] px-1 rounded"
                   >
-                    <span>
-                      <span className="font-medium">
-                        {it.direction === "out" ? "−" : "+"}
-                        {formatUnits(it.amount, it.asset.decimals)} {it.asset.symbol}
-                      </span>{" "}
-                      <span className="text-[--color-muted]">on {it.asset.chain}</span>
-                      <span className="block text-xs text-[--color-muted]">
-                        {new Date(it.timestamp).toLocaleString()}
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-full ${it.direction === "out" ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"}`}>
+                        {it.direction === "out" ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                      </div>
+                      <span>
+                        <span className="font-medium">
+                          {it.direction === "out" ? "−" : "+"}
+                          {formatUnits(it.amount, it.asset.decimals)} {it.asset.symbol}
+                        </span>{" "}
+                        <span className="text-[--color-muted]">{T("misc.on")} {it.asset.chain}</span>
+                        <span className="block text-xs text-[--color-muted]">
+                          {new Date(it.timestamp).toLocaleString()}
+                        </span>
                       </span>
-                    </span>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${statusClass(it.status)}`}
-                    >
-                      {it.status}
-                    </span>
-                  </li>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={explorerUrl(it.asset.chain, it.hash)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[--color-muted] hover:text-white transition-colors"
+                        aria-label={T("misc.view_explorer")}
+                        title={T("misc.view_explorer")}
+                      >
+                        <ExternalLink size={12} />
+                      </a>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium flex items-center gap-1.5 ${statusClass(it.status)}`}>
+                        {it.status === "pending" && <Loader2 size={12} className="animate-spin" />}
+                        {it.status}
+                      </span>
+                    </div>
+                  </motion.li>
                 ))}
-              </ul>
+              </motion.ul>
             )}
 
-            <p className="mt-3 text-xs text-[--color-muted]">
-              Outgoing sends made in this wallet via this app. Inbound and
-              external transfers need a WDK indexer — see docs/ARCHITECTURE.md
-              (ADR-003). Statuses come from the on-chain receipt, never guessed.
-            </p>
+            <p className="mt-3 text-xs text-[--color-muted]">{T("activity.hint")}</p>
           </Card>
 
+          {/* Security card */}
           {webauthnOk && (
             <Card>
-              <h2 className="mb-1 font-medium">Security</h2>
+              <h2 className="mb-1 font-medium">{T("security.title")}</h2>
               {passkeyAdded ? (
-                <p className="text-sm text-green-300">
-                  Passkey added. It will be the preferred unlock next time; your
-                  passphrase still works.
-                </p>
+                <p className="text-sm text-green-300">{T("security.passkey_added")}</p>
               ) : (
                 <>
-                  <p className="mb-3 text-sm text-[--color-muted]">
-                    Add a passkey (Face ID / Touch ID / security key) for unlock.
-                    Optional — your passphrase keeps working unchanged; the
-                    passkey is just preferred once enrolled.
-                  </p>
-                  <Button onClick={onEnrollPasskey} busy={busy}>
-                    Add passkey unlock
-                  </Button>
+                  <p className="mb-3 text-sm text-[--color-muted]">{T("security.passkey_desc")}</p>
+                  <Button onClick={onEnrollPasskey} busy={busy} workingLabel={T("misc.working")}>{T("security.add_passkey")}</Button>
                 </>
               )}
             </Card>
           )}
         </>
       )}
+
+      {/* ---- SETTINGS ---- */}
+      {phase === "settings" && (
+        <>
+          <Card>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-medium text-lg">{T("settings.title")}</h2>
+              <button className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors" onClick={onBackFromSettings}>
+                {T("settings.back")}
+              </button>
+            </div>
+
+            {/* Auto-Lock Timer */}
+            <div className="settings-row">
+              <div className="flex items-center gap-2">
+                <Timer size={16} className="text-[--color-muted]" />
+                <div>
+                  <p className="text-sm font-medium">{T("settings.autolock")}</p>
+                  <p className="text-xs text-[--color-muted]">{T("settings.autolock_desc")}</p>
+                </div>
+              </div>
+              <select
+                className="rounded-md border border-[--color-border] bg-[--color-bg] px-2 py-1 text-sm outline-none"
+                value={autolockMin}
+                onChange={(e) => onChangeAutolock(Number(e.target.value))}
+              >
+                {[1, 2, 5, 15, 30].map((m) => (
+                  <option key={m} value={m}>{m} {T("settings.minutes")}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Language */}
+            <div className="settings-row">
+              <div className="flex items-center gap-2">
+                <Globe size={16} className="text-[--color-muted]" />
+                <p className="text-sm font-medium">{T("settings.language")}</p>
+              </div>
+              <select
+                className="rounded-md border border-[--color-border] bg-[--color-bg] px-2 py-1 text-sm outline-none"
+                value={locale}
+                onChange={(e) => changeLocale(e.target.value as Locale)}
+              >
+                <option value="en">English</option>
+                <option value="ru">Русский</option>
+              </select>
+            </div>
+          </Card>
+
+          {/* Recovery Check */}
+          <Card>
+            <div className="flex items-center gap-2 mb-3">
+              <Shield size={16} className="text-amber-400" />
+              <h2 className="font-medium">{T("settings.reveal")}</h2>
+            </div>
+            <p className="text-sm text-[--color-muted] mb-3">{T("settings.reveal_desc")}</p>
+            {settingsRevealedSeed ? (
+              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-400" />
+                  <p className="text-sm leading-relaxed text-emerald-100">
+                  {settingsRevealedSeed}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Field label={T("lock.pass_label")}>
+                  <Input type="password" value={settingsPassphrase} onChange={setSettingsPassphrase} placeholder={T("lock.pass_placeholder")} autoComplete="current-password" />
+                </Field>
+                <Button onClick={onVerifyRecovery} busy={busy} workingLabel={T("misc.working")}>{T("settings.reveal_btn")}</Button>
+              </>
+            )}
+          </Card>
+
+          {/* Address Book */}
+          <Card>
+            <div className="flex items-center gap-2 mb-3">
+              <BookUser size={16} className="text-[--color-muted]" />
+              <h2 className="font-medium">{T("settings.contacts_title")}</h2>
+            </div>
+            {contacts.length === 0 ? (
+              <p className="text-sm text-[--color-muted]">{T("settings.contacts_empty")}</p>
+            ) : (
+              <ul className="divide-y divide-[--color-border]">
+                {contacts.map((c) => (
+                  <li key={`${c.address}-${c.chain}`} className="flex items-center justify-between py-2 text-sm">
+                    <div>
+                      <span className="font-medium text-white">{c.name}</span>
+                      <span className="block text-xs text-[--color-muted] break-anywhere">{c.address}</span>
+                      <span className="text-[10px] text-[--color-muted] uppercase">{c.chain}</span>
+                    </div>
+                    <button
+                      className="text-red-400 hover:text-red-300 transition-colors p-1"
+                      onClick={() => onRemoveContact(c.address, c.chain)}
+                      aria-label={T("misc.remove")}
+                      title={T("misc.remove")}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {isAddingContact ? (
+              <div className="glass-card rounded-xl p-4 mt-3 flex flex-col gap-3 border border-emerald-500/20 bg-emerald-500/5">
+                <span className="text-sm font-medium text-white">{T("settings.contacts_add_title")}</span>
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="text"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    placeholder={T("settings.contacts_name")}
+                    value={newContactName}
+                    onChange={(e) => setNewContactName(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    placeholder={T("settings.contacts_address")}
+                    value={newContactAddress}
+                    onChange={(e) => setNewContactAddress(e.target.value)}
+                  />
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_chain")}</label>
+                    <select
+                      className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                      value={newContactChain}
+                      onChange={(e) => setNewContactChain(e.target.value)}
+                    >
+                      <option value="ethereum">Ethereum</option>
+                      <option value="bitcoin">Bitcoin</option>
+                      <option value="polygon">Polygon</option>
+                      <option value="arbitrum">Arbitrum</option>
+                      <option value="tron">Tron</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    className="rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white transition-colors"
+                    onClick={() => {
+                      setIsAddingContact(false);
+                      setNewContactName("");
+                      setNewContactAddress("");
+                    }}
+                  >
+                    {T("misc.cancel")}
+                  </button>
+                  <button
+                    className="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-black font-semibold text-xs px-4 py-1.5 rounded-lg transition-colors"
+                    onClick={() => {
+                      if (!newContactName.trim() || !newContactAddress.trim()) {
+                        addToast("error", T("error.contact_required"));
+                        return;
+                      }
+                      const updated = addContact({
+                        name: newContactName.trim(),
+                        address: newContactAddress.trim(),
+                        chain: newContactChain.trim()
+                      });
+                      setContacts(updated);
+                      setIsAddingContact(false);
+                      setNewContactName("");
+                      setNewContactAddress("");
+                      addToast("success", T("toast.contact_saved"));
+                    }}
+                  >
+                    {T("settings.contacts_add")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="mt-3 flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
+                onClick={() => setIsAddingContact(true)}
+              >
+                <UserPlus size={14} />
+                {T("settings.contacts_add")}
+              </button>
+            )}
+          </Card>
+
+          {/* Delete Wallet */}
+          <Card>
+            <div className="flex items-center gap-2 mb-3">
+              <Trash2 size={16} className="text-red-400" />
+              <h2 className="font-medium text-red-400">{T("settings.delete")}</h2>
+            </div>
+            <p className="text-sm text-[--color-muted] mb-3">{T("settings.delete_desc")}</p>
+            {confirmDeleteWallet ? (
+              <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 mb-3 text-sm">
+                <p className="text-red-300 font-medium mb-3">{T("settings.delete_confirm")}</p>
+                <div className="flex gap-2">
+                  <button
+                    className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold text-xs px-4 py-2 rounded-lg transition-colors animate-pulse"
+                    onClick={() => {
+                      const req = indexedDB.deleteDatabase("wdk-wallet");
+                      req.onsuccess = () => {
+                        LOCAL_STORAGE_KEYS_ON_WALLET_DELETE.forEach((key) => localStorage.removeItem(key));
+                        clearSession();
+                        setConfirmDeleteWallet(false);
+                        addToast("success", T("toast.wallet_deleted"));
+                        setTimeout(() => {
+                          window.location.reload();
+                        }, 1200);
+                      };
+                      req.onerror = () => {
+                        addToast("error", T("error.delete_failed"));
+                      };
+                    }}
+                  >
+                    {T("settings.delete_btn")}
+                  </button>
+                  <button
+                    className="rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white transition-colors"
+                    onClick={() => setConfirmDeleteWallet(false)}
+                  >
+                    {T("misc.cancel")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 font-semibold text-xs px-4 py-2 rounded-lg transition-colors border border-red-500/20"
+                onClick={() => setConfirmDeleteWallet(true)}
+              >
+                {T("settings.delete")}
+              </button>
+            )}
+          </Card>
+        </>
+      )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* ---- Toast container ---- */}
+      <div className="toast-container">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className={`toast toast-${toast.type}`}
+            >
+              {toast.type === "success" && <CheckCircle2 size={16} />}
+              {toast.type === "error" && <XCircle size={16} />}
+              {toast.type === "info" && <Info size={16} />}
+              {toast.message}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </main>
   );
 }
 
-/* ---- Presentational primitives (kept local; no UI-kit dependency) ------- */
+/* ---- Sparkline ---- */
+function Sparkline({ data }: { readonly data: number[] }) {
+  if (data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const h = 40;
+  const w = 200;
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - 4) - 2;
+    return `${x},${y}`;
+  });
+  const path = `M${points.join(" L")}`;
+  const area = `${path} L${w},${h} L0,${h} Z`;
+  const change = ((data[data.length - 1]! - data[0]!) / data[0]!) * 100;
+  const up = change >= 0;
 
-function Card({ children }: { readonly children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-[--color-border] bg-[--color-surface] p-5">
-      {children}
-    </section>
+    <div className="sparkline-container mt-3 p-2">
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={up ? "#10b981" : "#ef4444"} stopOpacity="0.2" />
+            <stop offset="100%" stopColor={up ? "#10b981" : "#ef4444"} stopOpacity="0.0" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill="url(#sparkGrad)" />
+        <path d={path} fill="none" stroke={up ? "#10b981" : "#ef4444"} strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-between px-3 text-[10px] font-mono">
+        <span className="text-slate-400">7d</span>
+        <span className={up ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"}>
+          {up ? "+" : ""}{change.toFixed(1)}%
+        </span>
+      </div>
+    </div>
   );
 }
 
-/** One labelled line of the itemised tx-confirm. */
-function Row({
-  k,
-  v,
-  mono,
-}: {
-  readonly k: string;
-  readonly v: string;
-  readonly mono?: boolean;
-}) {
+/* ---- Presentational primitives ---- */
+
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`skeleton ${className}`} />;
+}
+
+function Card({ children }: { readonly children: ReactNode }) {
+  return (
+    <motion.section
+      initial="initial"
+      animate="in"
+      exit="out"
+      className="glass-card rounded-xl p-5"
+    >
+      {children}
+    </motion.section>
+  );
+}
+
+function Row({ k, v, mono }: { readonly k: string; readonly v: string; readonly mono?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-3 px-3 py-2">
       <dt className="shrink-0 text-[--color-muted]">{k}</dt>
@@ -865,13 +1583,7 @@ function Row({
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  readonly label: string;
-  readonly children: ReactNode;
-}) {
+function Field({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return (
     <label className="mb-4 block">
       <span className="mb-1 block text-sm text-[--color-muted]">{label}</span>
@@ -881,12 +1593,7 @@ function Field({
 }
 
 function Input({
-  type,
-  value,
-  onChange,
-  placeholder,
-  autoComplete,
-  onEnter,
+  type, value, onChange, placeholder, autoComplete, onEnter,
 }: {
   readonly type: "text" | "password";
   readonly value: string;
@@ -897,46 +1604,36 @@ function Input({
 }) {
   return (
     <input
-      className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+      className="w-full rounded-md glass-input px-3 py-2 text-sm outline-none focus:border-[--color-accent] placeholder-slate-500"
       type={type}
       value={value}
       placeholder={placeholder}
       autoComplete={autoComplete}
       onChange={(e) => onChange(e.target.value)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && onEnter) onEnter();
-      }}
+      onKeyDown={(e) => { if (e.key === "Enter" && onEnter) onEnter(); }}
     />
   );
 }
 
-function Button({
-  children,
-  onClick,
-  busy,
-  disabled,
-}: {
+function Button({ children, onClick, busy, disabled, workingLabel }: {
   readonly children: ReactNode;
   readonly onClick: () => void;
   readonly busy?: boolean;
   readonly disabled?: boolean;
+  readonly workingLabel?: string;
 }) {
   return (
     <button
-      className="w-full rounded-md bg-[--color-accent] px-4 py-2.5 text-sm font-medium text-[--color-accent-fg] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+      className="w-full rounded-md glow-btn bg-[--color-accent] px-4 py-2.5 text-sm font-medium text-[--color-accent-fg] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       onClick={onClick}
       disabled={busy || disabled}
     >
-      {busy ? "Working…" : children}
+      {busy ? (workingLabel || "Working…") : children}
     </button>
   );
 }
 
-function Tab({
-  children,
-  active,
-  onClick,
-}: {
+function Tab({ children, active, onClick }: {
   readonly children: ReactNode;
   readonly active: boolean;
   readonly onClick: () => void;
@@ -955,30 +1652,6 @@ function Tab({
   );
 }
 
-function CopyButton({ value }: { readonly value: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
-      onClick={() => {
-        void navigator.clipboard.writeText(value).then(() => {
-          setDone(true);
-          setTimeout(() => setDone(false), 1500);
-        });
-      }}
-    >
-      {done ? "Copied" : "Copy"}
-    </button>
-  );
-}
-
-/**
- * Address QR. Offline, synchronous, zero runtime deps. Rendered as native
- * SVG (no canvas, no dangerouslySetInnerHTML, no async) so the Svelte
- * portability proof renders byte-identical logic — the parity claim stays
- * honest. typeNumber 0 = auto-size, EC "M", default Byte mode, correct for
- * any hex / base58 / bech32 address.
- */
 function Qr({ value, chain }: { readonly value: string; readonly chain: string }) {
   const qr = qrcode(0, "M");
   qr.addData(value);
@@ -990,16 +1663,10 @@ function Qr({ value, chain }: { readonly value: string; readonly chain: string }
       if (qr.isDark(r, c)) d += `M${c + 4} ${r + 4}h1v1h-1z`;
     }
   }
-  const size = n + 8; // 4-module quiet zone each side (QR spec)
+  const size = n + 8;
   return (
     <div className="mt-2 w-36 rounded-md bg-white p-2">
-      <svg
-        viewBox={`0 0 ${size} ${size}`}
-        className="block h-full w-full"
-        shapeRendering="crispEdges"
-        role="img"
-        aria-label={`${chain} address QR`}
-      >
+      <svg viewBox={`0 0 ${size} ${size}`} className="block h-full w-full" shapeRendering="crispEdges" role="img" aria-label={`${chain} address QR`}>
         <rect width={size} height={size} fill="#fff" />
         <path d={d} fill="#000" />
       </svg>
@@ -1007,26 +1674,7 @@ function Qr({ value, chain }: { readonly value: string; readonly chain: string }
   );
 }
 
-/**
- * Scan a payment QR with the device camera to fill the Send recipient.
- *
- * Purely additive: the recipient input stays the default, manual entry is
- * never gated on this. The decode is `getUserMedia` → off-screen canvas →
- * `jsQR` in a `requestAnimationFrame` loop; on a hit the value is unwrapped
- * by the byte-identical `extractAddress` (so the existing wallet-core Send
- * validation still runs on it unchanged) and the camera is released.
- *
- * The MediaStream is stopped on EVERY exit path — hit, cancel, error, and
- * unmount — through the single `stop()` teardown, so the camera is never
- * left running. Failures (permission denied, no camera, insecure context)
- * surface as honest inline text, not a crash or a fabricated state.
- *
- * Honest limit: the camera path is browser-only and cannot run under the
- * headless unit env; only the pure `extractAddress` unwrap is unit-tested
- * (apps/svelte/test/extract-address.test.ts). The Svelte twin
- * (apps/svelte/src/App.svelte) is the same shape on the same logic.
- */
-function QrScanner({ onResult }: { readonly onResult: (address: string) => void }) {
+function QrScanner({ onResult, label, closeLabel, cancelLabel }: { readonly onResult: (address: string) => void; readonly label: string; readonly closeLabel?: string; readonly cancelLabel?: string }) {
   const [open, setOpen] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -1034,36 +1682,21 @@ function QrScanner({ onResult }: { readonly onResult: (address: string) => void 
   const rafRef = useRef<number | null>(null);
 
   const stop = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
+    if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     const s = streamRef.current;
-    if (s) {
-      for (const t of s.getTracks()) t.stop();
-      streamRef.current = null;
-    }
+    if (s) { for (const t of s.getTracks()) t.stop(); streamRef.current = null; }
     const v = videoRef.current;
     if (v) v.srcObject = null;
   }, []);
 
-  // Safety net: an unmount mid-scan (tab change, navigation) still releases
-  // the camera. `stop` is stable, so this registers exactly one teardown.
   useEffect(() => stop, [stop]);
 
-  const close = useCallback(() => {
-    stop();
-    setOpen(false);
-  }, [stop]);
+  const close = useCallback(() => { stop(); setOpen(false); }, [stop]);
 
   const start = useCallback(() => {
     setScanError(null);
-    // getUserMedia needs a secure context (https or localhost). Say so
-    // plainly instead of surfacing an opaque DOMException.
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-      setScanError(
-        "Camera scanning needs a secure context (https or localhost). Type or paste the address instead.",
-      );
+      setScanError("Camera scanning needs a secure context (https or localhost). Type or paste the address instead.");
       setOpen(true);
       return;
     }
@@ -1073,31 +1706,20 @@ function QrScanner({ onResult }: { readonly onResult: (address: string) => void 
       .then((stream) => {
         streamRef.current = stream;
         const v = videoRef.current;
-        if (!v) {
-          // Closed before the permission prompt resolved — release at once.
-          stop();
-          return;
-        }
+        if (!v) { stop(); return; }
         v.srcObject = stream;
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         const tick = () => {
           rafRef.current = null;
-          if (!streamRef.current) return; // stopped between frames
+          if (!streamRef.current) return;
           if (ctx && v.readyState >= v.HAVE_ENOUGH_DATA && v.videoWidth > 0) {
             canvas.width = v.videoWidth;
             canvas.height = v.videoHeight;
             ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
             const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(img.data, img.width, img.height, {
-              inversionAttempts: "dontInvert",
-            });
-            if (code) {
-              onResult(extractAddress(code.data));
-              stop();
-              setOpen(false);
-              return;
-            }
+            const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
+            if (code) { onResult(extractAddress(code.data)); stop(); setOpen(false); return; }
           }
           rafRef.current = requestAnimationFrame(tick);
         };
@@ -1105,24 +1727,16 @@ function QrScanner({ onResult }: { readonly onResult: (address: string) => void 
       })
       .catch((e: unknown) => {
         const name = e instanceof Error ? e.name : "";
-        if (name === "NotAllowedError" || name === "SecurityError") {
-          setScanError("Camera permission denied. Type or paste the address instead.");
-        } else if (name === "NotFoundError" || name === "OverconstrainedError") {
-          setScanError("No camera found. Type or paste the address instead.");
-        } else {
-          setScanError("Could not start the camera. Type or paste the address instead.");
-        }
+        if (name === "NotAllowedError" || name === "SecurityError") setScanError("Camera permission denied. Type or paste the address instead.");
+        else if (name === "NotFoundError" || name === "OverconstrainedError") setScanError("No camera found. Type or paste the address instead.");
+        else setScanError("Could not start the camera. Type or paste the address instead.");
       });
   }, [onResult, stop]);
 
   if (!open) {
     return (
-      <button
-        type="button"
-        className="mb-4 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white"
-        onClick={start}
-      >
-        Scan QR
+      <button type="button" className="mb-4 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white" onClick={start}>
+        {label}
       </button>
     );
   }
@@ -1132,21 +1746,10 @@ function QrScanner({ onResult }: { readonly onResult: (address: string) => void 
       {scanError ? (
         <p className="text-xs text-red-300">{scanError}</p>
       ) : (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="block w-full rounded-md"
-          aria-label="QR scanner camera preview"
-        />
+        <video ref={videoRef} autoPlay playsInline muted className="block w-full rounded-md" aria-label="QR scanner camera preview" />
       )}
-      <button
-        type="button"
-        className="mt-2 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white"
-        onClick={close}
-      >
-        {scanError ? "Close" : "Cancel"}
+      <button type="button" className="mt-2 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white" onClick={close}>
+        {scanError ? (closeLabel || "Close") : (cancelLabel || "Cancel")}
       </button>
     </div>
   );
