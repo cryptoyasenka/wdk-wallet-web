@@ -20,11 +20,18 @@ blind-zones are marked "(Audit 2026-05-26)" inside the relevant phases + a new
 fixes — Yana wants a very strong product, so implement the WHOLE plan.
 
 ## Next step
-Start Phase 1 (Payment Request QR). New file `apps/next/src/lib/paymentRequest.ts`
-(EIP-681 for EVM tokens, BIP-21 for BTC), add Address/Request mode switch to the
-Receive card in `apps/next/app/page.tsx`, unit-test the URI builders (Svelte
-side has the test harness: `apps/svelte/test/*`). Run `corepack pnpm verify`
-after. Commit per phase (Yana's autocommit rule — power-outage zone).
+Phase 1 step 1 DONE: `apps/next/src/lib/paymentRequest.ts` committed (EIP-681
+EVM token/native + BIP-21 BTC, `decimalToMinorUnits` validation, `canBuildRequest`).
+Remaining Phase 1:
+  (a) Wire an Address/Request mode switch into the Receive card in
+      `apps/next/app/page.tsx` (huge file — read the Receive section only).
+      Request mode: asset/network picker, amount, optional memo, generated URI,
+      QR of the URI (reuse existing qrcode-generator), copy button w/ accessible name.
+  (b) Add i18n keys for the new UI in `apps/next/src/lib/i18n.ts`.
+  (c) Unit-test the URI builders. apps/next has NO test harness; either add a
+      tiny vitest to apps/next OR move builders import-tested via wallet-core.
+      Reject invalid amount before URI gen (already enforced in the helper).
+  (d) `corepack pnpm verify`, commit, push. Then Phase 2.
 
 ## Decisions / constraints
 - Honesty is the product's whole pitch — fixing SECURITY.md's false claims
