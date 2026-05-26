@@ -3,7 +3,7 @@
 // This is NOT part of the wallet. Nothing under packages/ or apps/ imports it,
 // it never imports @tetherto/*, and it is outside the pnpm workspace so it is
 // not linted, type-checked, tested or built by the quartet. Its sole job: let
-// `pnpm demo` show a populated BTC row without a real Electrum endpoint or any
+// `pnpm demo` shows a populated BTC row without a real Electrum endpoint or any
 // secret, by binding 127.0.0.1 on an ephemeral port and answering the handful
 // of JSON-RPC 2.0 methods the WDK BTC client (ElectrumWs) actually calls.
 //

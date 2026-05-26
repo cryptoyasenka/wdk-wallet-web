@@ -4,16 +4,25 @@
   "description": "Self-custodial multi-chain WDK wallet starter for the web (Next.js). Web counterpart to tetherto/wdk-starter-react-native.",
   "license": "MIT",
   "packageManager": "pnpm@9.12.0",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "build": "pnpm -r build",
-    "test": "pnpm -r test",
-    "lint": "pnpm -r lint",
+    "build": "corepack pnpm -r build",
+    "test": "corepack pnpm -r test",
+    "lint": "corepack pnpm -r lint",
     "//typecheck": "The Next app type-checks against @wdk-web/wallet-core's emitted dist/*.d.ts (its package exports point at dist), so the core must be built before any consumer's tsc runs. pnpm -r build is topological; build the core first, then type-check the workspace.",
-    "typecheck": "pnpm --filter @wdk-web/wallet-core build && pnpm -r typecheck",
-    "dev": "pnpm --filter next dev",
-    "//demo": "Regenerate docs/demo.gif: builds the app, records the full create→backup→portfolio→send→confirm flow against the offline Electrum-WS fixture (no endpoint, no secret), encodes to gif. Prereqs: `corepack pnpm exec playwright install chromium` (one-time) and ffmpeg on PATH. Demo tooling lives in tools/, outside the pnpm workspace — never touched by lint/typecheck/test/build.",
+    "typecheck": "corepack pnpm --filter @wdk-web/wallet-core build && corepack pnpm -r typecheck",
+    "verify": "corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build",
+    "dev": "corepack pnpm --filter next dev",
+    "//demo": "Regenerate docs/demo.gif: builds the app, records create->backup->seed-quiz->portfolio->receive against the offline Electrum-WS fixture (no endpoint, no secret), encodes to gif. Prereqs: `corepack pnpm exec playwright install chromium` (one-time) and ffmpeg on PATH. Demo tooling lives in tools/, outside the pnpm workspace - never touched by lint/typecheck/test/build.",
     "demo": "node tools/demo/record.mjs"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.14",
+      "ws": "8.20.1"
+    }
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

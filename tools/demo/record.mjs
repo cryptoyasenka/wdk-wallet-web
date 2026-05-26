@@ -11,8 +11,9 @@
 //
 // Flow recorded: create wallet → reveal + back up seed → unlock → portfolio
 // (BTC populated from the fixture, ETH/USD₮/XAUT real) → receive (real
-// client-derived BTC address) → send (BTC) → itemised, human-readable tx
-// confirm. It deliberately STOPS at the confirm screen and never broadcasts.
+// client-derived BTC + EVM addresses). It deliberately STOPS before send:
+// signing/broadcast is real in the app, but the offline fixture does not
+// fabricate spendable UTXOs or a chain transaction.
 //
 // Prereqs (documented in README next to the demo image):
 //   corepack pnpm exec playwright install chromium   # one-time
@@ -111,8 +112,24 @@ async function waitForBtcRow(page) {
   throw new Error("Portfolio BTC row did not appear after retries");
 }
 
+async function completeSeedQuiz(page, seedPhrase) {
+  await page.getByRole("heading", { name: "Verify your seed phrase" }).waitFor({ timeout: 30000 });
+  const words = seedPhrase.trim().split(/\s+/);
+  const prompts = await page.locator("p", { hasText: "Word #" }).allTextContents();
+  for (const prompt of prompts) {
+    const match = prompt.match(/Word #(\d+)/);
+    if (!match) continue;
+    const word = words[Number(match[1]) - 1];
+    if (!word) throw new Error(`Seed quiz asked for missing ${prompt}`);
+    await page.getByRole("button", { name: word, exact: true }).click();
+  }
+  await page.getByRole("button", { name: "Continue" }).click();
+}
+
 async function ffmpeg(args, label) {
-  const child = spawn("ffmpeg", args, { stdio: ["ignore", "ignore", "inherit"] });
+  const child = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", ...args], {
+    stdio: ["ignore", "ignore", "inherit"],
+  });
   children.push(child);
   await waitForExit(child, label);
 }
@@ -163,10 +180,12 @@ async function main() {
 
     // Back up the seed (shown once) — pause so the GIF reads it.
     await page.getByRole("heading", { name: "Back up your seed phrase" }).waitFor({ timeout: 30000 });
+    const seedPhrase = (await page.locator("pre").first().innerText()).trim();
     await beat(2200);
     await page.getByRole("checkbox").check();
     await beat();
     await page.getByRole("button", { name: "Continue" }).click();
+    await completeSeedQuiz(page, seedPhrase);
 
     // Portfolio — BTC from the fixture, ETH/USD₮/XAUT real (zero, fresh wallet).
     await page.getByRole("heading", { name: "Portfolio" }).waitFor({ timeout: 30000 });
@@ -193,7 +212,10 @@ async function main() {
       const pal = join(videoDir, "palette.png");
       // 10 fps / 420px keeps a README-friendly gif (a few MB, not tens).
       const vf = "fps=10,scale=420:-1:flags=lanczos";
-      await ffmpeg(["-y", "-i", webm, "-vf", `${vf},palettegen=stats_mode=diff`, pal], "ffmpeg palettegen");
+      await ffmpeg(
+        ["-y", "-i", webm, "-vf", `${vf},palettegen=stats_mode=diff`, "-update", "1", pal],
+        "ffmpeg palettegen",
+      );
       await ffmpeg(
         ["-y", "-i", webm, "-i", pal, "-lavfi", `${vf}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`, GIF_OUT],
         "ffmpeg gif",
