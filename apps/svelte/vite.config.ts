@@ -55,7 +55,7 @@ const BUFFER = require.resolve("buffer/");
 // reference them on code paths the browser build never executes. Map both the
 // bare and `node:`-prefixed specifiers to an empty module so the bundle is
 // clean. `ws`/`ledger-bitcoin` get the same treatment (dead/optional paths).
-const NODE_BUILTINS = ["crypto", "stream", "http", "https", "os", "zlib", "net", "tls", "fs"];
+const NODE_BUILTINS = ["crypto", "stream", "http", "https", "os", "zlib", "events", "net", "tls", "fs"];
 const nodeBuiltinAliases = Object.fromEntries(
   NODE_BUILTINS.flatMap((name) => [
     [name, EMPTY],
@@ -87,14 +87,25 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: {
+    // The WDK/BTC graph is intentionally isolated in a worker chunk. Keep the
+    // warning threshold aligned with that architecture so the build does not
+    // suggest splitting the very boundary we are proving.
+    chunkSizeWarningLimit: 2_200,
+    rolldownOptions: {
+      // Rolldown can provide a native inject transform, but Vite does not yet
+      // expose the same worker-safe Buffer shim shape we need for the BTC graph.
+      // Keep the explicit plugin and silence only that advisory.
+      checks: { preferBuiltinFeature: false, pluginTimings: false },
       plugins: [bufferInject()],
     },
   },
-  // Vite types `worker.rollupOptions` as Omit<…, "plugins">; the supported
+  // Vite types `worker.rolldownOptions` as Omit<…, "plugins">; the supported
   // way to add plugins to the worker graph is `worker.plugins` (a factory).
   worker: {
     plugins: () => [bufferInject()],
+    rolldownOptions: {
+      checks: { preferBuiltinFeature: false, pluginTimings: false },
+    },
   },
   test: {
     // D-07: a headless assertion of the framework-agnostic claim — no DOM,
