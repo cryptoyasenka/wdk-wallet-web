@@ -7,13 +7,15 @@
 // headless core + the real production Next app and drives the real client-side
 // wallet through a browser.
 //
-// Flow asserted (exit 1 on any failure):
-//   1. create wallet with a passphrase;
-//   2. back up the seed phrase + pass the seed quiz;
-//   3. land on the portfolio;
-//   4. the receive card exposes an accessible "Copy … receive address" control
-//      (real client-side key derivation — no network needed);
-//   5. Recovery Check re-verifies the passphrase without re-exposing the seed.
+// Flows asserted (exit 1 on any failure):
+//   A. walletFlow — create wallet with a passphrase; back up the seed + pass the
+//      seed quiz; land on the portfolio; the receive card exposes an accessible
+//      "Copy … receive address" control (real client-side key derivation, no
+//      network); the Request tab mounts the EIP-681/BIP-21 payment-request
+//      builder (Phase 1); Recovery Check re-verifies the passphrase without
+//      re-exposing the seed.
+//   B. watchOnlyFlow — a fresh (wallet-less) context watches an external EVM
+//      address and the read-only view disables signing (Phase 5).
 //
 // Deliberately NETWORK-INDEPENDENT: BTC is left unconfigured (no Electrum-WS
 // endpoint) so the registry honestly omits it, and the assertions hang on UI
@@ -107,26 +109,28 @@ function assert(cond, msg) {
   console.log(`[smoke] ok — ${msg}`);
 }
 
-async function main() {
-  // 1. Build the headless core, then the Next app. BTC stays unconfigured so
-  //    the smoke does not depend on any network endpoint.
-  console.log("[smoke] building wallet-core …");
-  await waitForExit(run("corepack pnpm --filter @wdk-web/wallet-core build"), "wallet-core build");
-  console.log("[smoke] building Next app …");
-  await waitForExit(run("corepack pnpm exec next build", { cwd: NEXT_DIR }), "next build");
+/** Resolve true as soon as any of the locators becomes visible, else false. */
+async function firstVisible(locators, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const loc of locators) {
+      if (await loc.isVisible().catch(() => false)) return true;
+    }
+    await sleep(400);
+  }
+  return false;
+}
 
-  // 2. Serve the production build on an OS-assigned free port.
-  const port = await freePort();
-  const appUrl = `http://127.0.0.1:${port}`;
-  console.log(`[smoke] starting Next on ${appUrl} …`);
-  const server = run(`corepack pnpm exec next start -p ${port}`, { cwd: NEXT_DIR });
-  await waitForHttp(appUrl, 60000);
+const VIEWPORT = { width: 430, height: 1180 };
+const PASS = "smoke-passphrase-2026";
+// A well-known mainnet address (Ethereum Foundation) — valid EVM shape so the
+// watch-only path accepts it. No funds are spent; only public reads happen.
+const WATCH_ADDRESS = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 
-  const browser = await chromium.launch();
-  const context = await browser.newContext({ viewport: { width: 430, height: 1180 } });
+/** Wallet flow: create -> seed quiz -> portfolio -> receive a11y -> payment request -> Recovery Check. */
+async function walletFlow(browser, appUrl) {
+  const context = await browser.newContext({ viewport: VIEWPORT });
   const page = await context.newPage();
-  const PASS = "smoke-passphrase-2026";
-
   try {
     await page.goto(appUrl, { waitUntil: "domcontentloaded" });
 
@@ -144,16 +148,30 @@ async function main() {
     await page.getByRole("button", { name: "Continue" }).click();
     await completeSeedQuiz(page, seedPhrase);
 
-    // 3. Portfolio (no network needed for the heading itself).
+    // Portfolio (no network needed for the heading itself).
     await page.getByRole("heading", { name: "Portfolio" }).waitFor({ timeout: 30000 });
     assert(true, "portfolio rendered after seed quiz");
 
-    // 4. Receive copy control is accessible (real client-side derivation).
+    // Receive copy control is accessible (real client-side derivation).
     const copyBtn = page.getByRole("button", { name: "Copy ethereum receive address" });
     await copyBtn.waitFor({ state: "visible", timeout: 30000 });
     assert(await copyBtn.isVisible(), 'receive "Copy ethereum receive address" control is accessible');
 
-    // 5. Recovery Check — re-verify the passphrase without re-exposing the seed.
+    // Payment request (Phase 1): the Address/Request switch flips the receive
+    // card to the EIP-681/BIP-21 builder. Network-independent — we assert the
+    // panel MOUNTS (its empty-state or amount field), not a live-balance URI.
+    await page.getByRole("button", { name: "Request", exact: true }).click();
+    await copyBtn.waitFor({ state: "hidden", timeout: 10000 });
+    const requestPanel = await firstVisible(
+      [
+        page.getByLabel("Amount (optional)"),
+        page.getByText("No assets available for a payment request.", { exact: false }),
+      ],
+      30000,
+    );
+    assert(requestPanel, "payment-request (EIP-681/BIP-21) panel mounts under the Request tab");
+
+    // Recovery Check — re-verify the passphrase without re-exposing the seed.
     await page.getByRole("button", { name: "Settings" }).click();
     await page.getByRole("heading", { name: "Recovery Check" }).waitFor({ timeout: 30000 });
     await page.getByLabel("Passphrase", { exact: true }).fill(PASS);
@@ -162,6 +180,54 @@ async function main() {
     assert(true, "Recovery Check verified the passphrase");
   } finally {
     await context.close();
+  }
+}
+
+/**
+ * Watch-only flow (Phase 5): a FRESH context (no wallet) so onboarding shows.
+ * Watch an external EVM address and assert the read-only view disables signing.
+ * Network-independent — the signing-disabled notice renders regardless of the
+ * (public) balance read.
+ */
+async function watchOnlyFlow(browser, appUrl) {
+  const context = await browser.newContext({ viewport: VIEWPORT });
+  const page = await context.newPage();
+  try {
+    await page.goto(appUrl, { waitUntil: "domcontentloaded" });
+    // Onboarding present (Create is default) before switching to the Watch tab.
+    await page.getByRole("button", { name: "Create wallet" }).waitFor({ timeout: 30000 });
+    await page.getByRole("button", { name: "Watch", exact: true }).click();
+    await page.getByLabel("Address to watch").fill(WATCH_ADDRESS);
+    await page.getByRole("button", { name: "Start watching" }).click();
+    await page.getByText("Watch-only wallets cannot sign", { exact: false }).waitFor({ timeout: 30000 });
+    assert(true, "watch-only view shows the signing-disabled notice");
+  } finally {
+    await context.close();
+  }
+}
+
+async function main() {
+  // 1. Build the headless core, then the Next app. BTC stays unconfigured so
+  //    the smoke does not depend on any network endpoint.
+  console.log("[smoke] building wallet-core …");
+  await waitForExit(run("corepack pnpm --filter @wdk-web/wallet-core build"), "wallet-core build");
+  console.log("[smoke] building Next app …");
+  await waitForExit(run("corepack pnpm exec next build", { cwd: NEXT_DIR }), "next build");
+
+  // 2. Serve the production build on an OS-assigned free port.
+  const port = await freePort();
+  const appUrl = `http://127.0.0.1:${port}`;
+  console.log(`[smoke] starting Next on ${appUrl} …`);
+  const server = run(`corepack pnpm exec next start -p ${port}`, { cwd: NEXT_DIR });
+  await waitForHttp(appUrl, 60000);
+
+  // 3. Drive the real client through two independent flows, each in its own
+  //    browser context so the second starts from a clean (wallet-less) slate.
+  const browser = await chromium.launch();
+  try {
+    await walletFlow(browser, appUrl); // create → quiz → portfolio → receive → request → recovery
+    await watchOnlyFlow(browser, appUrl); // Phase 5: external address, signing disabled
+  } finally {
     await browser.close();
     killTree(server);
   }
