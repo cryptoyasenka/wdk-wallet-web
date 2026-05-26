@@ -21,7 +21,7 @@ import WalletManagerEvm, { WalletAccountReadOnlyEvm } from "@tetherto/wdk-wallet
 import WalletManagerBtc, { WalletAccountReadOnlyBtc } from "@tetherto/wdk-wallet-btc";
 
 import type { ChainId, FeeQuote, TxIntent, TxResult } from "../types.js";
-import { UnsupportedAssetError, UnsupportedChainError } from "../errors.js";
+import { UnsupportedAssetError, UnsupportedChainError, WalletLockedError } from "../errors.js";
 import { BTC_NATIVE, ETH_NATIVE, POL_NATIVE, XPL_NATIVE } from "../chains/index.js";
 import { openSeed, sealSeed } from "../secrets/index.js";
 import type {
@@ -102,7 +102,10 @@ function registerAll(wdk: WDK, chains: ChainRegistry): void {
 class WdkSignerImpl implements WdkSigner {
   readonly #wdk: WDK;
   readonly #chains: ChainRegistry;
-  readonly #seedPhrase: string;
+  // Held only so `reencrypt` can re-seal the seed under a new key (passkey
+  // enrollment). Dropped on dispose() so it does not outlive the unlocked
+  // session. NOT readonly for exactly that reason.
+  #seedPhrase: string | null;
 
   constructor(seedPhrase: string, chains: ChainRegistry) {
     this.#chains = chains;
@@ -147,11 +150,19 @@ class WdkSignerImpl implements WdkSigner {
   }
 
   async reencrypt(newKey: CryptoKey): Promise<Uint8Array> {
+    // After dispose() our seed reference is gone, so re-sealing is impossible —
+    // surface the same typed "locked" state the engine uses elsewhere rather
+    // than re-sealing a null/stale value.
+    if (this.#seedPhrase === null) throw new WalletLockedError();
     return sealSeed(this.#seedPhrase, newKey);
   }
 
   dispose(): void {
-    // WDK zeroises seed/key material on dispose().
+    // WDK zeroises its own internal seed/key material on dispose(). We also drop
+    // our seed-phrase reference so it does not outlive the unlocked session.
+    // JS strings are immutable, so this releases the reference for GC rather
+    // than wiping the bytes in place (see docs/SECURITY.md).
+    this.#seedPhrase = null;
     this.#wdk.dispose();
   }
 }
