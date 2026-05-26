@@ -1,12 +1,12 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-26 21:40
-**Status:** Phase 0 done (baseline committed + pushed). Implementing full BOUNTY-IMPLEMENTATION-PLAN next.
+**Last touched:** 2026-05-26 21:52
+**Status:** Phase 0 + Phase 1 done (committed + pushed). Phase 2 (Pre-Send Safety Panel) next.
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
 - [x] Phase 0: Baseline Integrity — all working-tree work committed in 6 scoped commits + pushed; `origin/main == HEAD`; verify green (76 wallet-core + 13 svelte tests, 223 kB First Load)
-- [ ] Phase 1: Payment Request QR
+- [x] Phase 1: Payment Request QR — Receive Address/Request switch, EIP-681/BIP-21 builders (`paymentRequest.ts`), 14 vitest tests in apps/next, QR+copy. Commit 0be4966.
 - [ ] Phase 2: Pre-Send Safety Panel
 - [ ] Phase 3: Address Book v2 (+ audit: validate contacts shape on load)
 - [ ] Phase 4: Data Sources / Privacy Settings (+ audit: disclose/toggle CoinGecko; resolve `tron` dangling ChainId; this card's endpoints = CSP connect-src list)
@@ -20,18 +20,24 @@ blind-zones are marked "(Audit 2026-05-26)" inside the relevant phases + a new
 fixes — Yana wants a very strong product, so implement the WHOLE plan.
 
 ## Next step
-Phase 1 step 1 DONE: `apps/next/src/lib/paymentRequest.ts` committed (EIP-681
-EVM token/native + BIP-21 BTC, `decimalToMinorUnits` validation, `canBuildRequest`).
-Remaining Phase 1:
-  (a) Wire an Address/Request mode switch into the Receive card in
-      `apps/next/app/page.tsx` (huge file — read the Receive section only).
-      Request mode: asset/network picker, amount, optional memo, generated URI,
-      QR of the URI (reuse existing qrcode-generator), copy button w/ accessible name.
-  (b) Add i18n keys for the new UI in `apps/next/src/lib/i18n.ts`.
-  (c) Unit-test the URI builders. apps/next has NO test harness; either add a
-      tiny vitest to apps/next OR move builders import-tested via wallet-core.
-      Reject invalid amount before URI gen (already enforced in the helper).
-  (d) `corepack pnpm verify`, commit, push. Then Phase 2.
+Phase 2 — Pre-Send Safety Panel (plan lines 153-198). On the send CONFIRMATION
+screen (after "Review transaction" builds `quote`, before "Confirm & send"), add
+a compact safety panel:
+  - Official token badge for known USDt/XAUt contracts (compare quote asset.token
+    against `chains/index.ts` DEFAULT_ASSETS contracts).
+  - Network clarity line: "Sending <SYMBOL> on <chain>".
+  - Recipient status: saved contact / new recipient / recently used / own receive
+    address (compare `sendTo` against `contacts` + `addresses`).
+  - Address-poisoning warning: first/last 4-6 chars match a known contact/recent
+    but full address differs → visible non-blocking warn.
+  - Gas/fee clarity: token sends pay gas in native asset — surface `quote.fee.feeAsset`
+    distinctly from the token amount (confirmation already shows fee; make the
+    token-vs-fee distinction explicit).
+  - Explorer link preview for the recipient where possible (`explorerUrl`).
+New pure helper `apps/next/src/lib/safety.ts` (similarity + classification) +
+vitest. Files: page.tsx confirmation block, safety.ts, contacts.ts, i18n.ts,
+maybe chains/index.ts metadata, SECURITY.md. Then `corepack pnpm verify`, commit, push.
+Find confirmation block: grep `send.confirm_btn` / `quote &&` in page.tsx (~line 1044+).
 
 ## Decisions / constraints
 - Honesty is the product's whole pitch — fixing SECURITY.md's false claims
