@@ -32,7 +32,11 @@ import { extractAddress } from "@/lib/extract-address";
 import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
 import { explorerUrl, addressExplorerUrl } from "@/lib/explorer";
 import { fetchPrices, fetchSparkline, formatUsd, type PriceMap } from "@/lib/prices";
-import { loadContacts, addContact, removeContact, touchContact, type Contact } from "@/lib/contacts";
+import {
+  loadContacts, addContact, removeContact, touchContact, updateContact,
+  loadTemplates, addTemplate, removeTemplate,
+  type Contact, type PaymentTemplate,
+} from "@/lib/contacts";
 import { buildPaymentRequestUri, canBuildRequest, InvalidAmountError } from "@/lib/paymentRequest";
 import { classifyRecipient, detectPoisoning, isOfficialToken, officialTokenContracts } from "@/lib/safety";
 import { t, getLocale, setLocale as persistLocale, type Locale } from "@/lib/i18n";
@@ -41,6 +45,7 @@ import {
   ArrowDownRight, ArrowUpRight, CopyIcon, Loader2, Plus,
   Pencil, LogOut, Check, X, Settings, ExternalLink, BookUser,
   Shield, Trash2, Globe, Timer, UserPlus, CheckCircle2, XCircle, Info, AlertTriangle,
+  Star, FileText,
 } from "lucide-react";
 
 type Phase = "loading" | "onboarding" | "backup" | "quiz" | "locked" | "unlocked" | "settings";
@@ -50,7 +55,7 @@ interface ToastItem { id: number; type: ToastType; message: string }
 
 const RECEIVE_CHAINS: readonly ChainId[] = ["bitcoin", "ethereum"];
 const WALLET_NAMES_KEY = "wdk-wallet-names";
-const LOCAL_STORAGE_KEYS_ON_WALLET_DELETE = [WALLET_NAMES_KEY, "wdk-contacts"] as const;
+const LOCAL_STORAGE_KEYS_ON_WALLET_DELETE = [WALLET_NAMES_KEY, "wdk-contacts", "wdk-templates"] as const;
 const AUTO_LOCK_KEY = "wdk-autolock-min";
 const DEFAULT_AUTOLOCK_MIN = 5;
 
@@ -193,12 +198,23 @@ export default function Page() {
 
   // ---- Contacts ----
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [templates, setTemplates] = useState<PaymentTemplate[]>([]);
 
   // ---- Contacts add inline form states ----
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [newContactName, setNewContactName] = useState("");
   const [newContactAddress, setNewContactAddress] = useState("");
   const [newContactChain, setNewContactChain] = useState("ethereum");
+  const [newContactNote, setNewContactNote] = useState("");
+
+  // ---- Contact edit + save-as-template inline states (keyed by `${address}-${chain}`) ----
+  const [editingContactKey, setEditingContactKey] = useState<string | null>(null);
+  const [editContactName, setEditContactName] = useState("");
+  const [editContactNote, setEditContactNote] = useState("");
+  const [templatingContactKey, setTemplatingContactKey] = useState<string | null>(null);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateAssetKey, setNewTemplateAssetKey] = useState("");
+  const [newTemplateAmount, setNewTemplateAmount] = useState("");
 
   // ---- Settings: delete wallet confirmation ----
   const [confirmDeleteWallet, setConfirmDeleteWallet] = useState(false);
@@ -241,9 +257,10 @@ export default function Page() {
     }
   }, []);
 
-  // Init contacts from localStorage
+  // Init contacts + payment templates from localStorage
   useEffect(() => {
     setContacts(loadContacts());
+    setTemplates(loadTemplates());
   }, []);
 
   const clearSession = useCallback(() => {
@@ -639,6 +656,78 @@ export default function Page() {
     addToast("info", T("toast.contact_removed"));
   };
 
+  const onToggleFavorite = (c: Contact) => {
+    setContacts(updateContact(c.address, c.chain, { favorite: !c.favorite }));
+  };
+
+  const onStartEditContact = (c: Contact) => {
+    setEditingContactKey(`${c.address}-${c.chain}`);
+    setTemplatingContactKey(null);
+    setEditContactName(c.name);
+    setEditContactNote(c.note ?? "");
+  };
+
+  const onSaveEditContact = (c: Contact) => {
+    if (!editContactName.trim()) {
+      addToast("error", T("error.contact_required"));
+      return;
+    }
+    // Empty note clears the field rather than persisting "".
+    setContacts(updateContact(c.address, c.chain, {
+      name: editContactName.trim(),
+      note: editContactNote.trim() || undefined,
+    }));
+    setEditingContactKey(null);
+    addToast("success", T("toast.contact_updated"));
+  };
+
+  // Assets that can be the target of a template, scoped to a contact's chain.
+  const templatableAssets = useCallback(
+    (chain: string) => DEFAULT_ASSETS.filter((a) => a.chain === chain),
+    [],
+  );
+
+  const onStartTemplate = (c: Contact) => {
+    const assets = templatableAssets(c.chain);
+    setTemplatingContactKey(`${c.address}-${c.chain}`);
+    setEditingContactKey(null);
+    setNewTemplateName("");
+    setNewTemplateAmount("");
+    setNewTemplateAssetKey(assets[0] ? assetKey(assets[0]) : "");
+  };
+
+  const onSaveTemplate = (c: Contact) => {
+    if (!newTemplateName.trim() || !newTemplateAssetKey) {
+      addToast("error", T("error.contact_required"));
+      return;
+    }
+    const tpl: PaymentTemplate = {
+      id: `tpl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: newTemplateName.trim(),
+      contactAddress: c.address,
+      chain: c.chain,
+      assetKey: newTemplateAssetKey,
+      createdAt: Date.now(),
+      ...(newTemplateAmount.trim() ? { amount: newTemplateAmount.trim() } : {}),
+    };
+    setTemplates(addTemplate(tpl));
+    setTemplatingContactKey(null);
+    addToast("success", T("toast.template_saved"));
+  };
+
+  const onRemoveTemplate = (id: string) => {
+    setTemplates(removeTemplate(id));
+    addToast("info", T("toast.template_removed"));
+  };
+
+  // Apply a template to the Send form: prefill recipient, asset and amount.
+  const onApplyTemplate = (tpl: PaymentTemplate) => {
+    setSendTo(tpl.contactAddress);
+    setSendAssetKey(tpl.assetKey);
+    setSendAmount(tpl.amount ?? "");
+    addToast("info", T("send.template_applied"));
+  };
+
   // ---- Clipboard with toast ----
   const copyToClipboard = useCallback((value: string) => {
     void navigator.clipboard.writeText(value).then(() => {
@@ -1031,7 +1120,7 @@ export default function Page() {
                   <Input type="text" value={sendTo} onChange={setSendTo} placeholder={T("send.recipient_placeholder")} autoComplete="off" />
                 </Field>
 
-                {/* Contacts dropdown */}
+                {/* Contacts — favorites first (state is kept sorted) */}
                 {contacts.length > 0 && (
                   <div className="mb-3 flex flex-wrap gap-1.5">
                     {contacts.map((c) => (
@@ -1041,10 +1130,30 @@ export default function Page() {
                         onClick={() => { setSendTo(c.address); }}
                         title={c.address}
                       >
-                        <BookUser size={10} />
+                        {c.favorite ? <Star size={10} className="fill-current text-amber-400" /> : <BookUser size={10} />}
                         {c.name}
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {/* Payment templates — one tap prefills recipient + asset + amount */}
+                {templates.length > 0 && (
+                  <div className="mb-3">
+                    <div className="mb-1.5 text-[10px] uppercase tracking-wide text-[--color-muted]">{T("send.templates")}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {templates.map((tpl) => (
+                        <button
+                          key={tpl.id}
+                          className="contact-chip"
+                          onClick={() => onApplyTemplate(tpl)}
+                          title={`${tpl.assetKey}${tpl.amount ? ` · ${tpl.amount}` : ""}`}
+                        >
+                          <FileText size={10} />
+                          {tpl.name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -1372,25 +1481,167 @@ export default function Page() {
               <p className="text-sm text-[--color-muted]">{T("settings.contacts_empty")}</p>
             ) : (
               <ul className="divide-y divide-[--color-border]">
-                {contacts.map((c) => (
-                  <li key={`${c.address}-${c.chain}`} className="flex items-center justify-between py-2 text-sm">
-                    <div>
-                      <span className="font-medium text-white">{c.name}</span>
-                      <span className="block text-xs text-[--color-muted] break-anywhere">{c.address}</span>
-                      <span className="text-[10px] text-[--color-muted] uppercase">{c.chain}</span>
+                {contacts.map((c) => {
+                  const key = `${c.address}-${c.chain}`;
+                  const tplAssets = templatableAssets(c.chain);
+                  return (
+                  <li key={key} className="py-2 text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="flex items-center gap-1.5 font-medium text-white">
+                          {c.favorite && <Star size={12} className="shrink-0 fill-current text-amber-400" />}
+                          {c.name}
+                        </span>
+                        <span className="block text-xs text-[--color-muted] break-anywhere">{c.address}</span>
+                        <span className="text-[10px] text-[--color-muted] uppercase">{c.chain}</span>
+                        {c.note && <span className="block text-xs text-[--color-muted] italic">{c.note}</span>}
+                        {c.lastUsedAt && (
+                          <span className="block text-[10px] text-[--color-muted]">
+                            {T("settings.contacts_last_used")}: {new Date(c.lastUsedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <button
+                          className={`p-1 transition-colors ${c.favorite ? "text-amber-400 hover:text-amber-300" : "text-[--color-muted] hover:text-white"}`}
+                          onClick={() => onToggleFavorite(c)}
+                          aria-label={c.favorite ? T("settings.contacts_unfavorite") : T("settings.contacts_favorite")}
+                          title={c.favorite ? T("settings.contacts_unfavorite") : T("settings.contacts_favorite")}
+                        >
+                          <Star size={14} className={c.favorite ? "fill-current" : ""} />
+                        </button>
+                        <button
+                          className="p-1 text-[--color-muted] hover:text-white transition-colors"
+                          onClick={() => onStartEditContact(c)}
+                          aria-label={T("settings.contacts_edit")}
+                          title={T("settings.contacts_edit")}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        {tplAssets.length > 0 && (
+                          <button
+                            className="p-1 text-[--color-muted] hover:text-white transition-colors"
+                            onClick={() => onStartTemplate(c)}
+                            aria-label={T("settings.contacts_save_template")}
+                            title={T("settings.contacts_save_template")}
+                          >
+                            <FileText size={14} />
+                          </button>
+                        )}
+                        <button
+                          className="p-1 text-red-400 hover:text-red-300 transition-colors"
+                          onClick={() => onRemoveContact(c.address, c.chain)}
+                          aria-label={T("misc.remove")}
+                          title={T("misc.remove")}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      className="text-red-400 hover:text-red-300 transition-colors p-1"
-                      onClick={() => onRemoveContact(c.address, c.chain)}
-                      aria-label={T("misc.remove")}
-                      title={T("misc.remove")}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+
+                    {editingContactKey === key && (
+                      <div className="glass-card rounded-xl p-3 mt-2 flex flex-col gap-2 border border-emerald-500/20 bg-emerald-500/5">
+                        <input
+                          type="text"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                          placeholder={T("settings.contacts_name")}
+                          value={editContactName}
+                          onChange={(e) => setEditContactName(e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                          placeholder={T("settings.contacts_note_ph")}
+                          value={editContactNote}
+                          onChange={(e) => setEditContactNote(e.target.value)}
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            className="rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white transition-colors"
+                            onClick={() => setEditingContactKey(null)}
+                          >
+                            {T("misc.cancel")}
+                          </button>
+                          <button
+                            className="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-black font-semibold text-xs px-4 py-1.5 rounded-lg transition-colors"
+                            onClick={() => onSaveEditContact(c)}
+                          >
+                            {T("misc.save")}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {templatingContactKey === key && (
+                      <div className="glass-card rounded-xl p-3 mt-2 flex flex-col gap-2 border border-emerald-500/20 bg-emerald-500/5">
+                        <span className="text-xs font-medium text-white">{T("settings.tpl_title")}</span>
+                        <input
+                          type="text"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                          placeholder={T("settings.tpl_name_ph")}
+                          value={newTemplateName}
+                          onChange={(e) => setNewTemplateName(e.target.value)}
+                        />
+                        <select
+                          className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                          value={newTemplateAssetKey}
+                          onChange={(e) => setNewTemplateAssetKey(e.target.value)}
+                          aria-label={T("settings.tpl_asset")}
+                        >
+                          {tplAssets.map((a) => (
+                            <option key={assetKey(a)} value={assetKey(a)}>{a.symbol}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                          placeholder={T("settings.tpl_amount")}
+                          value={newTemplateAmount}
+                          onChange={(e) => setNewTemplateAmount(e.target.value)}
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            className="rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white transition-colors"
+                            onClick={() => setTemplatingContactKey(null)}
+                          >
+                            {T("misc.cancel")}
+                          </button>
+                          <button
+                            className="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-black font-semibold text-xs px-4 py-1.5 rounded-lg transition-colors"
+                            onClick={() => onSaveTemplate(c)}
+                          >
+                            {T("settings.tpl_save")}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
+
+            {templates.length > 0 && (
+                <ul className="mt-3 flex flex-col gap-1.5 border-t border-[--color-border] pt-3">
+                  {templates.map((tpl) => (
+                    <li key={tpl.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="flex min-w-0 items-center gap-1.5 text-[--color-muted]">
+                        <FileText size={12} className="shrink-0" />
+                        <span className="truncate text-white">{tpl.name}</span>
+                        <span className="shrink-0">· {tpl.assetKey}{tpl.amount ? ` · ${tpl.amount}` : ""}</span>
+                      </span>
+                      <button
+                        className="shrink-0 p-1 text-red-400 hover:text-red-300 transition-colors"
+                        onClick={() => onRemoveTemplate(tpl.id)}
+                        aria-label={T("misc.remove")}
+                        title={T("misc.remove")}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
             {isAddingContact ? (
               <div className="glass-card rounded-xl p-4 mt-3 flex flex-col gap-3 border border-emerald-500/20 bg-emerald-500/5">
@@ -1409,6 +1660,13 @@ export default function Page() {
                     placeholder={T("settings.contacts_address")}
                     value={newContactAddress}
                     onChange={(e) => setNewContactAddress(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    placeholder={T("settings.contacts_note_ph")}
+                    value={newContactNote}
+                    onChange={(e) => setNewContactNote(e.target.value)}
                   />
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_chain")}</label>
@@ -1432,6 +1690,7 @@ export default function Page() {
                       setIsAddingContact(false);
                       setNewContactName("");
                       setNewContactAddress("");
+                      setNewContactNote("");
                     }}
                   >
                     {T("misc.cancel")}
@@ -1446,12 +1705,14 @@ export default function Page() {
                       const updated = addContact({
                         name: newContactName.trim(),
                         address: newContactAddress.trim(),
-                        chain: newContactChain.trim()
+                        chain: newContactChain.trim(),
+                        ...(newContactNote.trim() ? { note: newContactNote.trim() } : {}),
                       });
                       setContacts(updated);
                       setIsAddingContact(false);
                       setNewContactName("");
                       setNewContactAddress("");
+                      setNewContactNote("");
                       addToast("success", T("toast.contact_saved"));
                     }}
                   >

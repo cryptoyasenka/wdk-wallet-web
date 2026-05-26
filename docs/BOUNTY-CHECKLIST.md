@@ -20,9 +20,9 @@ Current local bar:
   (`bitcoinjs-message -> secp256k1 -> elliptic`) and has no patched range in the
   advisory.
 - `wallet-core`: 76 unit tests.
-- `apps/next`: 26 unit tests (payment-request URI builders + pre-send safety heuristics).
+- `apps/next`: 32 unit tests (payment-request URI builders + pre-send safety heuristics + address-book/template load hardening).
 - `apps/svelte`: 13 headless portability tests.
-- Next First Load JS: about 225 kB; the WDK/BTC graph stays in the worker chunk,
+- Next First Load JS: about 228 kB; the WDK/BTC graph stays in the worker chunk,
   not the main First Load path.
 - `corepack pnpm demo` records `docs/demo.gif` against the production Next build
   and the offline Electrum-WS fixture.
@@ -40,6 +40,7 @@ Current local bar:
 | QR receive and QR scan send | QR render and QR scan are implemented in both app hosts. | `apps/next/app/page.tsx`, `apps/svelte/src/App.svelte`, `apps/svelte/test/extract-address.test.ts`. |
 | Payment requests (EIP-681 / BIP-21) | Receive has an Address/Request switch: pick asset + amount (+ memo for BTC), get a scannable payment-request URI and QR, not just a bare address. | `apps/next/src/lib/paymentRequest.ts`, `apps/next/test/paymentRequest.test.ts`, Receive card in `apps/next/app/page.tsx`. |
 | Pre-send safety panel | Confirmation screen shows official-contract badge, recipient status (own/saved/recent/new), address-poisoning warning, gas-paid-separately note, and a recipient explorer link. | `apps/next/src/lib/safety.ts`, `apps/next/test/safety.test.ts`, confirmation block in `apps/next/app/page.tsx`. |
+| Address book v2 + payment templates | Contacts carry a note, favorite flag, and last-used stamp (favorites and recent payees sort first); reusable payment templates prefill recipient+asset+amount on Send. Persisted JSON is shape-validated on load — corrupt rows are dropped, never thrown on. | `apps/next/src/lib/contacts.ts`, `apps/next/test/contacts.test.ts`, Settings address book + Send templates row in `apps/next/app/page.tsx`. |
 | Framework portability | Svelte app consumes the byte-shared core with its own host ports. | `apps/svelte/test/portability.test.ts`. |
 | Honest activity model | Local outgoing send log is default. External/public history is an optional injected provider, not hardcoded in WDK core. | `packages/wallet-core/src/wallet/engine.ts`, `docs/ARCHITECTURE.md` ADR-003, history merge/failure tests in `packages/wallet-core/test/engine.test.ts`. |
 | Production honesty | Web Worker is defense-in-depth, not an XSS boundary; BTC needs an Electrum-WS endpoint. | `docs/SECURITY.md`, `README.md`. |

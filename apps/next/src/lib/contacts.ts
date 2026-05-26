@@ -16,7 +16,9 @@ export interface Contact {
   name: string;
   address: string;
   chain: string;
-  note?: string;
+  // `string | undefined` (not just optional) so an edit can explicitly clear a
+  // note via updateContact under exactOptionalPropertyTypes.
+  note?: string | undefined;
   favorite?: boolean;
   lastUsedAt?: number;
   createdAt?: number;
