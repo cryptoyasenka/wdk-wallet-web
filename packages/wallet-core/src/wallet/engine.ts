@@ -205,6 +205,13 @@ function buildEngine(
   let signer: WdkSigner | null = null;
   let balanceReader: WdkBalanceReader | null = null;
 
+  // Seedless balance reader for Watch-Only reads. Independent of the unlocked
+  // session (it reads address-derived public data, never the seed), so it is
+  // built lazily on the first watch read and kept for the engine's lifetime —
+  // resetting the engine (host-side) drops it. Reused only when no unlocked
+  // reader exists, so a normal unlocked session never spins up a second reader.
+  let watchReader: WdkBalanceReader | null = null;
+
   // Active wallet (which independent vault is selected), lazily hydrated like
   // the account selection. A different wallet is a different seed, so changing
   // it tears the unlocked session down (the caller must unlock the new one).
@@ -237,6 +244,20 @@ function buildEngine(
   function ensureUnlocked(): { signer: WdkSigner; balanceReader: WdkBalanceReader } {
     if (!signer || !balanceReader) throw new WalletLockedError();
     return { signer, balanceReader };
+  }
+
+  /**
+   * A balance reader for seedless reads: the unlocked one if a session is live
+   * (no need for two), otherwise a lazily-built watch-only reader. Never builds
+   * a signer, so it is safe with no wallet/unlock.
+   */
+  async function readerForReads(): Promise<WdkBalanceReader> {
+    if (balanceReader) return balanceReader;
+    if (!watchReader) {
+      const adapter = await adapterReady();
+      watchReader = await adapter.createBalanceReader(chains);
+    }
+    return watchReader;
   }
 
   /**
@@ -362,6 +383,24 @@ function buildEngine(
         const amount = asset.token
           ? await r.getTokenBalance(asset.chain, asset.token, address)
           : await r.getNativeBalance(asset.chain, address);
+        balances.push({ asset, amount });
+      }
+      return balances;
+    },
+
+    async getBalancesForAddress(
+      address: string,
+      opts?: { readonly chains?: readonly ChainId[] },
+    ): Promise<readonly Balance[]> {
+      const want = opts?.chains;
+      const reader = await readerForReads();
+      const balances: Balance[] = [];
+      for (const asset of assets) {
+        if (!chains[asset.chain]) continue; // unconfigured chain ⇒ omitted, like getBalances
+        if (want && !want.includes(asset.chain)) continue;
+        const amount = asset.token
+          ? await reader.getTokenBalance(asset.chain, asset.token, address)
+          : await reader.getNativeBalance(asset.chain, address);
         balances.push({ asset, amount });
       }
       return balances;

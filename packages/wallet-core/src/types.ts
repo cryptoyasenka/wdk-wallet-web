@@ -144,6 +144,22 @@ export interface WalletEngine {
 
   getAddress(chain: ChainId, index?: number): Promise<string>;
   getBalances(): Promise<readonly Balance[]>;
+
+  /**
+   * Watch-Only read. Balances for an EXTERNALLY-SUPPLIED address, via the same
+   * seedless, address-derived public-data path as `getBalances()` — but the
+   * address is the input, not derived from an unlocked seed. So this works with
+   * NO wallet, NO vault, and NO unlock: it never constructs or touches a signer.
+   * `opts.chains` restricts which configured chains' assets are queried (the
+   * watch-only UI is EVM-first and passes the watched chain). Assets on chains
+   * this build did not configure are silently omitted, exactly like
+   * `getBalances()`.
+   */
+  getBalancesForAddress(
+    address: string,
+    opts?: { readonly chains?: readonly ChainId[] },
+  ): Promise<readonly Balance[]>;
+
   getActivity(asset?: Asset): Promise<readonly ActivityItem[]>;
 
   quoteSend(intent: TxIntent): Promise<FeeQuote>;

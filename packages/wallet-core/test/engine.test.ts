@@ -194,6 +194,66 @@ describe("wallet engine — portfolio", () => {
   });
 });
 
+describe("wallet engine — watch-only reads (Phase 5)", () => {
+  it("reads an external address with NO wallet, NO unlock, and NO signer", async () => {
+    const adapter = new FakeWdkAdapter({
+      token: { [`ethereum:${USDT_ETHEREUM}`]: 5_000_000n },
+    });
+    const { deps } = makeDeps();
+    const engine = createWalletEngineWithAdapter(adapter, deps, {
+      chains: buildChainRegistry(),
+      assets: [{ symbol: "USDT", chain: "ethereum", token: USDT_ETHEREUM, decimals: 6 }],
+    });
+
+    // Deliberately no createWallet / unlock: watch-only is seedless.
+    const balances = await engine.getBalancesForAddress("0xWATCHED");
+    expect(balances).toHaveLength(1);
+    expect(balances[0]?.asset.symbol).toBe("USDT");
+    expect(balances[0]?.amount).toBe(5_000_000n);
+
+    expect(await engine.hasWallet()).toBe(false); // never created a vault
+    expect(adapter.signers).toHaveLength(0); // never built a seed-bound signer
+    expect(adapter.readers).toHaveLength(1); // exactly one seedless reader
+  });
+
+  it("restricts to the requested chains via opts.chains", async () => {
+    const adapter = new FakeWdkAdapter({
+      native: { ethereum: 11n, polygon: 22n, arbitrum: 33n, plasma: 44n },
+    });
+    const { deps } = makeDeps();
+    const engine = createWalletEngineWithAdapter(adapter, deps, {
+      chains: buildChainRegistry(),
+      assets: [
+        { symbol: "ETH", chain: "ethereum", decimals: 18 },
+        { symbol: "POL", chain: "polygon", decimals: 18 },
+        { symbol: "ETH", chain: "arbitrum", decimals: 18 },
+      ],
+    });
+
+    const balances = await engine.getBalancesForAddress("0xWATCHED", {
+      chains: ["polygon", "arbitrum"],
+    });
+    const chainsSeen = balances.map((b) => b.asset.chain).sort();
+    expect(chainsSeen).toEqual(["arbitrum", "polygon"]);
+    expect(balances.find((b) => b.asset.chain === "ethereum")).toBeUndefined();
+  });
+
+  it("reuses the unlocked reader when a session is live (no second reader)", async () => {
+    const adapter = new FakeWdkAdapter({ token: { [`ethereum:${USDT_ETHEREUM}`]: 9n } });
+    const { deps } = makeDeps();
+    const engine = createWalletEngineWithAdapter(adapter, deps, {
+      chains: buildChainRegistry(),
+      assets: [{ symbol: "USDT", chain: "ethereum", token: USDT_ETHEREUM, decimals: 6 }],
+    });
+    await engine.createWallet();
+    await engine.unlock();
+    expect(adapter.readers).toHaveLength(1); // the unlock reader
+
+    await engine.getBalancesForAddress("0xWATCHED");
+    expect(adapter.readers).toHaveLength(1); // reused, not a second reader
+  });
+});
+
 describe("wallet engine — send / quote / activity (Phase 2)", () => {
   const USDT = { symbol: "USDT", chain: "ethereum", token: USDT_ETHEREUM, decimals: 6 } as const;
   const XAUT = {
