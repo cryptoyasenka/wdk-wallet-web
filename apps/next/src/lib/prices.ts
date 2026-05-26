@@ -3,7 +3,12 @@
  *
  * Maps wallet asset symbols to CoinGecko IDs and fetches current USD
  * prices. The free API has a 10-30 req/min limit so we cache for 60 s.
+ *
+ * Privacy (Phase 4): this is the app's one third-party call. It is gated on the
+ * user's `Fetch USD prices` setting — when off, no request is made at all — and
+ * uses the configured price endpoint, so the data-source disclosure is honest.
  */
+import { arePricesEnabled, priceBase } from "./dataSources";
 
 const SYMBOL_TO_COINGECKO: Record<string, string> = {
   BTC: "bitcoin",
@@ -21,6 +26,7 @@ let cacheTime = 0;
 const CACHE_TTL = 60_000; // 60 seconds
 
 export async function fetchPrices(): Promise<PriceMap> {
+  if (!arePricesEnabled()) return {}; // opt-out: no third-party call at all
   if (Date.now() - cacheTime < CACHE_TTL && Object.keys(cachedPrices).length > 0) {
     return cachedPrices;
   }
@@ -29,7 +35,7 @@ export async function fetchPrices(): Promise<PriceMap> {
 
   try {
     const res = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`,
+      `${priceBase()}/api/v3/simple/price?ids=${ids}&vs_currencies=usd`,
       { signal: AbortSignal.timeout(8000) },
     );
     if (!res.ok) return cachedPrices; // graceful degradation
@@ -54,12 +60,13 @@ export async function fetchPrices(): Promise<PriceMap> {
  * Returns an array of 168 hourly price points.
  */
 export async function fetchSparkline(symbol: string): Promise<number[]> {
+  if (!arePricesEnabled()) return []; // opt-out: no third-party call at all
   const geckoId = SYMBOL_TO_COINGECKO[symbol];
   if (!geckoId) return [];
 
   try {
     const res = await fetch(
-      `https://api.coingecko.com/api/v3/coins/${geckoId}/market_chart?vs_currency=usd&days=7`,
+      `${priceBase()}/api/v3/coins/${geckoId}/market_chart?vs_currency=usd&days=7`,
       { signal: AbortSignal.timeout(8000) },
     );
     if (!res.ok) return [];

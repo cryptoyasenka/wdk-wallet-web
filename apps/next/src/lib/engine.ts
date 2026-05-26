@@ -20,6 +20,7 @@ import {
 import { IndexedDbStorage } from "./storage";
 import { SelectingUnlockProvider } from "./webauthnUnlock";
 import { StubCryptoWorker } from "./cryptoWorker";
+import { loadDataSources } from "./dataSources";
 
 export interface WalletApp {
   readonly engine: WalletEngine;
@@ -30,24 +31,32 @@ export interface WalletApp {
 }
 
 /**
- * Read chain config from `NEXT_PUBLIC_*` env. Keys are added only when present
- * and non-empty so `exactOptionalPropertyTypes` holds and `buildChainRegistry`
- * falls back to its keyless public RPC list / omits BTC honestly.
+ * Resolve chain config, layering persisted user data-source overrides OVER the
+ * `NEXT_PUBLIC_*` deploy env OVER wallet-core's keyless public RPC defaults.
+ * Keys are added only when present and non-empty so `exactOptionalPropertyTypes`
+ * holds and `buildChainRegistry` falls back to its public RPC list / omits BTC
+ * honestly. `loadDataSources` is storage-safe during SSR (returns defaults).
  */
-function chainOptionsFromEnv(): BuildChainsOptions {
+function chainOptions(): BuildChainsOptions {
   const opts: BuildChainsOptions = {};
 
-  const rpcRaw = process.env.NEXT_PUBLIC_ETHEREUM_RPC_URLS;
-  if (rpcRaw) {
-    const urls = rpcRaw
-      .split(",")
-      .map((u) => u.trim())
-      .filter((u) => u.length > 0);
-    if (urls.length > 0) opts.ethereumRpcUrls = urls;
-  }
+  // Deploy-time env defaults (only Ethereum RPC + BTC Electrum are env-driven).
+  const envEth = (process.env.NEXT_PUBLIC_ETHEREUM_RPC_URLS ?? "")
+    .split(",")
+    .map((u) => u.trim())
+    .filter((u) => u.length > 0);
+  if (envEth.length > 0) opts.ethereumRpcUrls = envEth;
 
-  const btcWs = process.env.NEXT_PUBLIC_BTC_ELECTRUM_WS_URL?.trim();
-  if (btcWs) opts.btcElectrumWsUrl = btcWs;
+  const envBtc = process.env.NEXT_PUBLIC_BTC_ELECTRUM_WS_URL?.trim();
+  if (envBtc) opts.btcElectrumWsUrl = envBtc;
+
+  // Runtime user overrides win when set (the Data Sources settings card).
+  const ds = loadDataSources();
+  if (ds.ethereumRpcUrls.length > 0) opts.ethereumRpcUrls = ds.ethereumRpcUrls;
+  if (ds.polygonRpcUrls.length > 0) opts.polygonRpcUrls = ds.polygonRpcUrls;
+  if (ds.arbitrumRpcUrls.length > 0) opts.arbitrumRpcUrls = ds.arbitrumRpcUrls;
+  if (ds.plasmaRpcUrls.length > 0) opts.plasmaRpcUrls = ds.plasmaRpcUrls;
+  if (ds.btcElectrumWsUrl) opts.btcElectrumWsUrl = ds.btcElectrumWsUrl;
 
   return opts;
 }
@@ -64,7 +73,7 @@ export function getWalletApp(): WalletApp {
 
   const engine = createWalletEngine(
     { storage, crypto, unlock },
-    { chains: buildChainRegistry(chainOptionsFromEnv()) },
+    { chains: buildChainRegistry(chainOptions()) },
   );
 
   app = {
@@ -73,4 +82,13 @@ export function getWalletApp(): WalletApp {
     enrollPasskey: () => unlock.enrollPasskey(engine),
   };
   return app;
+}
+
+/**
+ * Drop the memoised engine so the next `getWalletApp()` rebuilds it with fresh
+ * chain options. Call after saving Data Sources settings; the caller must send
+ * the user back through unlock, since the in-memory unlocked session is gone.
+ */
+export function resetWalletApp(): void {
+  app = null;
 }

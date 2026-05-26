@@ -1,7 +1,7 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-26 23:20
-**Status:** Phase 0/1/2/3 done + pushed. Phase 4 (Data Sources / Privacy) next.
+**Last touched:** 2026-05-26 23:45
+**Status:** Phase 0/1/2/3 done. Phase 4: tron cleanup + dataSources module done (1/2). Engine/prices/page wiring next (2/2).
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
@@ -20,19 +20,22 @@ blind-zones are marked "(Audit 2026-05-26)" inside the relevant phases + a new
 fixes — Yana wants a very strong product, so implement the WHOLE plan.
 
 ## Next step
-Phase 4 — Data Sources / Privacy Settings. In `apps/next`:
-  - Add a Settings card exposing the host endpoints already used: RPC per EVM chain,
-    Electrum-WS (BTC), and the CoinGecko price source. Surface them read-only (or
-    editable via env-backed config) so the user SEES what the wallet talks to.
-  - **Disclose + toggle CoinGecko** (`apps/next/src/lib/prices.ts` fetches
-    api.coingecko.com unconditionally): add an opt-out so prices can be turned off;
-    when off, skip the fetch entirely (no silent calls). Persist the toggle.
-  - **Resolve `tron` dangling ChainId**: it's an unused member. Decide remove-vs-wire.
-    Touch points = wallet-core `ChainId` type, `explorer.ts` EXPLORERS map (still lists
-    tron), the add-contact `<option value="tron">`, root `.env.example` TRON_API_KEY.
-    Simplest honest path = drop tron everywhere (no Tron manager is configured).
-  - The endpoints listed here are the exact `connect-src` allowlist for the Phase 6 CSP.
-  - `corepack pnpm verify`, commit, push.
+Phase 4 (2/2) — wire the dataSources module into the app:
+  - `engine.ts`: in chainOptionsFromEnv (rename → chainOptions), layer persisted
+    overrides from loadDataSources() OVER env OVER public defaults; wire all four
+    EVM rpc lists (ethereum/polygon/arbitrum/plasma) + btcElectrumWsUrl
+    (buildChainRegistry already accepts polygon/arbitrum/plasmaRpcUrls). Add
+    `resetWalletApp()` nulling the `app` singleton so a settings save rebuilds it.
+  - `prices.ts`: gate fetchPrices + fetchSparkline on arePricesEnabled(); use
+    priceBase() instead of the hardcoded host. Return {}/[] immediately when off
+    (NO silent fetch).
+  - `page.tsx`: add a "Data Sources" Card in settings (near Address Book ~1474):
+    inputs for the 4 RPC lists, electrum-ws, indexer mode+url, price toggle+endpoint;
+    privacy labels (public RPC sees queried addresses; local-only = no inbound fetch;
+    price oracle sees IP+static asset set, never addresses; custom indexer changes
+    privacy model). On save → saveDataSources + resetWalletApp + toast + reload view.
+    Add i18n keys (EN+RU). Update BOUNTY-CHECKLIST (+row, test count 44).
+  - `corepack pnpm verify` GREEN → commit → push. Then Phase 5.
 
 ## Remaining after Phase 3
 - Phase 4: Data Sources/Privacy Settings (+ disclose/toggle CoinGecko in `prices.ts`;
