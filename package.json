@@ -16,7 +16,9 @@
     "verify": "corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build",
     "dev": "corepack pnpm --filter next dev",
     "//demo": "Regenerate docs/demo.gif: builds the app, records create->backup->seed-quiz->portfolio->receive against the offline Electrum-WS fixture (no endpoint, no secret), encodes to gif. Prereqs: `corepack pnpm exec playwright install chromium` (one-time) and ffmpeg on PATH. Demo tooling lives in tools/, outside the pnpm workspace - never touched by lint/typecheck/test/build.",
-    "demo": "node tools/demo/record.mjs"
+    "demo": "node tools/demo/record.mjs",
+    "//smoke": "Permanent E2E smoke: builds core + Next, serves the prod build on a free port, and drives a real browser through create -> seed-quiz -> portfolio -> receive copy a11y name -> Recovery Check. Network-independent (BTC left unconfigured). Prereq: `corepack pnpm exec playwright install chromium` (one-time).",
+    "smoke": "node tools/e2e/smoke.mjs"
   },
   "pnpm": {
     "overrides": {
