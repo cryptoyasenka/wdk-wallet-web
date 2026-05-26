@@ -1,7 +1,7 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-27 03:10
-**Status:** COMPLETE. Phases 0-6 + cross-cutting cleanups + 3 optional polish items all done + pushed. Whole BOUNTY-IMPLEMENTATION-PLAN delivered.
+**Last touched:** 2026-05-27 (cold-review fix cycle CLOSED)
+**Status:** COMPLETE. Plan delivered + cold-review fix cycle done. All 7 cold-review findings fixed/verified/pushed (HEAD 5d6f5a4). verify green (80+63+13 tests, 232 kB), smoke PASS (6 assertions). NEXT focus: "Глубина продукта", then LAST "Живой деплой" (Railway).
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
@@ -38,11 +38,15 @@ Fixes to apply (priority order):
 - [x] Expand smoke to cover Phase 1 (payment-request panel) + Phase 5 (watch-only signing-disabled), via walletFlow()/watchOnlyFlow(). 6 assertions PASS. Commit 15845c1.
 
 ## Next step
-NONE — plan fully delivered. Final verification all green this session:
-  - `corepack pnpm verify`: lint+typecheck+build OK, 79 (wallet-core) + 59 (next) + 13 (svelte) tests.
-  - `corepack pnpm smoke`: PASS under the live nonce CSP, 6 assertions (proves zero blocking CSP violations).
-  - `corepack pnpm audit --audit-level moderate`: exit 0, 1 accepted low advisory (BTC elliptic, no patch).
-Possible future polish only if Yana asks: optional indexer UI, more chains, BTC payment-request memo edge cases.
+Cold review CLOSED. Yana's chosen sequence was: (1) cold review FIRST [done],
+(2) product depth + fix findings [findings done], (3) live deploy LAST (Railway).
+NEXT = "Глубина продукта" — pick scope with Yana: candidates are BTC testnet e2e
+(real Electrum-WS endpoint, not the offline fixture), more chains, or an a11y pass.
+THEN LAST = "Живой деплой" on Railway (NOT Vercel — see MEMORY feedback_avoid_vercel).
+
+Final green this session (HEAD 5d6f5a4):
+  - `corepack pnpm verify`: lint+typecheck+build OK, 80 (wallet-core) + 63 (next) + 13 (svelte) tests.
+  - `corepack pnpm smoke`: PASS under live nonce CSP, 6 assertions (zero blocking CSP violations).
 
 ## CSP rework note (important for any future toucher)
 The first CSP attempt (static header in next.config) was WRONG — `script-src 'self'`
