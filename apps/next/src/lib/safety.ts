@@ -62,7 +62,7 @@ export interface PoisoningMatch {
  * resembled address so the UI can name what it looks like.
  */
 export function detectPoisoning(ctx: RecipientContext, edge = 6): PoisoningMatch | null {
-  const { to, chain, contacts, recentRecipient, recentChain } = ctx;
+  const { to, chain, contacts, ownAddresses, recentRecipient, recentChain } = ctx;
   const norm = (s: string) => (chain === "bitcoin" ? s.trim() : s.trim().toLowerCase());
   const target = norm(to);
   if (target.length < edge * 2) return null;
@@ -71,6 +71,11 @@ export function detectPoisoning(ctx: RecipientContext, edge = 6): PoisoningMatch
     .filter((c) => c.chain === chain)
     .map((c) => ({ address: c.address, name: c.name }));
   if (recentRecipient && recentChain === chain) candidates.push({ address: recentRecipient });
+  // The classic trap is a lookalike of one of YOUR OWN receive addresses, so
+  // include them as candidates too — same-chain only.
+  for (const [c, addr] of ownAddresses) {
+    if (c === chain) candidates.push({ address: addr, name: "your own address" });
+  }
 
   for (const cand of candidates) {
     const a = norm(cand.address);
@@ -83,14 +88,19 @@ export function detectPoisoning(ctx: RecipientContext, edge = 6): PoisoningMatch
   return null;
 }
 
-/** Lowercased set of token contracts from the bundled official asset list. */
+/** Chain-keyed (`chain:contract`) set from the bundled official asset list. */
 export function officialTokenContracts(assets: readonly Asset[]): ReadonlySet<string> {
   const set = new Set<string>();
-  for (const a of assets) if (a.token) set.add(a.token.toLowerCase());
+  for (const a of assets) if (a.token) set.add(`${a.chain}:${a.token.toLowerCase()}`);
   return set;
 }
 
-/** True when this asset is a token whose contract is in the official set. */
+/**
+ * True when this asset is a token whose contract is official ON ITS OWN CHAIN.
+ * The chain is part of the key on purpose: a token on chain B whose address
+ * happens to equal an official contract on chain A must NOT inherit the badge,
+ * or the official-Tether checkmark becomes spoofable.
+ */
 export function isOfficialToken(asset: Asset, official: ReadonlySet<string>): boolean {
-  return asset.token !== undefined && official.has(asset.token.toLowerCase());
+  return asset.token !== undefined && official.has(`${asset.chain}:${asset.token.toLowerCase()}`);
 }

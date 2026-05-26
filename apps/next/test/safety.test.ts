@@ -92,4 +92,11 @@ describe("official token contracts", () => {
   it("treats a native (token-less) asset as not an official-token badge case", () => {
     expect(isOfficialToken({ symbol: "ETH", chain: "ethereum", decimals: 18 }, official)).toBe(false);
   });
+
+  it("does NOT badge a token whose contract is official on a DIFFERENT chain", () => {
+    // Same bytes as the Ethereum USDT contract, but presented as an Arbitrum
+    // token. The official-Tether checkmark must not cross chains, or it spoofs.
+    const spoof: Asset = { symbol: "USDT", chain: "arbitrum", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 };
+    expect(isOfficialToken(spoof, official)).toBe(false);
+  });
 });
