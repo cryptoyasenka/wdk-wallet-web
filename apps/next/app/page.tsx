@@ -581,6 +581,11 @@ export default function Page() {
     setBackedUp(false);
     setQuizQuestions([]);
     setQuizAnswers({});
+    // Also drop the passphrase the unlock provider is holding for this session,
+    // not just our local input state — otherwise it lingers for the lifetime of
+    // the module singleton. Called only after a flow completes (never between a
+    // create/import and its unlock), so no in-flight unlock loses its passphrase.
+    getWalletApp().setPassphrase("");
   }
 
   const onCreate = () =>

@@ -19,8 +19,10 @@
  * i.e. whether a passphrase credential has ever been established here.
  *
  * The passphrase is injected per session via `setPassphrase` (the UI collects
- * it, then triggers the engine call that consumes it). It is held only as long
- * as this instance lives and never persisted.
+ * it, then triggers the engine call that consumes it) and is never persisted.
+ * The UI drops it again via `setPassphrase("")` once a flow completes (its
+ * `resetSecrets()`), so it is not retained for the whole singleton lifetime.
+ * JS strings are immutable, so clearing drops the reference, not the bytes.
  */
 import { deriveAesGcmKey, generateSalt } from "@wdk-web/wallet-core";
 import type { StorageAdapter, UnlockProvider } from "@wdk-web/wallet-core";

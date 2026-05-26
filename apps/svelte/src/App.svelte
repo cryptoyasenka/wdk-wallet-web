@@ -266,6 +266,11 @@
     seedInput = "";
     revealedSeed = "";
     backedUp = false;
+    // Also drop the passphrase the unlock provider holds for this session, not
+    // just our local input — otherwise it lingers for the module-singleton
+    // lifetime. Called only after a flow completes (never between a
+    // create/import and its unlock), so no in-flight unlock loses its passphrase.
+    getWalletApp().setPassphrase("");
   }
 
   /**

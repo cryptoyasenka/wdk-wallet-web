@@ -19,6 +19,19 @@ blind-zones are marked "(Audit 2026-05-26)" inside the relevant phases + a new
 "## Phase 0" + "## Cross-cutting cleanups" section. Do NOT remove existing
 fixes — Yana wants a very strong product, so implement the WHOLE plan.
 
+## Cold review findings 2026-05-27 (3 fresh-context adversarial subagents)
+Subagents VERIFIED core crypto is genuinely correct + honestly documented: PBKDF2-600k, HKDF-SHA256, AES-GCM-256, non-extractable keys, fresh salt/IV, worker spawn (adapter.ts:21), nonce CSP (all 11 directives match docs byte-for-byte), tron fully purged. sodium_memzero is REAL (not no-op). No faked crypto, no predictable nonces.
+
+Fixes to apply (priority order):
+- [x] [P0] safety.ts isOfficialToken was chain-blind → official-Tether badge spoofable across chains. FIXED: officialTokenContracts keys by `chain:token`; isOfficialToken checks `asset.chain:token`. + detectPoisoning now includes ownAddresses (was missing send-to-self trap). + regression test. NOT yet committed/verified.
+- [ ] [P1] contacts.ts:123/129/138 — case-SENSITIVE dedupe/match, desyncs from case-insensitive classifier; breaks touchContact + recent-sort. Normalize EVM addr lowercase in add/remove/update/touch (BTC case-sensitive).
+- [x] [P1] paymentRequest.ts — recipient addr emitted verbatim, no validation. FIXED: assertValidRecipient + InvalidAddressError, runs before URI build; EVM 0x+40hex, BTC delimiter-free. +3 tests (17). Commit 0d0a396.
+- [x] [P2] engine.ts getBalancesForAddress — no addr validation in core (only UI). FIXED: isWellFormedAddress + core InvalidAddressError, validates every in-scope chain BEFORE building reader. +1 test (80). Commit 191c3d1. (NOTE: hit a 1-byte NUL corruption in engine.ts mid-edit; found via python byte-scan, fixed, all committed blobs verified 0 nulls.)
+- [ ] [DOC] README.md:11 drop "ETH" from send/receive (gas-fee label only). SECURITY-REVIEW.md:126 add fullscreen=(self) (or strip from next.config.mjs:39 if unused). SECURITY-REVIEW.md:115 NEXT_PUBLIC_* → singular ETHEREUM. Add seed-string-unzeroisable caveat (§1/§2). Note svelte ships w/o CSP. ARCHITECTURE.md:351 76→79. Reconcile 228 vs 223 kB First Load.
+- [x] [P1 verify] unlock.ts passphrase lingered for module-singleton lifetime. VERIFIED real: resetSecrets() cleared only LOCAL passphrase, not the provider's #passphrase. FIXED: resetSecrets() now also calls getWalletApp().setPassphrase("") in BOTH apps (next page.tsx:576, svelte App.svelte:263). Could NOT clear inside provider.unlock() — create/import call unlock() internally via persistSeed, and flows do a 2nd unlock relying on persistence. verify green, 232 kB First Load. Commit pending.
+- [ ] [P1 verify] wdk-core.ts:105-110 #seedPhrase not nulled on dispose. JS strings unzeroable → only drops ref; document honestly. Read dispose() first.
+- NOT fixing: connect-src `wss:` wholesale (by design, Electrum operator-supplied, can't pin server-side; already documented).
+
 ## Optional polish (all 3 done this session, after Yana picked "Всё три")
 - [x] HSTS + Permissions-Policy headers in next.config.mjs headers() + documented in SECURITY-REVIEW.md §6. Commit 5466e6b.
 - [x] Run E2E smoke in CI — new `smoke` job in .github/workflows/ci.yml (only job proving nonce-CSP/hydration at runtime). Commit a38ba84.
