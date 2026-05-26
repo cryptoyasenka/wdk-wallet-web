@@ -15,6 +15,12 @@
 html,
 body {
   height: 100%;
+  /* The UI is dark end-to-end. Tell the engine so native controls (selects,
+     their open dropdowns, scrollbars, date pickers) render with dark-mode
+     defaults instead of a light popup — otherwise the white option text we set
+     paints white-on-white when a select opens, and axe scores the control
+     against the light UA palette. */
+  color-scheme: dark;
 }
 
 body {

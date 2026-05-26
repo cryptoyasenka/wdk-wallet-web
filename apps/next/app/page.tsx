@@ -992,6 +992,7 @@ export default function Page() {
               <div className="flex gap-2 mb-2">
                 <select
                   className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                  aria-label={T("a11y.select_wallet")}
                   value={activeWallet}
                   onChange={(e) => onSelectWallet(Number(e.target.value))}
                   disabled={busy}
@@ -1190,6 +1191,7 @@ export default function Page() {
             </div>
             <select
               className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+              aria-label={T("a11y.select_account")}
               value={activeAccount}
               onChange={(e) => onSelectAccount(Number(e.target.value))}
               disabled={busy}
@@ -1618,6 +1620,7 @@ export default function Page() {
             {watchWallets.length > 1 && (
               <select
                 className="mb-3 w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                aria-label={T("a11y.select_watch")}
                 value={activeWatch.id}
                 onChange={(e) => {
                   const w = watchWallets.find((x) => x.id === e.target.value);
@@ -1774,6 +1777,7 @@ export default function Page() {
               </div>
               <select
                 className="rounded-md border border-[--color-border] bg-[--color-bg] px-2 py-1 text-sm outline-none"
+                aria-label={T("settings.autolock")}
                 value={autolockMin}
                 onChange={(e) => onChangeAutolock(Number(e.target.value))}
               >
@@ -1791,6 +1795,7 @@ export default function Page() {
               </div>
               <select
                 className="rounded-md border border-[--color-border] bg-[--color-bg] px-2 py-1 text-sm outline-none"
+                aria-label={T("settings.language")}
                 value={locale}
                 onChange={(e) => changeLocale(e.target.value as Locale)}
               >
@@ -1938,7 +1943,7 @@ export default function Page() {
                           onChange={(e) => setNewTemplateName(e.target.value)}
                         />
                         <select
-                          className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                          className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
                           value={newTemplateAssetKey}
                           onChange={(e) => setNewTemplateAssetKey(e.target.value)}
                           aria-label={T("settings.tpl_asset")}
@@ -2026,7 +2031,8 @@ export default function Page() {
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_chain")}</label>
                     <select
-                      className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                      className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                      aria-label={T("settings.contacts_chain")}
                       value={newContactChain}
                       onChange={(e) => setNewContactChain(e.target.value)}
                     >
@@ -2127,7 +2133,7 @@ export default function Page() {
               <label className="block">
                 <span className="mb-1 block text-xs text-[--color-muted]">{T("ds.indexer_mode")}</span>
                 <select
-                  className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
                   value={dsForm.indexerMode}
                   onChange={(e) => setDsForm((f) => ({ ...f, indexerMode: e.target.value as IndexerMode }))}
                 >

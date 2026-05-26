@@ -212,6 +212,11 @@ const translations: Record<string, Record<Locale, string>> = {
   "settings.delete_btn": { en: "Delete this wallet", ru: "Удалить этот кошелёк" },
   "settings.delete_confirm": { en: "Are you absolutely sure? This will wipe all data for this wallet from this device.", ru: "Вы абсолютно уверены? Это сотрет все данные этого кошелька с этого устройства." },
 
+  // Accessible names for controls whose visible label is not programmatically associated
+  "a11y.select_wallet": { en: "Select wallet", ru: "Выбрать кошелёк" },
+  "a11y.select_account": { en: "Select account", ru: "Выбрать аккаунт" },
+  "a11y.select_watch": { en: "Select watched wallet", ru: "Выбрать отслеживаемый кошелёк" },
+
   // Toast messages
   "toast.copied": { en: "Copied to clipboard", ru: "Скопировано" },
   "toast.sent": { en: "Transaction broadcast successfully", ru: "Транзакция успешно отправлена" },

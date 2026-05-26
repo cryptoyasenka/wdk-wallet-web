@@ -18,7 +18,9 @@
     "//demo": "Regenerate docs/demo.gif: builds the app, records create->backup->seed-quiz->portfolio->receive against the offline Electrum-WS fixture (no endpoint, no secret), encodes to gif. Prereqs: `corepack pnpm exec playwright install chromium` (one-time) and ffmpeg on PATH. Demo tooling lives in tools/, outside the pnpm workspace - never touched by lint/typecheck/test/build.",
     "demo": "node tools/demo/record.mjs",
     "//smoke": "Permanent E2E smoke: builds core + Next, serves the prod build on a free port, and drives a real browser through create -> seed-quiz -> portfolio -> receive copy a11y name -> Recovery Check. Network-independent (BTC left unconfigured). Prereq: `corepack pnpm exec playwright install chromium` (one-time).",
-    "smoke": "node tools/e2e/smoke.mjs"
+    "smoke": "node tools/e2e/smoke.mjs",
+    "//a11y": "Accessibility audit: builds + serves the prod Next app and runs axe-core (WCAG 2.0/2.1 A+AA) against every key screen (onboarding, backup, seed quiz, portfolio, receive, settings). Audit browser uses bypassCSP so axe can inject; the app's strict CSP is unchanged and proven by smoke. Exits 1 on any violation >= A11Y_FAIL_ON (default serious; set =none for discovery). Tooling outside the workspace - never touched by lint/typecheck/test/build. Prereq: `corepack pnpm exec playwright install chromium`.",
+    "a11y": "node tools/e2e/a11y.mjs"
   },
   "pnpm": {
     "overrides": {
@@ -29,6 +31,7 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.60.0",
+    "axe-core": "^4.11.4",
     "eslint": "10.4.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-svelte": "3.17.1",
