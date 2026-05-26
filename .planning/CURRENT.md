@@ -1,7 +1,7 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-26 22:02
-**Status:** Phase 0/1/2 done (committed + pushed). Phase 3 (Address Book v2) next.
+**Last touched:** 2026-05-26 22:05
+**Status:** Phase 0/1/2 done. Phase 3 data layer done (1/2). Phase 3 UI wiring (2/2) next.
 
 ## Status
 - [x] Deep audit done (findings folded into `docs/BOUNTY-IMPLEMENTATION-PLAN.md`)
@@ -20,23 +20,22 @@ blind-zones are marked "(Audit 2026-05-26)" inside the relevant phases + a new
 fixes — Yana wants a very strong product, so implement the WHOLE plan.
 
 ## Next step
-Phase 3 — Address Book v2 (plan lines 200-275). Extend `apps/next/src/lib/contacts.ts`:
-  - Contact gains optional `note?`, `favorite?`, `lastUsedAt?`, `createdAt?`.
-  - Add `PaymentTemplate { id, name, contactAddress, chain, assetKey, amount?, memo?, createdAt }`
-    (separate localStorage key, e.g. `wdk-templates`) — optionally a `templates.ts`.
-  - **AUDIT BLIND-ZONE (must do):** `contacts.ts:17-24 loadContacts` currently does a
-    bare `JSON.parse(raw)` cast to Contact[] — a corrupt/pre-v2 entry can break the
-    page. Add per-record shape validation that DROPS malformed rows (string name/
-    address/chain required; coerce optional fields) instead of trusting the blob.
-    Same hardening for templates. Keep old contacts loading (back-compat).
-  - Sorting: favorites first, then lastUsedAt desc. Update `lastUsedAt` when a send
-    to that contact succeeds (in `onConfirmSend`, page.tsx ~line 533).
-  - UI (Settings → Address Book, page.tsx settings section + Send contacts chips):
-    favorites first, note field, last-used, edit contact, save template, use template
-    from Send (prefills recipient+asset+amount+memo). Keep glass UI compact.
-  - Extract pure load/save/validate/sort helpers and unit-test them (add to apps/next
-    vitest). Then `corepack pnpm verify`, commit, push. Then Phase 4.
-Find Address Book UI: grep `contacts_add_title` / `settings.contacts` in page.tsx.
+Phase 3 UI wiring (2/2) — data layer ALREADY DONE in commit (contacts.ts v2:
+note/favorite/lastUsedAt/createdAt, PaymentTemplate, sanitize+sort+update/touch/
+template helpers, validation audit-fix, 6 tests). Remaining = wire UI in page.tsx:
+  - Settings → Address Book (grep `settings.contacts` / `contacts_add_title`):
+    show favorites first (loadContacts already returns sorted), a note field, last-used,
+    a favorite toggle (call `updateContact(addr, chain, {favorite})`), edit, and a
+    "save as template" action (`addTemplate`). Keep glass UI compact.
+  - Send card (grep `send.contacts` chips ~line 1028): show favorite contacts first;
+    add a templates row that prefills recipient + asset (setSendAssetKey) + amount + memo.
+  - On successful send call `touchContact(quote.intent.to, quote.intent.asset.chain)`
+    in `onConfirmSend` (page.tsx ~line 533, after send resolves) so lastUsedAt updates.
+  - Import the new helpers (updateContact, touchContact, loadTemplates, addTemplate,
+    removeTemplate, type PaymentTemplate) in page.tsx; add i18n keys.
+  - **Fix doc count:** apps/next has 32 tests (NOT 38 — the data-layer commit message
+    overstated). Update BOUNTY-CHECKLIST.md "26 unit tests" → correct total after UI tests.
+  - `corepack pnpm verify`, commit, push. Then Phase 4.
 
 ## Remaining after Phase 3
 - Phase 4: Data Sources/Privacy Settings (+ disclose/toggle CoinGecko in `prices.ts`;
