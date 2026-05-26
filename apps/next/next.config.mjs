@@ -5,9 +5,100 @@ import { createRequire } from "node:module";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
+// ---------------------------------------------------------------------------
+// Content-Security-Policy (Phase 6).
+//
+// The real XSS mitigation is `script-src 'self'`: no inline scripts, no remote
+// code, no eval. `connect-src` is then pinned to exactly the network endpoints
+// the wallet can talk to, so a compromised dependency cannot beacon out to an
+// arbitrary host.
+//
+// HONEST LIMIT: this header is emitted at BUILD time and is therefore static.
+// The Data Sources settings card lets a user point the wallet at a *custom* RPC
+// or indexer origin at RUNTIME (stored in localStorage) — such an origin is NOT
+// in this allow-list and its fetch would be CSP-blocked. We accept that: the
+// default origins below + `NEXT_PUBLIC_*` deploy env cover the shipped
+// configuration, and `wss:` is allowed wholesale because the Bitcoin
+// Electrum-WS endpoint is *always* operator-supplied (there is no public
+// default) and pinning one host would defeat the point. This trade-off is
+// documented in docs/SECURITY-REVIEW.md → "CSP".
+//
+// The default RPC origins MUST stay in sync with the public RPC lists in
+// packages/wallet-core/src/chains/index.ts (ETHEREUM/POLYGON/ARBITRUM/PLASMA_
+// PUBLIC_RPCS). They are duplicated here rather than imported because next.config
+// loads before the workspace package is built.
+const DEFAULT_RPC_ORIGINS = [
+  "https://ethereum-rpc.publicnode.com",
+  "https://eth.llamarpc.com",
+  "https://rpc.ankr.com", // eth + polygon + arbitrum share this origin
+  "https://polygon-rpc.com",
+  "https://polygon-bor-rpc.publicnode.com",
+  "https://arb1.arbitrum.io",
+  "https://arbitrum-one-rpc.publicnode.com",
+  "https://rpc.plasma.to",
+];
+const COINGECKO_ORIGIN = "https://api.coingecko.com";
+
+/** `scheme://host[:port]` of a URL, or null if it does not parse. */
+function originOf(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/** Build the CSP string from the default origins + deploy env overrides. */
+function buildCsp() {
+  const connect = new Set(["'self'", ...DEFAULT_RPC_ORIGINS, COINGECKO_ORIGIN]);
+
+  // Deploy-time env RPC overrides (same source engine.ts reads).
+  for (const raw of (process.env.NEXT_PUBLIC_ETHEREUM_RPC_URLS ?? "").split(",")) {
+    const o = originOf(raw.trim());
+    if (o) connect.add(o);
+  }
+  // Bitcoin Electrum-WS is always operator-supplied; allow secure WebSockets.
+  connect.add("wss:");
+
+  const directives = {
+    "default-src": ["'self'"],
+    "script-src": ["'self'"],
+    // Next.js injects inline <style> for its CSS; 'unsafe-inline' for styles is
+    // not an XSS vector the way script 'unsafe-inline' is.
+    "style-src": ["'self'", "'unsafe-inline'"],
+    "img-src": ["'self'", "data:"],
+    "font-src": ["'self'"],
+    "connect-src": [...connect],
+    // The WDK adapter spawns a Dedicated Worker from a blob/bundle URL.
+    "worker-src": ["'self'", "blob:"],
+    "object-src": ["'none'"],
+    "base-uri": ["'self'"],
+    "frame-ancestors": ["'none'"],
+    "form-action": ["'self'"],
+  };
+
+  return Object.entries(directives)
+    .map(([k, v]) => `${k} ${v.join(" ")}`)
+    .join("; ");
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: buildCsp() },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+    ];
+  },
 
   // The monorepo lints with one ESLint flat config (root `pnpm lint`); don't
   // also run Next's bundled, deprecated `next lint` pass during `next build`.

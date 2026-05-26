@@ -36,8 +36,15 @@ state the real model and its limits rather than imply parity.
   locks on tab hide/idle.
 - **Every transaction requires explicit, itemised user confirmation** (amount, asset,
   chain, recipient, fee) rendered from decoded tx data, not opaque hex.
-- **Optional hardware-wallet path** for users who want keys off the browser entirely.
 - No analytics, no telemetry, all data local. Open source for audit.
+
+> **Not shipped: hardware-wallet signing.** This is a *software* web wallet. There
+> is no Ledger/Trezor path — `ledger-bitcoin` is deliberately stubbed to `false`
+> in both bundlers (see the Next/Vite build configs). The WDK adapter
+> (`packages/wallet-core/src/wdk/`) is the clean extension point where a
+> hardware-signer adapter *could* be added, but none ships today, and this
+> document does not claim one. Use a dedicated hardware wallet for cold storage of
+> large balances rather than expecting it from this app.
 
 ## What the web genuinely cannot guarantee (do not pretend otherwise)
 
@@ -47,8 +54,9 @@ state the real model and its limits rather than imply parity.
   main thread. RN's BareKit worklet (separate runtime) is strictly stronger here.
 - **No default hardware-backed keystore.** WebAuthn provides hardware-backed *unlock*,
   but the decrypted seed still lives in (worker) memory to sign — it is not in an
-  HSM. Mitigation: minimise decrypted lifetime, zeroise buffers, prefer the
-  hardware-wallet path for large balances.
+  HSM. Mitigation: minimise decrypted lifetime, zeroise buffers, and keep large
+  balances in a dedicated hardware wallet (which this software wallet does not
+  replace — see "Not shipped" above).
 - **Create / import unavoidably touch the main thread.** The seed is rendered on
   a backup screen (create) or typed by the user (import), and the DOM is
   main-thread, so the worker isolation does not cover those two one-off moments.
@@ -56,8 +64,13 @@ state the real model and its limits rather than imply parity.
   starter has the identical property. Steady-state use (unlock → sign → lock) is
   worker-isolated; see ARCHITECTURE.md → ADR-004 for the precise boundary.
 - **Supply chain.** A malicious dependency on the page can exfiltrate. Mitigations:
-  pinned/locked deps, Subresource Integrity where applicable, strict CSP, no remote
-  code, audited lockfile in CI.
+  pinned/locked deps, no remote code, audited lockfile in CI, and a strict
+  Content-Security-Policy shipped as a real response header (`script-src 'self'`,
+  no inline/eval scripts, `connect-src` pinned to the wallet's RPC/price/Electrum
+  endpoints, `object-src 'none'`, `frame-ancestors 'none'` — see
+  `apps/next/next.config.mjs` and the CSP section of `docs/SECURITY-REVIEW.md`).
+  The CSP is static (build-time), so a user-supplied *custom* RPC origin set at
+  runtime is not in the allow-list — an honest limit documented in the review.
 
 ## Hard rules enforced in this repo
 
