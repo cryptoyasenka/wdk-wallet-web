@@ -57,6 +57,7 @@ function chainOptions(ds: DataSources): BuildChainsOptions {
   if (ds.polygonRpcUrls.length > 0) opts.polygonRpcUrls = ds.polygonRpcUrls;
   if (ds.arbitrumRpcUrls.length > 0) opts.arbitrumRpcUrls = ds.arbitrumRpcUrls;
   if (ds.plasmaRpcUrls.length > 0) opts.plasmaRpcUrls = ds.plasmaRpcUrls;
+  if (ds.solanaRpcUrls.length > 0) opts.solanaRpcUrls = ds.solanaRpcUrls;
   if (ds.btcElectrumWsUrl) opts.btcElectrumWsUrl = ds.btcElectrumWsUrl;
 
   return opts;
