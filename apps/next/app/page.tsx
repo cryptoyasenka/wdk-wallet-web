@@ -8,7 +8,7 @@
  *     send / itemised tx-confirm / activity (ADR-003)
  *   Phase 2 — toast notifications, auto-lock timer, USD prices (CoinGecko),
  *     address book, Max button, explorer links, improved empty states
- *   Phase 3 — settings page, PWA, recovery check, sparkline charts, i18n (EN/RU)
+ *   Phase 3 — settings page, PWA, recovery check, sparkline charts, i18n (EN/RU/UK)
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
@@ -89,17 +89,17 @@ function formatUnits(amount: bigint, decimals: number): string {
   return `${neg ? "-" : ""}${whole}${frac ? `.${frac}` : ""}`;
 }
 
-function parseUnits(input: string, decimals: number): bigint {
+function parseUnits(input: string, decimals: number, T: (key: string) => string): bigint {
   const s = input.trim();
-  if (!/^\d+(\.\d+)?$/.test(s)) throw new Error("Enter a positive amount, e.g. 12.5");
+  if (!/^\d+(\.\d+)?$/.test(s)) throw new Error(T("error.amount_invalid"));
   const dot = s.indexOf(".");
   const whole = dot === -1 ? s : s.slice(0, dot);
   const frac = dot === -1 ? "" : s.slice(dot + 1);
   if (frac.length > decimals) {
-    throw new Error(`Too many decimal places — this asset has ${decimals}.`);
+    throw new Error(T("error.amount_decimals").replace("{n}", String(decimals)));
   }
   const value = BigInt(whole + frac.padEnd(decimals, "0"));
-  if (value <= 0n) throw new Error("Amount must be greater than zero.");
+  if (value <= 0n) throw new Error(T("error.amount_positive"));
   return value;
 }
 
@@ -113,13 +113,13 @@ function statusClass(status: ActivityItem["status"]): string {
   return "bg-yellow-500/15 text-yellow-300";
 }
 
-function messageFor(err: unknown): string {
-  if (err instanceof VaultDecryptError) return "Wrong passphrase, or the vault is corrupt.";
-  if (err instanceof InvalidSeedPhraseError) return "That is not a valid BIP-39 seed phrase.";
-  if (err instanceof WalletExistsError) return "A wallet already exists on this device.";
+function messageFor(err: unknown, T: (key: string) => string): string {
+  if (err instanceof VaultDecryptError) return T("error.wrong_passphrase");
+  if (err instanceof InvalidSeedPhraseError) return T("error.invalid_seed");
+  if (err instanceof WalletExistsError) return T("error.wallet_exists");
   if (err instanceof WalletError) return err.message;
   if (err instanceof Error) return err.message;
-  return "Something went wrong.";
+  return T("error.generic");
 }
 
 /** Generate 3 quiz questions from a seed phrase */
@@ -197,6 +197,12 @@ export default function Page() {
     persistLocale(l);
   }, []);
   const T = useCallback((key: string) => t(key, locale), [locale]);
+  // Mirror the latest translator in a ref so callbacks/effects with stable
+  // dependency arrays (act, the mount loader, the data fetchers) can localize
+  // error messages with the CURRENT locale without re-running on every language
+  // switch — re-running the mount effect would reset the phase and lock the user.
+  const tRef = useRef(T);
+  tRef.current = T;
 
   // ---- USD prices ----
   const [prices, setPrices] = useState<PriceMap>({});
@@ -421,7 +427,7 @@ export default function Page() {
     try {
       await fn();
     } catch (e) {
-      setError(messageFor(e));
+      setError(messageFor(e, tRef.current));
     } finally {
       setBusy(false);
     }
@@ -444,7 +450,7 @@ export default function Page() {
         if (alive) setPhase(has ? "locked" : "onboarding");
       } catch (e) {
         if (alive) {
-          setError(messageFor(e));
+          setError(messageFor(e, tRef.current));
           setPhase("onboarding");
         }
       }
@@ -462,7 +468,7 @@ export default function Page() {
       setActivity(await getWalletApp().engine.getActivity());
     } catch (e) {
       setActivity(null);
-      setActivityError(messageFor(e));
+      setActivityError(messageFor(e, tRef.current));
     }
   }, []);
 
@@ -500,7 +506,7 @@ export default function Page() {
       setBalances(await engine.getBalances());
     } catch (e) {
       setBalances(null);
-      setBalancesError(messageFor(e));
+      setBalancesError(messageFor(e, tRef.current));
     }
 
     await loadActivity();
@@ -525,7 +531,7 @@ export default function Page() {
         );
       } catch (e) {
         setBalances(null);
-        setBalancesError(messageFor(e));
+        setBalancesError(messageFor(e, tRef.current));
       }
       void loadPrices();
       void loadSparkline();
@@ -614,8 +620,8 @@ export default function Page() {
 
   const onCreate = () =>
     act(async () => {
-      if (passphrase.length < 8) throw new Error("Use a passphrase of at least 8 characters.");
-      if (passphrase !== confirmPass) throw new Error("Passphrases do not match.");
+      if (passphrase.length < 8) throw new Error(T("error.pass_too_short"));
+      if (passphrase !== confirmPass) throw new Error(T("error.pass_mismatch"));
       const app = getWalletApp();
       app.setPassphrase(passphrase);
       const { seedPhrase } = await app.engine.createWallet();
@@ -625,9 +631,9 @@ export default function Page() {
 
   const onImport = () =>
     act(async () => {
-      if (passphrase.length < 8) throw new Error("Use a passphrase of at least 8 characters.");
+      if (passphrase.length < 8) throw new Error(T("error.pass_too_short"));
       const phrase = seedInput.trim().replace(/\s+/g, " ");
-      if (!phrase) throw new Error("Enter your seed phrase.");
+      if (!phrase) throw new Error(T("error.seed_required"));
       const app = getWalletApp();
       app.setPassphrase(passphrase);
       await app.engine.importWallet(phrase);
@@ -649,7 +655,7 @@ export default function Page() {
     act(async () => {
       for (const q of quizQuestions) {
         if (quizAnswers[q.index] !== q.correct) {
-          throw new Error(`Incorrect answer for word #${q.index + 1}. Please try again.`);
+          throw new Error(T("error.quiz_wrong").replace("{n}", String(q.index + 1)));
         }
       }
       await getWalletApp().engine.unlock();
@@ -667,7 +673,7 @@ export default function Page() {
 
   const onUnlock = () =>
     act(async () => {
-      if (!passphrase) throw new Error("Enter your passphrase.");
+      if (!passphrase) throw new Error(T("error.pass_required"));
       const app = getWalletApp();
       app.setPassphrase(passphrase);
       await app.engine.unlock();
@@ -687,10 +693,10 @@ export default function Page() {
     act(async () => {
       const list = balances ?? [];
       const asset = list.find((b) => assetKey(b.asset) === sendAssetKey)?.asset ?? list[0]?.asset;
-      if (!asset) throw new Error("No sendable assets on configured chains.");
+      if (!asset) throw new Error(T("send.no_assets"));
       const to = sendTo.trim();
-      if (!to) throw new Error("Enter a recipient address.");
-      const amount = parseUnits(sendAmount, asset.decimals);
+      if (!to) throw new Error(T("error.recipient_required"));
+      const amount = parseUnits(sendAmount, asset.decimals, T);
       const intent: TxIntent = { asset, to, amount };
       const fee = await getWalletApp().engine.quoteSend(intent);
       setQuote({ intent, fee });
@@ -789,7 +795,7 @@ export default function Page() {
 
   const onVerifyRecovery = () =>
     act(async () => {
-      if (!settingsPassphrase) throw new Error("Enter your passphrase.");
+      if (!settingsPassphrase) throw new Error(T("error.pass_required"));
       // Re-authenticate without exposing seed material in the UI.
       const app = getWalletApp();
       app.setPassphrase(settingsPassphrase);
@@ -903,9 +909,14 @@ export default function Page() {
 
   // ---- Clipboard with toast ----
   const copyToClipboard = useCallback((value: string) => {
-    void navigator.clipboard.writeText(value).then(() => {
-      addToast("success", T("toast.copied"));
-    });
+    void navigator.clipboard.writeText(value).then(
+      () => {
+        addToast("success", T("toast.copied"));
+      },
+      () => {
+        addToast("error", T("toast.copy_failed"));
+      },
+    );
   }, [addToast, T]);
 
   // ---- USD calculations ----
@@ -945,8 +956,9 @@ export default function Page() {
           {/* Language toggle */}
           <button
             className="flex min-h-10 items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70"
-            onClick={() => changeLocale(locale === "en" ? "ru" : "en")}
-            title="Switch language"
+            onClick={() => changeLocale(locale === "en" ? "ru" : locale === "ru" ? "uk" : "en")}
+            title={T("a11y.switch_language")}
+            aria-label={T("a11y.switch_language")}
           >
             <Globe size={10} />
             {locale.toUpperCase()}
@@ -1029,8 +1041,8 @@ export default function Page() {
                 <button
                   className="flex items-center justify-center rounded-md border border-[--color-border] bg-white/5 hover:bg-white/10 px-3 text-[--color-muted] hover:text-white transition-colors"
                   onClick={() => renameWallet(activeWallet)}
-                  aria-label="Rename this wallet"
-                  title="Rename this wallet"
+                  aria-label={T("a11y.rename_wallet")}
+                  title={T("a11y.rename_wallet")}
                 ><Pencil size={14} /></button>
               </div>
             )}
@@ -1826,6 +1838,7 @@ export default function Page() {
               >
                 <option value="en">English</option>
                 <option value="ru">Русский</option>
+                <option value="uk">Українська</option>
               </select>
             </div>
           </Card>
@@ -2280,7 +2293,7 @@ export default function Page() {
       </AnimatePresence>
 
       {/* ---- Toast container ---- */}
-      <div className="toast-container">
+      <div className="toast-container" role="status" aria-live="polite" aria-atomic="false">
         <AnimatePresence>
           {toasts.map((toast) => (
             <motion.div
