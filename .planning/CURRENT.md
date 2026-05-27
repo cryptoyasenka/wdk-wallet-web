@@ -78,6 +78,15 @@ Fixes to apply (priority order):
   read 57.2 BTC, PASS. NOTE for Yana: she said "testnet"; I used mainnet-genesis
   read-only as a STRONGER proof (same network the product ships, immutable
   balance, zero risk) — testnet endpoint plugs into the same harness via env.
+- [x] Solana live e2e — DONE (commit 5cde2b5). New `tools/e2e/sol-live.mjs` +
+  `pnpm sol:live`, mirrors btc-live: real createWdkAdapter() in-process →
+  `reader.getTokenBalance("solana", USDT_SOLANA, owner)` over a live mainnet-beta
+  RPC (solana-rpc.publicnode.com). Closes the gap PR #2 exposed (Solana was the
+  only shipped chain with ZERO live exercise). Default owner 5tzFkiKsc… (long-lived
+  ~$160M USD₮ holder), floor 1 USD₮ → can't flake; all overridable via
+  SOL_LIVE_RPC_URL/ADDRESS/TOKEN/MIN. Outside workspace → verify stays offline.
+  Verified live: read 160,364,551 USD₮, PASS. Documented like btc:live (package.json
+  // comment + file header; neither is in README, parity kept).
 
 ## Next step
 ALL THREE FOCUS ITEMS DONE (cold review → product depth → live deploy).
