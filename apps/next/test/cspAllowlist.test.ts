@@ -13,6 +13,7 @@ import {
   POLYGON_PUBLIC_RPCS,
   ARBITRUM_PUBLIC_RPCS,
   PLASMA_PUBLIC_RPCS,
+  SOLANA_PUBLIC_RPCS,
 } from "@wdk-web/wallet-core";
 import {
   DEFAULT_RPC_ORIGINS,
@@ -26,6 +27,7 @@ const walletCoreOrigins = [
   ...POLYGON_PUBLIC_RPCS,
   ...ARBITRUM_PUBLIC_RPCS,
   ...PLASMA_PUBLIC_RPCS,
+  ...SOLANA_PUBLIC_RPCS,
 ].map((url) => new URL(url).origin);
 
 describe("cspAllowlist drift guard", () => {

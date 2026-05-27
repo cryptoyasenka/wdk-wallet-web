@@ -191,6 +191,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "ds.rpc_polygon": { en: "Polygon RPC URLs", ru: "RPC-узлы Polygon" },
   "ds.rpc_arbitrum": { en: "Arbitrum RPC URLs", ru: "RPC-узлы Arbitrum" },
   "ds.rpc_plasma": { en: "Plasma RPC URLs", ru: "RPC-узлы Plasma" },
+  "ds.rpc_solana": { en: "Solana RPC URLs", ru: "RPC-узлы Solana" },
   "ds.rpc_ph": { en: "comma or newline separated; blank = public default", ru: "через запятую или с новой строки; пусто = публичный узел" },
   "ds.btc_ws": { en: "Bitcoin Electrum-WS URL", ru: "URL Electrum-WS (Bitcoin)" },
   "ds.btc_ws_ph": { en: "wss://… ; blank = BTC disabled", ru: "wss://… ; пусто = BTC отключён" },

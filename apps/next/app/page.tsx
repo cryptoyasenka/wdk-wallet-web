@@ -235,6 +235,7 @@ export default function Page() {
   // ---- Data Sources / Privacy form (text drafts; lists are comma/newline) ----
   const [dsForm, setDsForm] = useState({
     ethereumRpcUrls: "", polygonRpcUrls: "", arbitrumRpcUrls: "", plasmaRpcUrls: "",
+    solanaRpcUrls: "",
     btcElectrumWsUrl: "", indexerMode: "local" as IndexerMode, indexerUrl: "",
     pricesEnabled: true, priceEndpoint: "",
   });
@@ -245,6 +246,7 @@ export default function Page() {
       polygonRpcUrls: ds.polygonRpcUrls.join("\n"),
       arbitrumRpcUrls: ds.arbitrumRpcUrls.join("\n"),
       plasmaRpcUrls: ds.plasmaRpcUrls.join("\n"),
+      solanaRpcUrls: ds.solanaRpcUrls.join("\n"),
       btcElectrumWsUrl: ds.btcElectrumWsUrl,
       indexerMode: ds.indexerMode,
       indexerUrl: ds.indexerUrl,
@@ -263,6 +265,7 @@ export default function Page() {
         polygonRpcUrls: toList(dsForm.polygonRpcUrls),
         arbitrumRpcUrls: toList(dsForm.arbitrumRpcUrls),
         plasmaRpcUrls: toList(dsForm.plasmaRpcUrls),
+        solanaRpcUrls: toList(dsForm.solanaRpcUrls),
         btcElectrumWsUrl: dsForm.btcElectrumWsUrl.trim(),
         indexerMode: dsForm.indexerMode,
         indexerUrl: dsForm.indexerUrl.trim(),
@@ -882,6 +885,7 @@ export default function Page() {
       polygonRpcUrls: toList(dsForm.polygonRpcUrls),
       arbitrumRpcUrls: toList(dsForm.arbitrumRpcUrls),
       plasmaRpcUrls: toList(dsForm.plasmaRpcUrls),
+      solanaRpcUrls: toList(dsForm.solanaRpcUrls),
       btcElectrumWsUrl: dsForm.btcElectrumWsUrl.trim(),
       indexerMode: dsForm.indexerMode,
       indexerUrl: dsForm.indexerUrl.trim(),
@@ -2127,6 +2131,7 @@ export default function Page() {
                 ["ds.rpc_polygon", "polygonRpcUrls"],
                 ["ds.rpc_arbitrum", "arbitrumRpcUrls"],
                 ["ds.rpc_plasma", "plasmaRpcUrls"],
+                ["ds.rpc_solana", "solanaRpcUrls"],
               ] as const).map(([label, key]) => (
                 <label key={key} className="block">
                   <span className="mb-1 block text-xs text-[--color-muted]">{T(label)}</span>

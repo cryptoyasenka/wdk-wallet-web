@@ -100,6 +100,15 @@ describe("connectSrcOrigins", () => {
     ]);
   });
 
+  it("collects a Solana RPC override origin (non-EVM net, same https fetch path)", () => {
+    const out = connectSrcOrigins({
+      ...DEFAULT_DATA_SOURCES,
+      solanaRpcUrls: ["https://my-solana.example/rpc"],
+      pricesEnabled: false,
+    });
+    expect(out).toEqual(["https://my-solana.example"]);
+  });
+
   it("ignores the indexer URL while in local mode", () => {
     const out = connectSrcOrigins({
       ...DEFAULT_DATA_SOURCES,

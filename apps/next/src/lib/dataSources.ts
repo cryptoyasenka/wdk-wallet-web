@@ -25,6 +25,8 @@ export interface DataSources {
   polygonRpcUrls: string[];
   arbitrumRpcUrls: string[];
   plasmaRpcUrls: string[];
+  /** Solana is non-EVM but its RPC is reached over the same https `fetch`. */
+  solanaRpcUrls: string[];
   /** `wss://…`. Empty = BTC stays unregistered (honest UnsupportedChainError). */
   btcElectrumWsUrl: string;
   /** `local` = outgoing log only; `indexer` = also query the configured indexer. */
@@ -43,6 +45,7 @@ export const DEFAULT_DATA_SOURCES: DataSources = {
   polygonRpcUrls: [],
   arbitrumRpcUrls: [],
   plasmaRpcUrls: [],
+  solanaRpcUrls: [],
   btcElectrumWsUrl: "",
   indexerMode: "local",
   indexerUrl: "",
@@ -115,6 +118,7 @@ export function sanitizeDataSources(raw: unknown): DataSources {
     polygonRpcUrls: urls("polygonRpcUrls"),
     arbitrumRpcUrls: urls("arbitrumRpcUrls"),
     plasmaRpcUrls: urls("plasmaRpcUrls"),
+    solanaRpcUrls: urls("solanaRpcUrls"),
     btcElectrumWsUrl: validUrl(r.btcElectrumWsUrl, WS_SCHEMES),
     indexerMode: r.indexerMode === "indexer" ? "indexer" : "local",
     indexerUrl: validUrl(r.indexerUrl, HTTP_SCHEMES),
@@ -136,7 +140,13 @@ export function connectSrcOrigins(ds: DataSources): string[] {
     const o = originOf(url);
     if (o && !out.includes(o)) out.push(o);
   };
-  for (const list of [ds.ethereumRpcUrls, ds.polygonRpcUrls, ds.arbitrumRpcUrls, ds.plasmaRpcUrls]) {
+  for (const list of [
+    ds.ethereumRpcUrls,
+    ds.polygonRpcUrls,
+    ds.arbitrumRpcUrls,
+    ds.plasmaRpcUrls,
+    ds.solanaRpcUrls,
+  ]) {
     list.forEach(add);
   }
   if (ds.btcElectrumWsUrl) add(ds.btcElectrumWsUrl);
