@@ -34,7 +34,26 @@ export interface BtcChainConfig {
   readonly electrumWsUrl: string;
 }
 
-export type ChainConfig = EvmChainConfig | BtcChainConfig;
+/**
+ * Solana has neither an EVM chainId nor an Electrum socket: it speaks plain
+ * HTTP JSON-RPC. `WalletManagerSolana` takes the same array-as-failover
+ * convention as the EVM manager (an array of RPC URLs → it falls back to the
+ * next on a connection error), so we still do not ship
+ * `@tetherto/wdk-failover-provider`. The commitment is the Solana finality
+ * level for reads/receipts; the literal union is restated here (not imported
+ * from `@solana/*`) to keep this interface file dependency-free — only
+ * `src/wdk/` may touch `@tetherto/*`/`@solana/*`.
+ */
+export interface SolanaChainConfig {
+  readonly kind: "solana";
+  readonly chain: "solana";
+  /** One or more Solana JSON-RPC URLs (array ⇒ native failover list). */
+  readonly rpcUrls: readonly string[];
+  /** Finality for reads/receipts (WDK default is `"confirmed"`). */
+  readonly commitment?: "processed" | "confirmed" | "finalized";
+}
+
+export type ChainConfig = EvmChainConfig | BtcChainConfig | SolanaChainConfig;
 
 /** Only the chains a given build configures appear here. */
 export type ChainRegistry = Partial<Record<ChainId, ChainConfig>>;

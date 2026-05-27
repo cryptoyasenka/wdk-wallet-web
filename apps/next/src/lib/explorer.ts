@@ -14,6 +14,7 @@ const EXPLORERS: Record<ChainId, { readonly tx: string; readonly address: string
   polygon: { tx: "https://polygonscan.com/tx/", address: "https://polygonscan.com/address/" },
   arbitrum: { tx: "https://arbiscan.io/tx/", address: "https://arbiscan.io/address/" },
   plasma: { tx: "https://explorer.plasma.build/tx/", address: "https://explorer.plasma.build/address/" },
+  solana: { tx: "https://solscan.io/tx/", address: "https://solscan.io/account/" },
 };
 
 export function explorerUrl(chain: ChainId, hash: string): string {

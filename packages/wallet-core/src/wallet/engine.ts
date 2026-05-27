@@ -120,12 +120,13 @@ function activeAccountKey(walletIndex: number): string {
 /**
  * Cheap well-formedness check for an externally-supplied address, keyed on the
  * chain's kind (not a full checksum/bech32 validation — that is the WDK
- * adapter's job). EVM addresses must be `0x` + 40 hex; BTC addresses must be a
- * non-empty run of base58/bech32 characters (alphanumeric only: no whitespace,
- * control, or punctuation). Used by `getBalancesForAddress` so a malformed
+ * adapter's job). EVM addresses must be `0x` + 40 hex; BTC and Solana
+ * addresses must be a non-empty run of base58/bech32 characters (alphanumeric
+ * only: no whitespace, control, or punctuation) — Solana base58 pubkeys fall in
+ * the same class as BTC here. Used by `getBalancesForAddress` so a malformed
  * string never reaches a balance reader.
  */
-function isWellFormedAddress(kind: "evm" | "btc", address: string): boolean {
+function isWellFormedAddress(kind: "evm" | "btc" | "solana", address: string): boolean {
   const a = address.trim();
   if (a === "") return false;
   if (kind === "evm") return /^0x[0-9a-fA-F]{40}$/.test(a);
