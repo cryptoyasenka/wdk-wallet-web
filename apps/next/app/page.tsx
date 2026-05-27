@@ -28,7 +28,7 @@ import {
 import qrcode from "qrcode-generator";
 import jsQR from "jsqr";
 import { getWalletApp, resetWalletApp } from "@/lib/engine";
-import { loadDataSources, saveDataSources, type DataSources, type IndexerMode } from "@/lib/dataSources";
+import { loadDataSources, saveDataSources, sanitizeDataSources, cspBlockedOrigins, type DataSources, type IndexerMode } from "@/lib/dataSources";
 import { extractAddress } from "@/lib/extract-address";
 import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
 import { explorerUrl, addressExplorerUrl } from "@/lib/explorer";
@@ -252,6 +252,25 @@ export default function Page() {
       priceEndpoint: ds.priceEndpoint,
     });
   }, []);
+  // Origins the live form would persist that this deploy's static CSP will block
+  // (re-audit Finding 2). Sanitize first so the list matches exactly what gets
+  // stored (and what the Edge middleware allows) — not half-typed entries.
+  const blockedOrigins = useMemo(() => {
+    const toList = (s: string) => s.split(/[\n,]/).map((u) => u.trim()).filter((u) => u.length > 0);
+    return cspBlockedOrigins(
+      sanitizeDataSources({
+        ethereumRpcUrls: toList(dsForm.ethereumRpcUrls),
+        polygonRpcUrls: toList(dsForm.polygonRpcUrls),
+        arbitrumRpcUrls: toList(dsForm.arbitrumRpcUrls),
+        plasmaRpcUrls: toList(dsForm.plasmaRpcUrls),
+        btcElectrumWsUrl: dsForm.btcElectrumWsUrl.trim(),
+        indexerMode: dsForm.indexerMode,
+        indexerUrl: dsForm.indexerUrl.trim(),
+        pricesEnabled: dsForm.pricesEnabled,
+        priceEndpoint: dsForm.priceEndpoint.trim(),
+      }),
+    );
+  }, [dsForm]);
 
   // ---- Post-send inline save contact states ----
   const [newContactSendName, setNewContactSendName] = useState("");
@@ -2186,6 +2205,17 @@ export default function Page() {
                 <li>· {T("ds.priv_prices")}</li>
                 <li>· {T("ds.priv_indexer")}</li>
               </ul>
+
+              {blockedOrigins.length > 0 && (
+                <div className="flex flex-col gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-200">
+                  <p>{T("ds.csp_blocked")}</p>
+                  <ul className="flex flex-col gap-0.5">
+                    {blockedOrigins.map((o) => (
+                      <li key={o} className="font-mono break-anywhere">· {o}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <Button onClick={onSaveDataSources}>{T("ds.save")}</Button>
             </div>

@@ -120,7 +120,7 @@ rendering so the nonce reaches Next's inline bootstrap scripts.
 | `style-src` | `'self' 'unsafe-inline'` | Next/Tailwind inject inline `<style>`. Inline *style* is not a script-execution vector the way inline script is; nonce-ing every style block is not worth the breakage. |
 | `img-src` | `'self' blob: data:` | App icons/QR; `data:`/`blob:` for client-generated images. |
 | `font-src` | `'self'` | Self-hosted Outfit font. |
-| `connect-src` | `'self'` + default RPC origins + `https://api.coingecko.com` + `NEXT_PUBLIC_ETHEREUM_RPC_URLS` origins + `wss:` | Pins network egress. RPC origins mirror `chains/index.ts` public lists; the only deploy-env origin folded in is `NEXT_PUBLIC_ETHEREUM_RPC_URLS` (the same var `engine.ts` reads — `middleware.ts` parses it into this list). CoinGecko is the disclosed price oracle. `wss:` is allowed wholesale because the Electrum endpoint is always operator-supplied (no public default to pin). |
+| `connect-src` | `'self'` + default RPC origins + `https://api.coingecko.com` + `NEXT_PUBLIC_ETHEREUM_RPC_URLS` origins + `wss:` | Pins network egress. The allowed origins come from one shared module, [`src/lib/cspAllowlist.ts`](../apps/next/src/lib/cspAllowlist.ts) — `middleware.ts` builds `connect-src` from it and the Data Sources UI reads the same list to warn the user (see honest limit below), so the two cannot drift. The default RPC origins mirror `chains/index.ts` public lists; that link is itself drift-guarded by [`test/cspAllowlist.test.ts`](../apps/next/test/cspAllowlist.test.ts) (it runs in Node and can import both, where the Edge bundle cannot). The only deploy-env origin folded in is `NEXT_PUBLIC_ETHEREUM_RPC_URLS` (the same var `engine.ts` reads). CoinGecko is the disclosed price oracle. `wss:` is allowed wholesale because the Electrum endpoint is always operator-supplied (no public default to pin). |
 | `worker-src` | `'self' blob:` | The WDK crypto worker is spawned from a bundler URL/blob. |
 | `object-src` | `'none'` | No plugins/embeds. |
 | `base-uri` | `'self'` | Blocks `<base>` tag hijacking of relative URLs. |
@@ -135,13 +135,20 @@ behalf; ignored over plain http, safe in local dev), and `Permissions-Policy`
 denying every powerful feature except same-origin `camera` (the QR scanner is the
 only one the wallet uses).
 
-**Honest limit (documented, not hidden):** the allow-list is fixed at deploy
-time. A user who points the wallet at a *custom* RPC/indexer origin via the Data
-Sources card sets a value in localStorage that is **not** in `connect-src`, so
-that fetch is CSP-blocked. The shipped defaults + `NEXT_PUBLIC_*` deploy env
-cover the out-of-the-box configuration; a self-hoster who needs a custom origin
-adds it to their own deployment's CSP. We accept this trade-off rather than widen
-`connect-src` to `https:` (which would gut the egress pin).
+**Honest limit (surfaced in the UI, not hidden):** the allow-list is fixed at
+deploy time. The Edge middleware cannot read localStorage, so a user who points
+the wallet at a *custom* RPC/indexer/price origin via the Data Sources card sets
+a value that is **not** in `connect-src`, and that fetch is CSP-blocked. Rather
+than let that fail silently or widen `connect-src` to `https:` (which would gut
+the egress pin), the Data Sources card validates each entered origin against the
+same `cspAllowlist.ts` (`cspBlockedOrigins()`) and **warns inline** which origins
+this deploy will block. The shipped defaults + `NEXT_PUBLIC_*` deploy env cover
+the out-of-the-box configuration; a self-hoster who needs a custom origin widens
+the allow-list via that env (or their own CSP). In a **production** build the
+settings layer also rejects plaintext `http:`/`ws:` overrides outright (only
+`https:`/`wss:` are stored), since a cleartext endpoint both leaks queried
+addresses and is mixed-content-blocked on the https-served app anyway; dev keeps
+the insecure schemes so a `http://localhost:8545` node stays testable.
 
 **Scope — `apps/next` only.** This CSP and the static headers above ship from the
 Next app, which is the deployable surface. `apps/svelte` is the portability proof

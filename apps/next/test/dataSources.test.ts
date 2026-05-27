@@ -9,6 +9,7 @@ import {
   DEFAULT_DATA_SOURCES,
   DEFAULT_PRICE_ENDPOINT,
   connectSrcOrigins,
+  cspBlockedOrigins,
   originOf,
   parseUrlList,
   sanitizeDataSources,
@@ -104,6 +105,36 @@ describe("connectSrcOrigins", () => {
       ...DEFAULT_DATA_SOURCES,
       indexerMode: "local",
       indexerUrl: "https://idx.example",
+      pricesEnabled: false,
+    });
+    expect(out).toEqual([]);
+  });
+});
+
+describe("cspBlockedOrigins", () => {
+  it("is empty for the defaults (CoinGecko is in the static allowlist)", () => {
+    expect(cspBlockedOrigins(DEFAULT_DATA_SOURCES)).toEqual([]);
+  });
+
+  it("flags a custom RPC/indexer/price origin the static CSP won't allow", () => {
+    const out = cspBlockedOrigins({
+      ...DEFAULT_DATA_SOURCES,
+      ethereumRpcUrls: ["https://my-node.example"],
+      indexerMode: "indexer",
+      indexerUrl: "https://idx.example",
+      priceEndpoint: "https://prices.example",
+    });
+    expect(out).toEqual([
+      "https://my-node.example",
+      "https://idx.example",
+      "https://prices.example",
+    ]);
+  });
+
+  it("never flags a wss:// Electrum origin (wss: is allowed wholesale)", () => {
+    const out = cspBlockedOrigins({
+      ...DEFAULT_DATA_SOURCES,
+      btcElectrumWsUrl: "wss://e.example:50004",
       pricesEnabled: false,
     });
     expect(out).toEqual([]);

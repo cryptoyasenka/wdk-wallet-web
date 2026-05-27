@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { staticConnectSrcOrigins } from "./src/lib/cspAllowlist";
 
 /**
  * Content-Security-Policy (Phase 6) — emitted per request so it can carry a
@@ -13,50 +14,26 @@ import { NextResponse, type NextRequest } from "next/server";
  * `'strict-dynamic'` then lets those nonce'd scripts pull the webpack chunks.
  *
  * `connect-src` is pinned to exactly the endpoints the wallet talks to, so a
- * compromised dependency cannot beacon to an arbitrary host. The default RPC
- * origins MUST stay in sync with the public RPC lists in
- * packages/wallet-core/src/chains/index.ts (ETHEREUM/POLYGON/ARBITRUM/PLASMA_
- * PUBLIC_RPCS); they are duplicated here because middleware runs in the Edge
- * runtime and cannot import the workspace package's compiled output.
+ * compromised dependency cannot beacon to an arbitrary host. The allowed origins
+ * come from `src/lib/cspAllowlist.ts` — the SINGLE source shared with the Data
+ * Sources settings UI (re-audit Finding 2), so the two cannot drift. That module
+ * also stays in sync with wallet-core's public RPC lists via a vitest guard.
  *
- * HONEST LIMIT: a user can point the wallet at a CUSTOM RPC/indexer origin at
- * runtime (Data Sources card, stored in localStorage). That origin is not in
- * this allow-list and its fetch is CSP-blocked. We accept it: the defaults +
- * `NEXT_PUBLIC_*` deploy env cover the shipped config, and `wss:` is allowed
- * wholesale because the Bitcoin Electrum-WS endpoint is always operator-supplied
- * (no public default). Documented in docs/SECURITY-REVIEW.md → "CSP".
+ * HONEST LIMIT: a user can type a CUSTOM RPC/indexer/price origin at runtime
+ * (Data Sources card, stored in localStorage). The Edge middleware cannot read
+ * localStorage, so such an origin is not in this allow-list and its fetch is
+ * CSP-blocked. We keep the CSP strict on purpose (it is the product's pitch) and
+ * instead make the surface HONEST: the settings card validates each entered
+ * origin against this same allowlist and warns the user when it will be blocked.
+ * The defaults + `NEXT_PUBLIC_*` deploy env cover the shipped config; a
+ * self-hoster widens the allowlist via env. `wss:` is allowed wholesale because
+ * the Bitcoin Electrum-WS endpoint is always operator-supplied (no public
+ * default). Documented in docs/SECURITY-REVIEW.md → "CSP".
  */
 
-const DEFAULT_RPC_ORIGINS = [
-  "https://ethereum-rpc.publicnode.com",
-  "https://eth.llamarpc.com",
-  "https://rpc.ankr.com", // eth + polygon + arbitrum share this origin
-  "https://polygon-rpc.com",
-  "https://polygon-bor-rpc.publicnode.com",
-  "https://arb1.arbitrum.io",
-  "https://arbitrum-one-rpc.publicnode.com",
-  "https://rpc.plasma.to",
-];
-const COINGECKO_ORIGIN = "https://api.coingecko.com";
-
-function originOf(url: string): string | null {
-  try {
-    return new URL(url).origin;
-  } catch {
-    return null;
-  }
-}
-
 function connectSrc(): string[] {
-  const out = new Set(["'self'", ...DEFAULT_RPC_ORIGINS, COINGECKO_ORIGIN]);
-  // Deploy-time env RPC overrides (same source engine.ts reads).
-  for (const raw of (process.env.NEXT_PUBLIC_ETHEREUM_RPC_URLS ?? "").split(",")) {
-    const o = originOf(raw.trim());
-    if (o) out.add(o);
-  }
-  // Bitcoin Electrum-WS is always operator-supplied; allow secure WebSockets.
-  out.add("wss:");
-  return [...out];
+  // 'self' + the shared static allowlist + wholesale secure WebSockets (Electrum).
+  return [...new Set(["'self'", ...staticConnectSrcOrigins(), "wss:"])];
 }
 
 export function middleware(request: NextRequest) {

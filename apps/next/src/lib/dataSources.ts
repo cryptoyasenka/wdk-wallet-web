@@ -15,6 +15,8 @@
  * load and bad values fall back to the privacy-preserving default, never throw.
  */
 
+import { isOriginAllowedByCsp } from "./cspAllowlist";
+
 export type IndexerMode = "local" | "indexer";
 
 export interface DataSources {
@@ -78,8 +80,16 @@ export function originOf(url: string): string | null {
   }
 }
 
-const HTTP_SCHEMES = ["http:", "https:"] as const;
-const WS_SCHEMES = ["ws:", "wss:"] as const;
+/**
+ * In a production build every endpoint must be TLS: a plaintext `http:`/`ws:`
+ * origin both leaks the queried addresses on the wire and is mixed-content
+ * blocked by the browser on the https-served app anyway, so we reject it at
+ * validation time rather than store an origin that can never work. Dev keeps
+ * the insecure schemes so a local node (`http://localhost:8545`) is testable.
+ */
+const DEV = process.env.NODE_ENV !== "production";
+const HTTP_SCHEMES = (DEV ? ["http:", "https:"] : ["https:"]) as readonly string[];
+const WS_SCHEMES = (DEV ? ["ws:", "wss:"] : ["wss:"]) as readonly string[];
 
 function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((x) => typeof x === "string");
@@ -133,6 +143,19 @@ export function connectSrcOrigins(ds: DataSources): string[] {
   if (ds.indexerMode === "indexer" && ds.indexerUrl) add(ds.indexerUrl);
   if (ds.pricesEnabled) add(ds.priceEndpoint || DEFAULT_PRICE_ENDPOINT);
   return out;
+}
+
+/**
+ * The subset of `connectSrcOrigins(ds)` that this deploy's static CSP will
+ * BLOCK (re-audit Finding 2). The Edge middleware cannot read these localStorage
+ * settings, so a custom RPC / indexer / price origin not covered by the shipped
+ * allowlist (defaults + `NEXT_PUBLIC_*` env) silently fails at fetch time. The
+ * Data Sources card surfaces this list so the limit is honest instead of a
+ * dead setting — a self-hoster fixes it by widening the deploy env / their CSP.
+ * (Electrum-WS `wss://` origins are always allowed, so they never appear here.)
+ */
+export function cspBlockedOrigins(ds: DataSources): string[] {
+  return connectSrcOrigins(ds).filter((o) => !isOriginAllowedByCsp(o));
 }
 
 function parse(): unknown {

@@ -207,6 +207,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "ds.priv_indexer": { en: "A custom indexer improves completeness but changes the privacy model.", ru: "Сторонний индексатор повышает полноту, но меняет модель приватности." },
   "ds.save": { en: "Save data sources", ru: "Сохранить источники" },
   "ds.saved_relock": { en: "Data sources saved. Unlock again to apply.", ru: "Источники сохранены. Разблокируйте заново, чтобы применить." },
+  "ds.csp_blocked": { en: "These origins are not in this deployment's Content-Security-Policy allow-list, so the browser will block requests to them. They only work on a self-hosted build whose CSP env includes them:", ru: "Эти узлы не входят в список разрешённых в Content-Security-Policy этого деплоя, поэтому браузер заблокирует запросы к ним. Они заработают только в self-hosted-сборке, чей CSP-env включает их:" },
   "settings.delete": { en: "Delete Wallet", ru: "Удалить кошелёк" },
   "settings.delete_desc": { en: "Permanently erase this wallet from this device. This cannot be undone. Make sure you have your seed phrase backed up.", ru: "Безвозвратно удалить этот кошелёк с устройства. Это нельзя отменить. Убедитесь, что у вас есть резервная копия seed-фразы." },
   "settings.delete_btn": { en: "Delete this wallet", ru: "Удалить этот кошелёк" },
