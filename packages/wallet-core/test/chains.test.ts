@@ -27,9 +27,12 @@ import {
   PLASMA_PUBLIC_RPCS,
   POLYGON_PUBLIC_RPCS,
   POL_NATIVE,
+  SOLANA_PUBLIC_RPCS,
+  SOL_NATIVE,
   USDT_ARBITRUM,
   USDT_PLASMA,
   USDT_POLYGON,
+  USDT_SOLANA,
   XPL_NATIVE,
   buildChainRegistry,
 } from "../src/chains/index.js";
@@ -91,6 +94,45 @@ describe("chain registry — extra EVM nets are always-on", () => {
   });
 });
 
+describe("Solana — always-on non-EVM net (keyless public RPC, no chainId)", () => {
+  it("registers solana by default with its own kind, not folded into the EVM branch", () => {
+    const r = buildChainRegistry();
+    const sol = r.solana;
+    expect(sol, "solana must be registered by default").toBeDefined();
+    expect(sol?.kind).toBe("solana"); // distinct config kind — never "evm"
+    expect(sol).not.toHaveProperty("chainId"); // Solana has no EVM chainId
+  });
+
+  it("wires solana to its keyless public RPC failover list, overridable in isolation", () => {
+    const def = buildChainRegistry().solana;
+    expect(def?.kind === "solana" ? def.rpcUrls : undefined).toEqual(SOLANA_PUBLIC_RPCS);
+    const over = buildChainRegistry({ solanaRpcUrls: ["https://my-solana.example"] }).solana;
+    expect(over?.kind === "solana" ? over.rpcUrls : undefined).toEqual([
+      "https://my-solana.example",
+    ]);
+    // Overriding Solana leaves an EVM net's public default untouched.
+    expect(evm(buildChainRegistry({ solanaRpcUrls: ["x"] }), "ethereum").rpcUrls).toEqual(
+      ETHEREUM_PUBLIC_RPCS,
+    );
+  });
+
+  it("labels the Solana fee asset SOL at the 9-dec lamports invariant", () => {
+    // A Solana fee (incl. an SPL USD₮ transfer) is paid in SOL — feeAssetFor
+    // returns this. 9 decimals = lamports; a wrong scale would misreport fees.
+    expect(SOL_NATIVE).toEqual({ symbol: "SOL", chain: "solana", decimals: 9 });
+  });
+
+  it("adds exactly one USDT (SPL) row on solana with the verified mint + 6 decimals", () => {
+    const sol = DEFAULT_ASSETS.filter((a) => a.chain === "solana");
+    expect(sol).toHaveLength(1);
+    expect(sol[0]?.symbol).toBe("USDT");
+    expect(sol[0]?.decimals).toBe(6); // SPL USD₮ mint is 6-dec, verified via getTokenSupply
+    expect(sol[0]?.token).toBe(USDT_SOLANA);
+    // No fake XAU₮-on-Solana: XAU₮ is not a canonical Tether deploy there.
+    expect(DEFAULT_ASSETS.some((a) => a.chain === "solana" && a.symbol === "XAUT")).toBe(false);
+  });
+});
+
 describe("DEFAULT_ASSETS — USDT on the new nets, no fake XAU₮", () => {
   const rows = DEFAULT_ASSETS.filter(
     (a) => a.chain === "polygon" || a.chain === "arbitrum" || a.chain === "plasma",
@@ -141,13 +183,15 @@ describe("native fee-asset consts — the values feeAssetFor returns", () => {
     expect(BTC_NATIVE).toEqual({ symbol: "BTC", chain: "bitcoin", decimals: 8 });
   });
 
-  it("models exactly 4 EVM chains + BTC — the precise wallet scope", () => {
-    // feeAssetFor branches on ethereum/arbitrum/polygon/plasma/bitcoin and
-    // throws otherwise. The ChainId union is exactly these five, so the scope
-    // claim "4 EVM + BTC" is exact — no dangling, unwired members.
+  it("models exactly 4 EVM chains + BTC + Solana — the precise wallet scope", () => {
+    // feeAssetFor branches on ethereum/arbitrum/polygon/plasma/bitcoin/solana
+    // and throws otherwise. These six ARE the whole ChainId union — no dangling,
+    // unwired member (`tron` was purged). UnsupportedChainError stays reachable
+    // not via a phantom union member but via registry omission: a union member
+    // can be absent from a given build (e.g. bitcoin without an Electrum URL).
     const r = buildChainRegistry({ btcElectrumWsUrl: "wss://e.example:50004" });
     const modelled = Object.keys(r).sort();
-    expect(modelled).toEqual(["arbitrum", "bitcoin", "ethereum", "plasma", "polygon"]);
+    expect(modelled).toEqual(["arbitrum", "bitcoin", "ethereum", "plasma", "polygon", "solana"]);
     // Every default asset sits on a modelled chain.
     expect(DEFAULT_ASSETS.every((a) => modelled.includes(a.chain))).toBe(true);
   });

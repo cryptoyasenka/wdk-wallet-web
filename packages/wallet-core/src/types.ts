@@ -14,7 +14,8 @@ export type ChainId =
   | "ethereum"
   | "polygon"
   | "arbitrum"
-  | "plasma";
+  | "plasma"
+  | "solana";
 
 export interface Asset {
   /**
@@ -22,11 +23,13 @@ export interface Asset {
    * added so EVM gas is representable honestly in `FeeQuote.feeAsset` — gas
    * for a USDT/XAU₮ transfer is paid in ETH, not in the token. `"POL"`
    * (Polygon PoS) and `"XPL"` (Plasma) follow the same rule for the extra EVM
-   * nets: each chain pays gas in its own native coin, never in the token. No
-   * consumer does an exhaustive switch on this union, so widening it does not
-   * break apps compiled against the Phase-1 surface.
+   * nets: each chain pays gas in its own native coin, never in the token.
+   * `"SOL"` is the same rule for Solana — a Solana fee (incl. an SPL USD₮
+   * transfer) is paid in SOL, never in the token. No consumer does an
+   * exhaustive switch on this union, so widening it does not break apps
+   * compiled against the Phase-1 surface.
    */
-  readonly symbol: "BTC" | "USDT" | "XAUT" | "ETH" | "POL" | "XPL";
+  readonly symbol: "BTC" | "USDT" | "XAUT" | "ETH" | "POL" | "XPL" | "SOL";
   readonly chain: ChainId;
   /** Contract address for tokens; undefined for native BTC. */
   readonly token?: string;

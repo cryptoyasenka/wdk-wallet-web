@@ -42,6 +42,19 @@ export const USDT_ARBITRUM = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
 /** USDT (USD₮0) on Plasma mainnet, 6 decimals. plasmascan.to token page. */
 export const USDT_PLASMA = "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb";
 
+/* ---- Token mint (Solana mainnet-beta, verified 2026-05-19) -------------
+ *
+ * On Solana, USD₮ is an SPL token addressed by its *mint* (a base58 public
+ * key), not an EVM contract. This is the canonical Tether USD₮ SPL mint;
+ * verified live via `getTokenSupply` on a public Solana RPC: decimals = 6,
+ * supply ≈ 3.84 B (matches circulating Solana USD₮). As on Polygon/Arbitrum/
+ * Plasma, XAU₮ is NOT deployed on Solana (XAU₮ is Ethereum + Tron/BNB/
+ * Avalanche; XAUt0 on TON/Conflux), so only USD₮ is modelled here — a
+ * non-existent XAU₮-on-Solana row would be a balance the wallet could never
+ * honestly show.
+ */
+export const USDT_SOLANA = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+
 /* ---- RPC / network defaults -------------------------------------------- */
 
 /**
@@ -84,6 +97,20 @@ export const ARBITRUM_PUBLIC_RPCS: readonly string[] = [
  */
 export const PLASMA_PUBLIC_RPCS: readonly string[] = ["https://rpc.plasma.to"];
 
+/**
+ * Keyless public Solana mainnet-beta RPCs. `WalletManagerSolana` takes the
+ * same array-as-native-failover convention as the EVM manager. publicnode is
+ * first because it is verified keyless and rate-generous (probed 2026-05-19:
+ * HTTP 200 on getSlot/getTokenSupply); `api.mainnet-beta.solana.com` is the
+ * canonical Solana Labs endpoint kept as the honest documented fallback
+ * (heavily rate-limited — production should override via
+ * `BuildChainsOptions` / `.env` with a keyed RPC, same as the EVM nets).
+ */
+export const SOLANA_PUBLIC_RPCS: readonly string[] = [
+  "https://solana-rpc.publicnode.com",
+  "https://api.mainnet-beta.solana.com",
+];
+
 const POLYGON_CHAIN_ID = 137;
 const ARBITRUM_CHAIN_ID = 42161;
 const PLASMA_CHAIN_ID = 9745;
@@ -102,6 +129,7 @@ export const DEFAULT_ASSETS: readonly Asset[] = [
   { symbol: "USDT", chain: "polygon", token: USDT_POLYGON, decimals: 6 },
   { symbol: "USDT", chain: "arbitrum", token: USDT_ARBITRUM, decimals: 6 },
   { symbol: "USDT", chain: "plasma", token: USDT_PLASMA, decimals: 6 },
+  { symbol: "USDT", chain: "solana", token: USDT_SOLANA, decimals: 6 },
 ];
 
 /**
@@ -110,12 +138,16 @@ export const DEFAULT_ASSETS: readonly Asset[] = [
  * paid in the chain's own native coin (always 18 decimals — the EVM wei
  * invariant, not a looked-up market figure): Ethereum and Arbitrum One both
  * settle gas in ETH (Arbitrum reuses `ETH_NATIVE`), Polygon PoS in POL
- * (renamed from MATIC), Plasma in XPL.
+ * (renamed from MATIC), Plasma in XPL. A Solana fee is paid in SOL, whose
+ * minor unit is the lamport: 1 SOL = 1_000_000_000 lamports → 9 decimals
+ * (the SOL/lamport invariant, the same class of fixed protocol fact as the
+ * EVM wei 18-decimal invariant — not a looked-up market figure).
  */
 export const ETH_NATIVE: Asset = { symbol: "ETH", chain: "ethereum", decimals: 18 };
 export const BTC_NATIVE: Asset = { symbol: "BTC", chain: "bitcoin", decimals: 8 };
 export const POL_NATIVE: Asset = { symbol: "POL", chain: "polygon", decimals: 18 };
 export const XPL_NATIVE: Asset = { symbol: "XPL", chain: "plasma", decimals: 18 };
+export const SOL_NATIVE: Asset = { symbol: "SOL", chain: "solana", decimals: 9 };
 
 /* ---- Chain registry ---------------------------------------------------- */
 
@@ -128,6 +160,8 @@ export interface BuildChainsOptions {
   arbitrumRpcUrls?: readonly string[];
   /** Override the keyless public Plasma RPC list. */
   plasmaRpcUrls?: readonly string[];
+  /** Override the keyless public Solana mainnet-beta RPC list. */
+  solanaRpcUrls?: readonly string[];
   /**
    * Bitcoin Electrum-over-WebSocket endpoint (`wss://…`). The browser cannot
    * open raw Electrum TCP, and there is no universally-available public
@@ -140,11 +174,11 @@ export interface BuildChainsOptions {
 
 /**
  * Build a `ChainRegistry`. The EVM networks (Ethereum, Polygon, Arbitrum One,
- * Plasma) are always present — each only needs a keyless public RPC, so
- * adding a chain here is a pure config change (no per-chain code: WDK's EVM
- * manager is fully generic, see `wdk/wdk-core.ts → registerAll`). Bitcoin is
- * added only when an Electrum-WS URL is provided, because the browser cannot
- * open a raw Electrum socket and there is no universal public one.
+ * Plasma) and Solana are always present — each only needs a keyless public
+ * RPC, so adding one is a pure config change (the per-chain WDK wiring lives
+ * once in `wdk/wdk-core.ts → registerAll`). Bitcoin is added only when an
+ * Electrum-WS URL is provided, because the browser cannot open a raw Electrum
+ * socket and there is no universal public one.
  */
 export function buildChainRegistry(opts: BuildChainsOptions = {}): ChainRegistry {
   const registry: ChainRegistry = {
@@ -172,6 +206,11 @@ export function buildChainRegistry(opts: BuildChainsOptions = {}): ChainRegistry
       chainId: PLASMA_CHAIN_ID,
       rpcUrls: opts.plasmaRpcUrls ?? PLASMA_PUBLIC_RPCS,
     },
+    solana: {
+      kind: "solana",
+      chain: "solana",
+      rpcUrls: opts.solanaRpcUrls ?? SOLANA_PUBLIC_RPCS,
+    },
   };
   if (opts.btcElectrumWsUrl) {
     registry.bitcoin = {
@@ -184,5 +223,5 @@ export function buildChainRegistry(opts: BuildChainsOptions = {}): ChainRegistry
   return registry;
 }
 
-/** Default registry: all four EVM nets (BTC needs an explicit Electrum-WS URL). */
+/** Default registry: four EVM nets + Solana (BTC needs an explicit Electrum-WS URL). */
 export const DEFAULT_CHAINS: ChainRegistry = buildChainRegistry();

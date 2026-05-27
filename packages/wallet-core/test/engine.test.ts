@@ -154,9 +154,10 @@ describe("wallet engine — lifecycle", () => {
 describe("wallet engine — portfolio", () => {
   it("omits assets on chains this build did not configure", async () => {
     // DEFAULT registry = the four always-on EVM nets (keyless public RPC):
-    // Ethereum, Polygon, Arbitrum, Plasma. BTC@bitcoin needs an explicit
-    // Electrum-WS URL, so it is dropped from the portfolio — but an explicit
-    // getAddress('bitcoin') still errors loud.
+    // Ethereum, Polygon, Arbitrum, Plasma — plus Solana (keyless public RPC,
+    // no chainId). BTC@bitcoin needs an explicit Electrum-WS URL, so it is
+    // dropped from the portfolio — but an explicit getAddress('bitcoin') still
+    // errors loud.
     const adapter = new FakeWdkAdapter();
     const { deps } = makeDeps();
     const engine = createWalletEngineWithAdapter(adapter, deps); // default chains/assets
@@ -165,10 +166,10 @@ describe("wallet engine — portfolio", () => {
 
     const balances = await engine.getBalances();
     const symbols = balances.map((b) => b.asset.symbol).sort();
-    // USDT on Ethereum/Polygon/Arbitrum/Plasma + XAU₮ on Ethereum.
-    expect(symbols).toEqual(["USDT", "USDT", "USDT", "USDT", "XAUT"]);
+    // USDT on Ethereum/Polygon/Arbitrum/Plasma/Solana + XAU₮ on Ethereum.
+    expect(symbols).toEqual(["USDT", "USDT", "USDT", "USDT", "USDT", "XAUT"]);
     const chains = new Set(balances.map((b) => b.asset.chain));
-    expect([...chains].sort()).toEqual(["arbitrum", "ethereum", "plasma", "polygon"]);
+    expect([...chains].sort()).toEqual(["arbitrum", "ethereum", "plasma", "polygon", "solana"]);
     expect(chains.has("bitcoin")).toBe(false); // BTC chain not in default registry
     expect(DEFAULT_ASSETS.some((a) => a.symbol === "BTC")).toBe(true); // BTC is in the set…
     expect(symbols).not.toContain("BTC"); // …but omitted when unconfigured.

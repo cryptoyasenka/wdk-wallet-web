@@ -19,15 +19,25 @@
 import WDK from "@tetherto/wdk";
 import WalletManagerEvm, { WalletAccountReadOnlyEvm } from "@tetherto/wdk-wallet-evm";
 import WalletManagerBtc, { WalletAccountReadOnlyBtc } from "@tetherto/wdk-wallet-btc";
+import WalletManagerSolana, {
+  WalletAccountReadOnlySolana,
+} from "@tetherto/wdk-wallet-solana";
 
 import type { ChainId, FeeQuote, TxIntent, TxResult } from "../types.js";
 import { UnsupportedAssetError, UnsupportedChainError, WalletLockedError } from "../errors.js";
-import { BTC_NATIVE, ETH_NATIVE, POL_NATIVE, XPL_NATIVE } from "../chains/index.js";
+import {
+  BTC_NATIVE,
+  ETH_NATIVE,
+  POL_NATIVE,
+  SOL_NATIVE,
+  XPL_NATIVE,
+} from "../chains/index.js";
 import { openSeed, sealSeed } from "../secrets/index.js";
 import type {
   BtcChainConfig,
   ChainRegistry,
   EvmChainConfig,
+  SolanaChainConfig,
   WdkAdapter,
   WdkBalanceReader,
   WdkSigner,
@@ -56,6 +66,9 @@ function feeAssetFor(chain: ChainId) {
   if (chain === "polygon") return POL_NATIVE;
   if (chain === "plasma") return XPL_NATIVE;
   if (chain === "bitcoin") return BTC_NATIVE;
+  // A Solana fee (incl. an SPL USD₮ transfer) is paid in SOL — same rule as
+  // EVM gas: the native coin pays, never the token.
+  if (chain === "solana") return SOL_NATIVE;
   throw new UnsupportedChainError(chain);
 }
 
@@ -76,7 +89,10 @@ function btcClientDescriptor(cfg: BtcChainConfig) {
  */
 type RegisterWallet = (
   blockchain: string,
-  Manager: typeof WalletManagerEvm | typeof WalletManagerBtc,
+  Manager:
+    | typeof WalletManagerEvm
+    | typeof WalletManagerBtc
+    | typeof WalletManagerSolana,
   config: object,
 ) => unknown;
 
@@ -89,6 +105,14 @@ function registerAll(wdk: WDK, chains: ChainRegistry): void {
       register(cfg.chain, WalletManagerEvm, {
         provider: [...cfg.rpcUrls],
         chainId: cfg.chainId,
+      });
+    } else if (cfg.kind === "solana") {
+      // WalletManagerSolana takes the same array-as-failover `provider` as the
+      // EVM manager; no chainId (Solana has none). `commitment` is only passed
+      // when set, so WDK keeps its own default ("confirmed").
+      register(cfg.chain, WalletManagerSolana, {
+        provider: [...cfg.rpcUrls],
+        ...(cfg.commitment ? { commitment: cfg.commitment } : {}),
       });
     } else {
       register(cfg.chain, WalletManagerBtc, {
@@ -167,7 +191,10 @@ class WdkSignerImpl implements WdkSigner {
   }
 }
 
-type ReadOnlyAccount = WalletAccountReadOnlyEvm | WalletAccountReadOnlyBtc;
+type ReadOnlyAccount =
+  | WalletAccountReadOnlyEvm
+  | WalletAccountReadOnlyBtc
+  | WalletAccountReadOnlySolana;
 
 class WdkBalanceReaderImpl implements WdkBalanceReader {
   readonly #chains: ChainRegistry;
@@ -184,16 +211,24 @@ class WdkBalanceReaderImpl implements WdkBalanceReader {
     if (cached) return cached;
 
     const cfg = requireChain(this.#chains, chain);
-    const account: ReadOnlyAccount =
-      cfg.kind === "evm"
-        ? new WalletAccountReadOnlyEvm(address, {
-            provider: [...(cfg as EvmChainConfig).rpcUrls],
-            chainId: (cfg as EvmChainConfig).chainId,
-          })
-        : new WalletAccountReadOnlyBtc(address, {
-            client: btcClientDescriptor(cfg as BtcChainConfig),
-            network: (cfg as BtcChainConfig).network,
-          });
+    let account: ReadOnlyAccount;
+    if (cfg.kind === "evm") {
+      account = new WalletAccountReadOnlyEvm(address, {
+        provider: [...(cfg as EvmChainConfig).rpcUrls],
+        chainId: (cfg as EvmChainConfig).chainId,
+      });
+    } else if (cfg.kind === "solana") {
+      const sol = cfg as SolanaChainConfig;
+      account = new WalletAccountReadOnlySolana(address, {
+        provider: [...sol.rpcUrls],
+        ...(sol.commitment ? { commitment: sol.commitment } : {}),
+      });
+    } else {
+      account = new WalletAccountReadOnlyBtc(address, {
+        client: btcClientDescriptor(cfg as BtcChainConfig),
+        network: (cfg as BtcChainConfig).network,
+      });
+    }
     this.#cache.set(key, account);
     return account;
   }
@@ -221,6 +256,21 @@ class WdkBalanceReaderImpl implements WdkBalanceReader {
       // receipt is null until the tx is in a block, so this is exact.
       const receipt = await account.getTransactionReceipt(hash);
       return receipt === null ? "pending" : "confirmed";
+    }
+    if (account instanceof WalletAccountReadOnlySolana) {
+      // Solana, unlike Bitcoin, has an explicit failure flag: the RPC
+      // getTransaction receipt carries `meta.err` (null ⇒ executed OK; a
+      // TransactionError object ⇒ the chain itself reported the tx failed).
+      // A null receipt = not yet confirmed at our commitment level ⇒ pending.
+      // chain-reported, never inferred — the same honesty rule as EVM's
+      // receipt.status. Narrowed locally: the WDK alias is
+      // ReturnType<SolanaRpcApi['getTransaction']>, and this containment file
+      // is the sanctioned place to translate that into our vocabulary.
+      const receipt = (await account.getTransactionReceipt(hash)) as
+        | { meta: { err: unknown } | null }
+        | null;
+      if (receipt === null) return "pending";
+      return receipt.meta?.err != null ? "failed" : "confirmed";
     }
     const receipt = await account.getTransactionReceipt(hash);
     if (receipt === null) return "pending"; // not mined yet

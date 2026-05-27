@@ -21,11 +21,11 @@ runs in a dedicated Web Worker, and there is nothing custodial in between.
 
 **Live demo:** **https://wdk-wallet-web-production.up.railway.app** — the real
 built app, served under the same strict per-request-nonce CSP and security
-headers as production. It boots with zero config, so it runs EVM-only
-(Ethereum, Polygon, Arbitrum, Plasma); BTC surfaces the honest "unsupported
-chain" notice until an Electrum-WS endpoint is configured, exactly as described
-below. Your seed is generated and encrypted in your own browser — the deploy
-holds no keys and nothing custodial.
+headers as production. It boots with zero config, so it runs on its five
+keyless default chains (Ethereum, Polygon, Arbitrum, Plasma + Solana); BTC
+surfaces the honest "unsupported chain" notice until an Electrum-WS endpoint is
+configured, exactly as described below. Your seed is generated and encrypted in
+your own browser — the deploy holds no keys and nothing custodial.
 
 ## Run it in two minutes
 
@@ -34,9 +34,9 @@ pnpm install
 pnpm --filter next dev          # → http://localhost:3000
 ```
 
-That boots the full wallet on Ethereum (USD₮ + XAUT, with ETH only as the gas
-token) with zero config. To
-enable Bitcoin, point it at an Electrum-over-WebSocket endpoint:
+That boots the full wallet on its five keyless default chains with zero config
+(ETH + USD₮ / XAUT on Ethereum, USD₮ on Polygon / Arbitrum / Plasma / Solana).
+To enable Bitcoin, point it at an Electrum-over-WebSocket endpoint:
 
 ```bash
 cp apps/next/.env.example apps/next/.env.local
@@ -44,15 +44,15 @@ cp apps/next/.env.example apps/next/.env.local
 pnpm --filter next dev
 ```
 
-No endpoint set → the wallet runs EVM-only (Ethereum, Polygon, Arbitrum,
-Plasma) and BTC surfaces a typed, honest "unsupported chain" error instead
-of failing silently.
+No endpoint set → the wallet runs on its five keyless default chains (Ethereum,
+Polygon, Arbitrum, Plasma + Solana) and BTC surfaces a typed, honest
+"unsupported chain" error instead of failing silently.
 
 ## Scope: the bounty asked for BTC + USD₮ — both ship
 
 | Bounty ask | Status |
 |---|---|
-| Send / receive **USD₮** on web | ✅ shipped — USDT on Ethereum, Polygon, Arbitrum & Plasma + XAU₮ on Ethereum, via the WDK EVM manager |
+| Send / receive **USD₮** on web | ✅ shipped — USDT on Ethereum, Polygon, Arbitrum & Plasma (WDK EVM manager) + Solana (WDK Solana manager) + XAU₮ on Ethereum |
 | Send / receive **BTC** on web | ✅ shipped — pure-JS WDK BTC manager + injected Electrum-WS client, in the worker |
 | Self-custodial, keys client-side | ✅ WebCrypto vault + Web Worker signer (ADR-004) |
 | Unlock | ✅ WebAuthn passkey (PRF) with a PBKDF2 passphrase fallback (ADR-005) |
@@ -60,11 +60,17 @@ of failing silently.
 | QR | ✅ scan a BIP-21/EIP-681 payment URI into the recipient field; render the receive address as a QR |
 | Reusable across hosts | ✅ headless core consumed byte-unchanged by a second app (Svelte) |
 
-Beyond the BTC + USD₮ ask, the EVM manager is wired for **four EVM
-networks** (Ethereum, Polygon, Arbitrum, Plasma) plus BTC. Solana and
-Lightning/Spark are **not** shipped — they are reachable on the same
-adapter shape but deliberately left as documented extension points, not
-claimed as done.
+Beyond the BTC + USD₮ ask, the wallet ships **four EVM networks**
+(Ethereum, Polygon, Arbitrum, Plasma — via the WDK EVM manager) **plus
+Solana** (USD₮ as an SPL token, via `@tetherto/wdk-wallet-solana` through
+the same adapter seam) **plus BTC** — all five non-BTC chains are
+default-on with keyless public RPC. Honest CI bound: only the Ethereum
+and BTC (fixture) flows are exercised end-to-end in the demo / CI; the
+Solana, Polygon, Arbitrum and Plasma managers are wired, typed, built and
+config + portfolio covered, but their live-RPC send/receive is not part of
+CI. **Lightning / Spark are not shipped** — reachable on the same adapter
+shape, deliberately left as documented extension points, not claimed as
+done.
 
 The one honest operational dependency: a browser cannot open a raw Electrum TCP
 socket, so BTC needs a **public Electrum-WS endpoint** to point at (env-driven,
@@ -135,16 +141,20 @@ and a CI green mean the same thing. WDK is alpha; package versions are pinned
 
 - **Shipped:** onboarding · unlock (passkey / passphrase) · multi-wallet ·
   multi-account · portfolio · receive (+ QR) · send (+ QR scan) · tx-confirm ·
-  activity, for **USD₮ on Ethereum / Polygon / Arbitrum / Plasma + XAU₮ on
-  Ethereum + BTC**, in `apps/next`; `apps/svelte` runs that same byte-unchanged
-  core at full parity (the one delta is passphrase-only unlock) as the
-  portability proof. Built in phases.
-- **Not shipped (honest):** Solana and Lightning/Spark — same adapter shape,
-  left as documented extension points, not claimed as done. Token-detail and
-  settings screens are folded into the single page rather than separate routes.
+  activity, for **USD₮ on Ethereum / Polygon / Arbitrum / Plasma / Solana +
+  XAU₮ on Ethereum + BTC**, in `apps/next`; `apps/svelte` runs that same
+  byte-unchanged core at full parity (the one delta is passphrase-only unlock)
+  as the portability proof. Built in phases. Honest CI bound: only the Ethereum
+  and BTC-fixture flows are exercised end-to-end; the other managers (Solana,
+  Polygon, Arbitrum, Plasma) are wired, typed, built and config + portfolio
+  unit-covered, but their live-RPC paths are not in CI.
+- **Not shipped (honest):** Lightning / Spark — same adapter shape, left as
+  documented extension points, not claimed as done. Token-detail and settings
+  screens are folded into the single page rather than separate routes.
 - **BTC operational dependency:** needs a public Electrum-WS endpoint
-  (env-driven, failover-capable). Unset → EVM-only (the four EVM networks) and
-  a typed error for BTC. Detail in `docs/RN-TO-WEB-MAP.md`.
+  (env-driven, failover-capable). Unset → the five keyless default chains (four
+  EVM nets + Solana) and a typed error for BTC. Detail in
+  `docs/RN-TO-WEB-MAP.md`.
 - **WDK is alpha:** `@tetherto/*` versions are pinned exact and quarantined
   behind `packages/wallet-core/src/wdk/` (ESLint-enforced), so an upstream break
   is one-file localized.
