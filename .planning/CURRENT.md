@@ -1,6 +1,6 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-29 (independent re-audit — all 5 fair fixes shipped + pushed)
+**Last touched:** 2026-05-29 (re-audit RE-VERIFIED — the SAME 6-finding report came back on a stale/pre-fix checkout; gate re-run GREEN, nothing to fix)
 
 ## 🔴 TODO (carry-over, explicit ask)
 - [ ] **Run BTC on testnet end-to-end** — the BTC fee-speed selector + send path were
@@ -18,6 +18,8 @@ Final gate GREEN: wallet-core 92 + next **106** + svelte 16 = 214 unit; smoke 6/
 - F6 `960d675` — receive on all 6 configured chains (Solana + per-chain EVM USD₮ payment requests); shared EVM address collapsed into one row via `groupReceiveAddresses` (no 4 dup rows; smoke proves ethereum-primary).
 - docs `e8880b1` — counts (106 next) + First Load (238 kB) reconciled across BOUNTY-CHECKLIST/ARCHITECTURE/RN-TO-WEB-MAP.
 F2 (smoke/a11y locale) was STALE — already fixed `a066c47`; the baseline gate proved both green at HEAD. probe.mjs absent.
+
+**RE-VERIFY 2026-05-29:** the identical 6-finding report was submitted a SECOND time ("повторный аудит после новых правок"). Confirmed it was run on a PRE-FIX checkout: its line numbers (webauthnUnlock.ts:384, page.tsx:674, historyProvider.ts:127, cspAllowlist.ts:59, watchOnly.ts:35) are the dofix coordinates; every fix marker is present at HEAD (grep-verified: hasPendingPassphrase/isPasskeyEnrolled + UV=required ×3; WATCH_WALLETS_STORAGE_KEY in delete list; envConnectSrcOrigins; AbortSignal.timeout(8000); RECEIVE_CHAINS+groupReceiveAddresses). Re-ran the gate: verify rc=0 (214 tests, 238 kB), smoke rc=0 (6/6 — disproves the "smoke падает" claim), a11y rc=0 (0 violations/8 screens). Report's untracked probe.mjs ≠ our tree (git status clean). NO code change — told Yana to have the auditor `git pull`/run against 6ca00bc.
 **Open carry-over:** BTC live-on-testnet e2e (see TODO above) — still NOT run; harness ready.
 
 ### Original triage verdict (kept for the record)
