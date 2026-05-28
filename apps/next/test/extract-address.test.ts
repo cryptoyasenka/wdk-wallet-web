@@ -2,16 +2,14 @@ import { describe, it, expect } from "vitest";
 import { extractAddress } from "../src/lib/extract-address";
 
 /**
- * Real coverage for the QR-scan URI unwrapper (P1 step 3, anti-degradation
- * п.1 — a real test, not "should work"). `extractAddress` is pure and
- * byte-identical in apps/next/src/lib and apps/svelte/src/lib; exercising
- * this copy exercises that shared logic.
+ * Pins the Next copy of the QR-scan URI unwrapper. `extractAddress` is pure and
+ * byte-identical in apps/next/src/lib and apps/svelte/src/lib; both copies are
+ * tested so the shared logic cannot drift on one side unnoticed.
  *
- * Honest limit: the camera path (getUserMedia → <video> → canvas → jsQR
- * rAF loop) is browser-only and cannot run under vitest's node environment,
- * so it is verified by hand, not here. Only the deterministic
- * string-unwrapping is unit-tested — which is exactly the branching part
- * worth pinning.
+ * Honest limit: the camera path (getUserMedia → <video> → canvas → jsQR rAF
+ * loop in page.tsx) is browser-only and cannot run under vitest's node
+ * environment, so it is verified by hand. Only the deterministic
+ * string-unwrapping — the branching part worth pinning — is unit-tested here.
  */
 const BTC = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq";
 const EVM = "0x52908400098527886E0F7030069857D2E4169EE7";
