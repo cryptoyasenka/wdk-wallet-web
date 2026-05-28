@@ -55,6 +55,17 @@ export interface FeeQuote {
   readonly feeAsset: Asset;
 }
 
+/**
+ * Optional transaction-speed preference — a higher tier pays a higher network
+ * fee for faster confirmation. Only **Bitcoin** honors it in this build (it maps
+ * to WDK's `confirmationTarget`: fewer target blocks ⇒ faster ⇒ higher fee).
+ * ERC-20 token transfers (USDT/XAU₮) and Solana expose no fee knob in the alpha
+ * WDK SDK, so the preference is accepted but ignored there — the quote is the
+ * network's own estimate. `undefined` ⇒ the WDK/network default, unchanged
+ * (so every existing caller behaves exactly as before).
+ */
+export type FeePreference = "slow" | "normal" | "fast";
+
 export interface TxResult {
   readonly hash: string;
   readonly chain: ChainId;
@@ -165,8 +176,8 @@ export interface WalletEngine {
 
   getActivity(asset?: Asset): Promise<readonly ActivityItem[]>;
 
-  quoteSend(intent: TxIntent): Promise<FeeQuote>;
-  send(intent: TxIntent): Promise<TxResult>;
+  quoteSend(intent: TxIntent, feePreference?: FeePreference): Promise<FeeQuote>;
+  send(intent: TxIntent, feePreference?: FeePreference): Promise<TxResult>;
 
   /** Add a passkey-encrypted vault slot while keeping the passphrase slot intact. */
   reencrypt(newKey: CryptoKey): Promise<void>;

@@ -10,6 +10,7 @@
 import type {
   ChainId,
   CryptoWorker,
+  FeePreference,
   FeeQuote,
   StorageAdapter,
   TxIntent,
@@ -88,7 +89,8 @@ export class SpyCryptoWorker implements CryptoWorker {
 class FakeSigner implements WdkSigner {
   disposed = false;
   /** Every send() recorded ({intent, accountIndex}), so tests can assert it. */
-  readonly sent: { intent: TxIntent; accountIndex: number }[] = [];
+  readonly sent: { intent: TxIntent; accountIndex: number; feePreference?: FeePreference | undefined }[] =
+    [];
   /** Every deriveAddress() call, so a test can prove the ACTIVE index is used. */
   readonly deriveCalls: { chain: ChainId; index: number }[] = [];
   constructor(readonly seedPhrase: string) {}
@@ -99,16 +101,33 @@ class FakeSigner implements WdkSigner {
     // address, mirroring real WDK getAccount(chain, index) at the fake edge.
     return `0x${fnv1aHex(`${this.seedPhrase}|${chain}|${index}`)}`;
   }
-  async quoteSend(intent: TxIntent, accountIndex: number): Promise<FeeQuote> {
+  async quoteSend(
+    intent: TxIntent,
+    accountIndex: number,
+    feePreference?: FeePreference,
+  ): Promise<FeeQuote> {
     if (this.disposed) throw new Error("signer disposed");
-    void accountIndex; // fee is flat in the fake; index doesn't change it
-    // Deterministic, plausible: a fixed gas units count, asset-labelled in
-    // the chain's native coin (ETH for ethereum, BTC for bitcoin).
-    return { fee: 21_000n, feeAsset: intent.asset.chain === "bitcoin" ? BTC_NATIVE : ETH_NATIVE };
+    void accountIndex; // index doesn't change the fee in the fake
+    // Deterministic, plausible: a fixed base gas-units count, asset-labelled in
+    // the chain's native coin (ETH for ethereum, BTC for bitcoin). Bitcoin is
+    // the one chain that honors a tier, so its fake fee scales slow<normal<fast
+    // — enough to prove the preference reached the signer and moved the quote.
+    // No preference (or any other chain) stays flat at 21_000n, so every
+    // pre-existing assertion is unchanged.
+    const tier: Record<FeePreference, bigint> = { slow: 1n, normal: 2n, fast: 3n };
+    const mult = intent.asset.chain === "bitcoin" && feePreference ? tier[feePreference] : 1n;
+    return {
+      fee: 21_000n * mult,
+      feeAsset: intent.asset.chain === "bitcoin" ? BTC_NATIVE : ETH_NATIVE,
+    };
   }
-  async send(intent: TxIntent, accountIndex: number): Promise<TxResult> {
+  async send(
+    intent: TxIntent,
+    accountIndex: number,
+    feePreference?: FeePreference,
+  ): Promise<TxResult> {
     if (this.disposed) throw new Error("signer disposed");
-    this.sent.push({ intent, accountIndex });
+    this.sent.push({ intent, accountIndex, feePreference });
     // accountIndex folded into the hash ⇒ the broadcast tx differs per
     // account (honest HD parity: account N signs from account N's key).
     const hash = `0x${fnv1aHex(

@@ -23,7 +23,7 @@ import WalletManagerSolana, {
   WalletAccountReadOnlySolana,
 } from "@tetherto/wdk-wallet-solana";
 
-import type { ChainId, FeeQuote, TxIntent, TxResult } from "../types.js";
+import type { ChainId, FeePreference, FeeQuote, TxIntent, TxResult } from "../types.js";
 import { UnsupportedAssetError, UnsupportedChainError, WalletLockedError } from "../errors.js";
 import {
   BTC_NATIVE,
@@ -123,6 +123,38 @@ function registerAll(wdk: WDK, chains: ChainRegistry): void {
   }
 }
 
+/**
+ * Bitcoin confirmation target (in blocks) per speed tier — fewer blocks ⇒
+ * sooner inclusion ⇒ higher fee. WDK derives the sat/vByte feeRate from this
+ * target. Bitcoin is the ONLY chain this build can tier: its native send is the
+ * one WDK path that takes a fee knob, ERC-20 transfers (USDT/XAU₮) expose none,
+ * and this wallet sends no native EVM coin. An absent preference keeps WDK's own
+ * estimate, so behavior is unchanged unless a tier is explicitly requested.
+ */
+const BTC_CONFIRMATION_TARGET: Record<FeePreference, number> = {
+  slow: 6,
+  normal: 3,
+  fast: 1,
+};
+
+/**
+ * Args for a native (no-token) quote/send. Bitcoin gets a `confirmationTarget`
+ * when a tier is chosen; otherwise — and for any non-BTC native path — the bare
+ * `{ to, value }` is returned, byte-for-byte the prior behavior. Returned as a
+ * variable (not an inline literal at the call site) so the extra BTC-only field
+ * never trips an excess-property check against the EVM transaction shape.
+ */
+function nativeTxArgs(intent: TxIntent, feePreference: FeePreference | undefined) {
+  const args: { to: string; value: bigint; confirmationTarget?: number } = {
+    to: intent.to,
+    value: intent.amount,
+  };
+  if (intent.asset.chain === "bitcoin" && feePreference) {
+    args.confirmationTarget = BTC_CONFIRMATION_TARGET[feePreference];
+  }
+  return args;
+}
+
 class WdkSignerImpl implements WdkSigner {
   readonly #wdk: WDK;
   readonly #chains: ChainRegistry;
@@ -144,23 +176,32 @@ class WdkSignerImpl implements WdkSigner {
     return account.getAddress();
   }
 
-  async quoteSend(intent: TxIntent, accountIndex: number): Promise<FeeQuote> {
+  async quoteSend(
+    intent: TxIntent,
+    accountIndex: number,
+    feePreference?: FeePreference,
+  ): Promise<FeeQuote> {
     requireChain(this.#chains, intent.asset.chain);
     const account = await this.#wdk.getAccount(intent.asset.chain, accountIndex);
     // A token send pays gas in the chain's native coin, not in the token —
-    // feeAsset reflects that. ERC-20 ⇒ transfer/quoteTransfer; native ⇒
-    // sendTransaction/quoteSendTransaction (WDK's two distinct code paths).
+    // feeAsset reflects that. ERC-20 ⇒ transfer/quoteTransfer (no fee knob in
+    // the SDK, so feePreference is ignored there); native ⇒
+    // sendTransaction/quoteSendTransaction, where Bitcoin honors the tier.
     const { fee } = intent.asset.token
       ? await account.quoteTransfer({
           token: intent.asset.token,
           recipient: intent.to,
           amount: intent.amount,
         })
-      : await account.quoteSendTransaction({ to: intent.to, value: intent.amount });
+      : await account.quoteSendTransaction(nativeTxArgs(intent, feePreference));
     return { fee, feeAsset: feeAssetFor(intent.asset.chain) };
   }
 
-  async send(intent: TxIntent, accountIndex: number): Promise<TxResult> {
+  async send(
+    intent: TxIntent,
+    accountIndex: number,
+    feePreference?: FeePreference,
+  ): Promise<TxResult> {
     requireChain(this.#chains, intent.asset.chain);
     const account = await this.#wdk.getAccount(intent.asset.chain, accountIndex);
     const { hash } = intent.asset.token
@@ -169,7 +210,7 @@ class WdkSignerImpl implements WdkSigner {
           recipient: intent.to,
           amount: intent.amount,
         })
-      : await account.sendTransaction({ to: intent.to, value: intent.amount });
+      : await account.sendTransaction(nativeTxArgs(intent, feePreference));
     return { hash, chain: intent.asset.chain };
   }
 

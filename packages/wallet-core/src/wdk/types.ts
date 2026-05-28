@@ -10,7 +10,7 @@
  * against a hand-written fake `WdkAdapter`.
  */
 
-import type { ChainId, FeeQuote, TxIntent, TxResult } from "../types.js";
+import type { ChainId, FeePreference, FeeQuote, TxIntent, TxResult } from "../types.js";
 
 /** EVM chains share one WDK manager; they differ only by chainId + RPC list. */
 export interface EvmChainConfig {
@@ -75,12 +75,21 @@ export interface WdkSigner {
    * at `accountIndex` (the multi-account dimension; the engine passes the
    * active account, never a hardcoded 0).
    */
-  quoteSend(intent: TxIntent, accountIndex: number): Promise<FeeQuote>;
+  quoteSend(
+    intent: TxIntent,
+    accountIndex: number,
+    feePreference?: FeePreference,
+  ): Promise<FeeQuote>;
   /**
    * Sign and broadcast `intent` from the HD account at `accountIndex`;
-   * resolves once accepted by the network.
+   * resolves once accepted by the network. `feePreference` tiers the fee where
+   * the chain supports it (Bitcoin only in this build).
    */
-  send(intent: TxIntent, accountIndex: number): Promise<TxResult>;
+  send(
+    intent: TxIntent,
+    accountIndex: number,
+    feePreference?: FeePreference,
+  ): Promise<TxResult>;
   /** Re-encrypt the underlying seed phrase under a new key. */
   reencrypt(newKey: CryptoKey): Promise<Uint8Array>;
   /** Zeroise the seed + WDK manager. Async for the worker-backed proxy. */

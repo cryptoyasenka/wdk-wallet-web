@@ -33,6 +33,7 @@ import type {
   Asset,
   Balance,
   ChainId,
+  FeePreference,
   FeeQuote,
   StorageAdapter,
   TxIntent,
@@ -535,13 +536,13 @@ function buildEngine(
         );
     },
 
-    async quoteSend(intent: TxIntent): Promise<FeeQuote> {
+    async quoteSend(intent: TxIntent, feePreference?: FeePreference): Promise<FeeQuote> {
       const { signer: s } = ensureUnlocked();
       if (!chains[intent.asset.chain]) throw new UnsupportedChainError(intent.asset.chain);
-      return s.quoteSend(intent, await currentAccount());
+      return s.quoteSend(intent, await currentAccount(), feePreference);
     },
 
-    async send(intent: TxIntent): Promise<TxResult> {
+    async send(intent: TxIntent, feePreference?: FeePreference): Promise<TxResult> {
       const { signer: s } = ensureUnlocked();
       if (!chains[intent.asset.chain]) throw new UnsupportedChainError(intent.asset.chain);
       const w = await currentWallet();
@@ -550,7 +551,7 @@ function buildEngine(
       // refreshed (WDK's BTC receipt lookup is address-scoped, not global) —
       // derived for the ACTIVE account so a switch changes the send origin.
       const from = await s.deriveAddress(intent.asset.chain, acct);
-      const result = await s.send(intent, acct);
+      const result = await s.send(intent, acct, feePreference);
       await appendSend(
         deps.storage,
         {

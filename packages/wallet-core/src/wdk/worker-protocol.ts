@@ -8,7 +8,7 @@
  * amounts, and plain config/intents. The plaintext seed never appears in any
  * message in either direction — that is the whole point (ADR-004).
  */
-import type { ChainId, TxIntent } from "../types.js";
+import type { ChainId, FeePreference, TxIntent } from "../types.js";
 import type { ChainRegistry } from "./types.js";
 import {
   InvalidSeedPhraseError,
@@ -33,8 +33,8 @@ export type WorkerRequest =
       chains: ChainRegistry;
     }
   | { id: number; kind: "signer.deriveAddress"; handle: number; chain: ChainId; index: number }
-  | { id: number; kind: "signer.quoteSend"; handle: number; intent: TxIntent; accountIndex: number }
-  | { id: number; kind: "signer.send"; handle: number; intent: TxIntent; accountIndex: number }
+  | { id: number; kind: "signer.quoteSend"; handle: number; intent: TxIntent; accountIndex: number; feePreference?: FeePreference }
+  | { id: number; kind: "signer.send"; handle: number; intent: TxIntent; accountIndex: number; feePreference?: FeePreference }
   | { id: number; kind: "signer.reencrypt"; handle: number; key: CryptoKey }
   | { id: number; kind: "signer.dispose"; handle: number }
   | { id: number; kind: "createBalanceReader"; chains: ChainRegistry }

@@ -7,7 +7,7 @@
  * Typed errors are reconstructed by name on this side (`rehydrateError`) so
  * callers' `instanceof`-style branches keep working across the worker edge.
  */
-import type { ChainId, FeeQuote, TxIntent, TxResult } from "../types.js";
+import type { ChainId, FeePreference, FeeQuote, TxIntent, TxResult } from "../types.js";
 import type { ChainRegistry, WdkAdapter, WdkBalanceReader, WdkSigner } from "./types.js";
 import type { TxStatus, WorkerRequest, WorkerResponse } from "./worker-protocol.js";
 import { rehydrateError } from "./worker-protocol.js";
@@ -124,24 +124,36 @@ class WorkerSigner implements WdkSigner {
     return address;
   }
 
-  async quoteSend(intent: TxIntent, accountIndex: number): Promise<FeeQuote> {
+  async quoteSend(
+    intent: TxIntent,
+    accountIndex: number,
+    feePreference?: FeePreference,
+  ): Promise<FeeQuote> {
     const { feeQuote } = await this.#a.rpc<{ feeQuote: FeeQuote }>((id) => ({
       id,
       kind: "signer.quoteSend",
       handle: this.#h,
       intent,
       accountIndex,
+      // exactOptionalPropertyTypes: omit the key entirely when unset rather
+      // than send an explicit `undefined` the optional field won't accept.
+      ...(feePreference ? { feePreference } : {}),
     }));
     return feeQuote;
   }
 
-  async send(intent: TxIntent, accountIndex: number): Promise<TxResult> {
+  async send(
+    intent: TxIntent,
+    accountIndex: number,
+    feePreference?: FeePreference,
+  ): Promise<TxResult> {
     const { txResult } = await this.#a.rpc<{ txResult: TxResult }>((id) => ({
       id,
       kind: "signer.send",
       handle: this.#h,
       intent,
       accountIndex,
+      ...(feePreference ? { feePreference } : {}),
     }));
     return txResult;
   }
