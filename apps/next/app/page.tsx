@@ -60,7 +60,15 @@ type OnboardMode = "create" | "import" | "watch";
 type ToastType = "success" | "error" | "info";
 interface ToastItem { id: number; type: ToastType; message: string }
 
-const RECEIVE_CHAINS: readonly ChainId[] = ["bitcoin", "ethereum"];
+// Every chain the wallet can receive on. EVM chains (ethereum/polygon/arbitrum/
+// plasma) derive the same address, so the Receive card groups them into one row
+// (see groupReceiveAddresses); each still drives its own per-chain payment
+// request, since EIP-681 carries the chain id. A chain this build did not
+// configure (e.g. BTC with no Electrum endpoint) raises UnsupportedChainError
+// in the address loop and is skipped, so the list stays honest per deploy.
+const RECEIVE_CHAINS: readonly ChainId[] = [
+  "bitcoin", "ethereum", "polygon", "arbitrum", "plasma", "solana",
+];
 const WALLET_NAMES_KEY = "wdk-wallet-names";
 const AUTO_LOCK_KEY = "wdk-autolock-min";
 const DEFAULT_AUTOLOCK_MIN = 5;
@@ -112,6 +120,25 @@ function parseUnits(input: string, decimals: number, T: (key: string) => string)
 
 function assetKey(a: Asset): string {
   return `${a.symbol}-${a.chain}`;
+}
+
+/**
+ * Collapse receive addresses by value. EVM chains (ethereum/polygon/arbitrum/
+ * plasma) derive the SAME address, so rather than render four identical rows we
+ * show one row per unique address, labelled with every chain it serves. Order
+ * follows RECEIVE_CHAINS, so a group's first chain (ethereum for the EVM group)
+ * is the representative used for the QR and the copy control's accessible name.
+ */
+function groupReceiveAddresses(
+  addresses: ReadonlyArray<readonly [ChainId, string]>,
+): Array<{ address: string; chains: ChainId[] }> {
+  const byAddress = new Map<string, ChainId[]>();
+  for (const [chain, address] of addresses) {
+    const existing = byAddress.get(address);
+    if (existing) existing.push(chain);
+    else byAddress.set(address, [chain]);
+  }
+  return [...byAddress.entries()].map(([address, chains]) => ({ address, chains }));
 }
 
 function statusClass(status: ActivityItem["status"]): string {
@@ -1599,25 +1626,28 @@ export default function Page() {
             )}
             {receiveMode === "address" ? (
               <ul className="flex flex-col gap-3">
-                {addresses.map(([chain, addr]) => (
-                  <li key={chain}>
-                    <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{chain}</div>
-                    <div className="flex items-start gap-2">
-                      <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
-                        {addr}
-                      </code>
-                      <button
-                        className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
-                        onClick={() => copyToClipboard(addr)}
-                        aria-label={`Copy ${chain} receive address`}
-                        title={`Copy ${chain} receive address`}
-                      >
-                        <CopyIcon size={14} />
-                      </button>
-                    </div>
-                    <Qr value={addr} chain={chain} />
-                  </li>
-                ))}
+                {groupReceiveAddresses(addresses).map(({ address: addr, chains }) => {
+                  const primary = chains[0]!;
+                  return (
+                    <li key={addr}>
+                      <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{chains.join(" · ")}</div>
+                      <div className="flex items-start gap-2">
+                        <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
+                          {addr}
+                        </code>
+                        <button
+                          className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
+                          onClick={() => copyToClipboard(addr)}
+                          aria-label={`Copy ${primary} receive address`}
+                          title={`Copy ${primary} receive address`}
+                        >
+                          <CopyIcon size={14} />
+                        </button>
+                      </div>
+                      <Qr value={addr} chain={primary} />
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <ReceiveRequest
