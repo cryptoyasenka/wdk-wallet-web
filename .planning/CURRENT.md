@@ -1,6 +1,6 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-29 (independent re-audit triage — plan locked, executing)
+**Last touched:** 2026-05-29 (independent re-audit — all 5 fair fixes shipped + pushed)
 
 ## 🔴 TODO (carry-over, explicit ask)
 - [ ] **Run BTC on testnet end-to-end** — the BTC fee-speed selector + send path were
@@ -8,8 +8,19 @@
   Harness ready: `BTC_LIVE_WS_URL`/`NETWORK`/`ADDRESS`/`MIN_SATS` env into `pnpm btc:live`
   (`tools/e2e/btc-live.mjs`). Confirm slow/normal/fast actually change the on-chain fee.
 
-## Independent re-audit 2026-05-29 — triage + fix plan (EXECUTING)
-Second external deep audit (6 findings). `verify`+`pnpm audit` were green for them too.
+## Independent re-audit 2026-05-29 — ✅ DONE (5 fair fixes shipped + pushed)
+Second external deep audit (6 findings). Verdict: 1 stale (F2 already fixed), 5 fair — all 5 fixed.
+Final gate GREEN: wallet-core 92 + next **106** + svelte 16 = 214 unit; smoke 6/6; a11y 0≥serious; build 238 kB; `pnpm audit` 1 LOW (documented elliptic). Commits:
+- F5 `2b394b9` — indexer history fetch time-bounded (8s `AbortSignal.timeout`); hung indexer can't stall Activity.
+- F3 `ea2d217` — Delete Wallet now also wipes `wdk-watch-wallets` (privacy) + `wdk-autolock-min`.
+- F4 `ea180be` — `NEXT_PUBLIC_CONNECT_SRC_ORIGINS`: CSP-only allow-list knob (self-host indexer/price/RPC without overloading the ETH-RPC var). +4 tests, .env.example, SECURITY-REVIEW §6.
+- F1 `9ef32ce` — passphrase stays a REAL fallback after passkey enroll: `SelectingUnlockProvider` makes a typed passphrase authoritative; locked screen gains an explicit "Unlock with passkey" button + passphrase fallback; UV `preferred`→`required` on all 3 ceremonies (safe now the fallback works). +5 tests (`unlock.test.ts`).
+- F6 `960d675` — receive on all 6 configured chains (Solana + per-chain EVM USD₮ payment requests); shared EVM address collapsed into one row via `groupReceiveAddresses` (no 4 dup rows; smoke proves ethereum-primary).
+- docs `e8880b1` — counts (106 next) + First Load (238 kB) reconciled across BOUNTY-CHECKLIST/ARCHITECTURE/RN-TO-WEB-MAP.
+F2 (smoke/a11y locale) was STALE — already fixed `a066c47`; the baseline gate proved both green at HEAD. probe.mjs absent.
+**Open carry-over:** BTC live-on-testnet e2e (see TODO above) — still NOT run; harness ready.
+
+### Original triage verdict (kept for the record)
 My verdict per finding (verified against code, not the report's word):
 - **F1 [P1] passkey breaks promised passphrase fallback — FAIR/REAL, top value.**
   i18n L156/L157 literally promise "your passphrase still works", but
