@@ -85,6 +85,8 @@ const translations: Record<string, Record<Locale, string>> = {
   "lock.pass_label": { en: "Passphrase", ru: "Пароль", uk: "Пароль" },
   "lock.pass_placeholder": { en: "your passphrase", ru: "ваш пароль", uk: "ваш пароль" },
   "lock.btn": { en: "Unlock", ru: "Разблокировать", uk: "Розблокувати" },
+  "lock.unlock_passkey": { en: "Unlock with passkey", ru: "Разблокировать через passkey", uk: "Розблокувати через passkey" },
+  "lock.or_passphrase": { en: "or use your passphrase", ru: "или используйте пароль", uk: "або скористайтеся паролем" },
 
   // Account
   "account.title": { en: "Account", ru: "Аккаунт", uk: "Акаунт" },

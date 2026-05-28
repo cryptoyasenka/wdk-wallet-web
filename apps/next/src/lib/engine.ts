@@ -28,8 +28,15 @@ export interface WalletApp {
   readonly engine: WalletEngine;
   /** Feed the user's passphrase to the unlock provider before an unlock op. */
   setPassphrase(passphrase: string): void;
-  /** Opt into a WebAuthn passkey (PRF). Preferred over passphrase once set. */
+  /** Opt into a WebAuthn passkey (PRF) as an additional unlock. The passphrase
+   *  always keeps working as the recovery path — it is never disabled. */
   enrollPasskey(): Promise<void>;
+  /** Unlock via the enrolled passkey, ignoring any session passphrase. Throws a
+   *  typed WebAuthn error if the passkey/PRF is unavailable, so the caller can
+   *  fall back to the passphrase field. */
+  unlockWithPasskey(): Promise<void>;
+  /** Whether a passkey is enrolled here, so the locked screen can offer it. */
+  isPasskeyEnrolled(): Promise<boolean>;
 }
 
 /**
@@ -96,6 +103,13 @@ export function getWalletApp(): WalletApp {
     engine,
     setPassphrase: (passphrase: string) => unlock.setPassphrase(passphrase),
     enrollPasskey: () => unlock.enrollPasskey(engine),
+    unlockWithPasskey: async () => {
+      // Clear any session passphrase so the provider routes to the passkey, then
+      // unlock through the engine (which opens the passkey-encrypted vault blob).
+      unlock.setPassphrase(null);
+      await engine.unlock();
+    },
+    isPasskeyEnrolled: () => unlock.isPasskeyEnrolled(),
   };
   return app;
 }

@@ -225,7 +225,7 @@ export class WebAuthnUnlock implements UnlockProvider {
         { type: "public-key", alg: -7 }, // ES256
         { type: "public-key", alg: -257 }, // RS256
       ],
-      authenticatorSelection: { residentKey: "preferred", userVerification: "preferred" },
+      authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
       attestation: "none",
       timeout: CEREMONY_TIMEOUT_MS,
       extensions: { prf: {} } as PrfClientInputs,
@@ -249,7 +249,7 @@ export class WebAuthnUnlock implements UnlockProvider {
         allowCredentials: [
           { type: "public-key", id: cred.rawId },
         ],
-        userVerification: "preferred",
+        userVerification: "required",
         timeout: CEREMONY_TIMEOUT_MS,
         extensions: { prf: { eval: { first: prfSalt } } } as PrfClientInputs,
       };
@@ -303,7 +303,7 @@ export class WebAuthnUnlock implements UnlockProvider {
       allowCredentials: [
         { type: "public-key", id: base64UrlToBytes(record.credentialId) },
       ],
-      userVerification: "preferred",
+      userVerification: "required",
       timeout: CEREMONY_TIMEOUT_MS,
       extensions: { prf: { eval: { first: prfSalt } } } as PrfClientInputs,
     };
@@ -356,10 +356,11 @@ export async function chooseUnlockProvider(
 /**
  * The engine-injected provider. Holds *persistent* passphrase + WebAuthn
  * instances (so the session passphrase set via the UI survives) and routes
- * each `unlock()` to the preferred available credential at call time. This
- * keeps `getWalletApp()` synchronous and leaves the Phase-1 passphrase flow
- * (`setPassphrase` → `engine.unlock()`) byte-for-byte unchanged when no
- * passkey is enrolled.
+ * each `unlock()` at call time: a typed passphrase wins (the always-available
+ * recovery path), otherwise an enrolled passkey is used. The locked screen's
+ * explicit passkey button clears the passphrase so the passkey path is taken.
+ * This keeps `getWalletApp()` synchronous and leaves the Phase-1 passphrase flow
+ * (`setPassphrase` → `engine.unlock()`) byte-for-byte unchanged.
  */
 export class SelectingUnlockProvider implements UnlockProvider {
   readonly #passphrase: PassphraseUnlock;
@@ -381,6 +382,14 @@ export class SelectingUnlockProvider implements UnlockProvider {
   }
 
   async #active(): Promise<UnlockProvider> {
+    // An explicitly-typed passphrase is authoritative: it is the always-available
+    // recovery path the UI promises ("your passphrase still works"). Routing to
+    // it whenever one is set means an enrolled passkey can never lock the user
+    // out of their passphrase — the two-blob vault keeps both keys valid, so the
+    // bug was purely this selection. The passkey is used when the caller supplies
+    // NO passphrase (the locked screen's explicit "Unlock with passkey" button
+    // clears the session passphrase first).
+    if (this.#passphrase.hasPendingPassphrase()) return this.#passphrase;
     if (isWebAuthnSupported() && (await this.#webauthn.isEnrolled())) {
       return this.#webauthn;
     }
@@ -389,6 +398,14 @@ export class SelectingUnlockProvider implements UnlockProvider {
 
   async unlock(): Promise<CryptoKey> {
     return (await this.#active()).unlock();
+  }
+
+  /** Whether a WebAuthn passkey is usable here (supported AND enrolled). The
+   *  locked screen shows the passkey option only when this is true; that button
+   *  clears the session passphrase (so `#active()` routes here) and unlocks via
+   *  the engine, which opens the passkey vault blob. */
+  async isPasskeyEnrolled(): Promise<boolean> {
+    return isWebAuthnSupported() && (await this.#webauthn.isEnrolled());
   }
 
   async isEnrolled(): Promise<boolean> {

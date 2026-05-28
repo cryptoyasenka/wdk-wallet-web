@@ -184,6 +184,7 @@ export default function Page() {
 
   const [webauthnOk, setWebauthnOk] = useState(false);
   const [passkeyAdded, setPasskeyAdded] = useState(false);
+  const [passkeyEnrolled, setPasskeyEnrolled] = useState(false);
 
   // ---- Wallet names ----
   const [walletNames, setWalletNames] = useState<Record<number, string>>({});
@@ -472,6 +473,19 @@ export default function Page() {
     setWebauthnOk(isWebAuthnSupported());
   }, []);
 
+  // Probe passkey enrollment whenever the wallet is locked so the locked screen
+  // can offer "Unlock with passkey" — while always keeping the passphrase field
+  // as the recovery fallback (the passkey never disables the passphrase).
+  useEffect(() => {
+    if (phase !== "locked") return;
+    let alive = true;
+    void getWalletApp()
+      .isPasskeyEnrolled()
+      .then((v) => { if (alive) setPasskeyEnrolled(v); })
+      .catch(() => { if (alive) setPasskeyEnrolled(false); });
+    return () => { alive = false; };
+  }, [phase]);
+
   const loadActivity = useCallback(async () => {
     setActivityError(null);
     try {
@@ -687,6 +701,15 @@ export default function Page() {
       const app = getWalletApp();
       app.setPassphrase(passphrase);
       await app.engine.unlock();
+      resetSecrets();
+      enter("unlocked");
+    });
+
+  /** Explicit passkey unlock. On any failure the passphrase field below still
+   *  works (the always-available recovery path), so the error is just surfaced. */
+  const onUnlockPasskey = () =>
+    act(async () => {
+      await getWalletApp().unlockWithPasskey();
       resetSecrets();
       enter("unlocked");
     });
@@ -1239,6 +1262,12 @@ export default function Page() {
       {phase === "locked" && (
         <Card>
           <h2 className="mb-3 font-medium">{T("lock.title")}</h2>
+          {passkeyEnrolled && (
+            <div className="mb-4">
+              <Button onClick={onUnlockPasskey} busy={busy} workingLabel={T("misc.working")}>{T("lock.unlock_passkey")}</Button>
+              <p className="mt-3 text-xs text-[--color-muted]">{T("lock.or_passphrase")}</p>
+            </div>
+          )}
           <Field label={T("lock.pass_label")}>
             <Input type="password" value={passphrase} onChange={setPassphrase} placeholder={T("lock.pass_placeholder")} autoComplete="current-password" onEnter={onUnlock} />
           </Field>

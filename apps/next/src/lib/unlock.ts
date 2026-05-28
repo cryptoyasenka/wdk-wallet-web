@@ -61,6 +61,15 @@ export class PassphraseUnlock implements UnlockProvider {
     this.#passphrase = passphrase;
   }
 
+  /**
+   * Whether a non-empty session passphrase is currently set. `SelectingUnlockProvider`
+   * uses this to make an explicitly-typed passphrase authoritative over an enrolled
+   * passkey, so the promised passphrase fallback can never be locked out.
+   */
+  hasPendingPassphrase(): boolean {
+    return this.#passphrase !== null && this.#passphrase !== "";
+  }
+
   async isEnrolled(): Promise<boolean> {
     const key = await this.#key();
     return (await this.storage.get(key)) !== null;
