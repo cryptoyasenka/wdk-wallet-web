@@ -7,7 +7,7 @@
  * wallet-core's real public RPCs. This test runs in Node, imports BOTH sides,
  * and fails if they disagree — the link the bundle can't enforce.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ETHEREUM_PUBLIC_RPCS,
   POLYGON_PUBLIC_RPCS,
@@ -20,6 +20,7 @@ import {
   COINGECKO_ORIGIN,
   staticConnectSrcOrigins,
   isOriginAllowedByCsp,
+  envConnectSrcOrigins,
 } from "../src/lib/cspAllowlist";
 
 const walletCoreOrigins = [
@@ -77,5 +78,39 @@ describe("isOriginAllowedByCsp", () => {
 
   it("blocks a plaintext ws:// origin (only wss: is wholesale-allowed)", () => {
     expect(isOriginAllowedByCsp("ws://insecure.example.com")).toBe(false);
+  });
+});
+
+describe("envConnectSrcOrigins (NEXT_PUBLIC_CONNECT_SRC_ORIGINS)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("is empty when the env var is unset/blank", () => {
+    vi.stubEnv("NEXT_PUBLIC_CONNECT_SRC_ORIGINS", "");
+    expect(envConnectSrcOrigins()).toEqual([]);
+  });
+
+  it("parses comma-separated values to origins, trims, and de-dupes", () => {
+    vi.stubEnv(
+      "NEXT_PUBLIC_CONNECT_SRC_ORIGINS",
+      "https://indexer.example.com, https://indexer.example.com/v1/history , https://prices.example.com",
+    );
+    const origins = envConnectSrcOrigins();
+    expect(origins).toContain("https://indexer.example.com");
+    expect(origins).toContain("https://prices.example.com");
+    expect(new Set(origins).size).toBe(origins.length);
+  });
+
+  it("flows into the allow-list so a self-hosted origin is permitted", () => {
+    vi.stubEnv("NEXT_PUBLIC_CONNECT_SRC_ORIGINS", "https://indexer.example.com");
+    expect(staticConnectSrcOrigins()).toContain("https://indexer.example.com");
+    expect(isOriginAllowedByCsp("https://indexer.example.com")).toBe(true);
+  });
+
+  it("does NOT register the extra origin as an Ethereum RPC override", () => {
+    // The dedicated knob must not bleed into NEXT_PUBLIC_ETHEREUM_RPC_URLS's
+    // job — that separation is the whole point of the variable.
+    vi.stubEnv("NEXT_PUBLIC_CONNECT_SRC_ORIGINS", "https://indexer.example.com");
+    vi.stubEnv("NEXT_PUBLIC_ETHEREUM_RPC_URLS", "");
+    expect(staticConnectSrcOrigins()).toContain("https://indexer.example.com");
   });
 });

@@ -51,14 +51,10 @@ function originOf(url: string): string | null {
   }
 }
 
-/**
- * Origins implied by the deploy's `NEXT_PUBLIC_ETHEREUM_RPC_URLS` override.
- * `NEXT_PUBLIC_*` is inlined into both the Edge and browser bundles, so this
- * resolves identically in `middleware.ts` and in the settings UI.
- */
-export function envRpcOrigins(): string[] {
+/** Parse a comma-separated env value into a de-duped list of URL origins. */
+function parseOriginsEnv(value: string | undefined): string[] {
   const out: string[] = [];
-  for (const raw of (process.env.NEXT_PUBLIC_ETHEREUM_RPC_URLS ?? "").split(",")) {
+  for (const raw of (value ?? "").split(",")) {
     const o = originOf(raw.trim());
     if (o && !out.includes(o)) out.push(o);
   }
@@ -66,12 +62,40 @@ export function envRpcOrigins(): string[] {
 }
 
 /**
+ * Origins implied by the deploy's `NEXT_PUBLIC_ETHEREUM_RPC_URLS` override.
+ * `NEXT_PUBLIC_*` is inlined into both the Edge and browser bundles, so this
+ * resolves identically in `middleware.ts` and in the settings UI.
+ */
+export function envRpcOrigins(): string[] {
+  return parseOriginsEnv(process.env.NEXT_PUBLIC_ETHEREUM_RPC_URLS);
+}
+
+/**
+ * Extra `connect-src` origins this deploy explicitly allows, from
+ * `NEXT_PUBLIC_CONNECT_SRC_ORIGINS` (comma-separated). This is the dedicated
+ * knob for a self-hoster who points the wallet at a custom indexer, price
+ * oracle, or RPC and needs the strict CSP to permit it — WITHOUT overloading
+ * `NEXT_PUBLIC_ETHEREUM_RPC_URLS`, which also feeds the Ethereum RPC chain
+ * config. Use this for "allow the origin, but don't make it an Ethereum RPC".
+ * Inlined into both bundles, so middleware and the settings UI agree.
+ */
+export function envConnectSrcOrigins(): string[] {
+  return parseOriginsEnv(process.env.NEXT_PUBLIC_CONNECT_SRC_ORIGINS);
+}
+
+/**
  * The full static `connect-src` origin allowlist this deploy ships (minus
  * `'self'` and the wholesale `wss:` scheme-source, which `middleware.ts` adds):
- * the public-RPC defaults, the price oracle, and any deploy-env RPC override.
+ * the public-RPC defaults, the price oracle, any deploy-env RPC override, and
+ * any extra origins named in `NEXT_PUBLIC_CONNECT_SRC_ORIGINS`.
  */
 export function staticConnectSrcOrigins(): string[] {
-  const out = new Set<string>([...DEFAULT_RPC_ORIGINS, COINGECKO_ORIGIN, ...envRpcOrigins()]);
+  const out = new Set<string>([
+    ...DEFAULT_RPC_ORIGINS,
+    COINGECKO_ORIGIN,
+    ...envRpcOrigins(),
+    ...envConnectSrcOrigins(),
+  ]);
   return [...out];
 }
 
