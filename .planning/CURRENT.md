@@ -1,12 +1,22 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-29 (re-audit RE-VERIFIED — the SAME 6-finding report came back on a stale/pre-fix checkout; gate re-run GREEN, nothing to fix)
+**Last touched:** 2026-05-29 (3rd audit — Solana Pay + resilient balances + CI gates shipped; gate GREEN)
 
 ## 🔴 TODO (carry-over, explicit ask)
 - [ ] **Run BTC on testnet end-to-end** — the BTC fee-speed selector + send path were
   NOT exercised live (needs funded testnet BTC + a testnet Electrum-WS endpoint).
   Harness ready: `BTC_LIVE_WS_URL`/`NETWORK`/`ADDRESS`/`MIN_SATS` env into `pnpm btc:live`
   (`tools/e2e/btc-live.mjs`). Confirm slow/normal/fast actually change the on-chain fee.
+
+## THIRD independent audit 2026-05-29 — ✅ DONE (4 fixed, 1 already-done, 1 deferred)
+New audit (genuinely new findings, not the recycled F1-F6). Verified each vs code. Gate GREEN: wallet-core **93** + next **113** + svelte 16 = **222 unit**; smoke 6/6; a11y 0≥serious; build 238 kB; `pnpm audit --audit-level moderate` clean (1 documented elliptic low). Commits:
+- **A1 [P1] Solana Pay — `391c4ce`.** `paymentRequest.ts` now builds Solana Pay transfer requests for SPL USD₮ / SOL: `solana:<owner>?amount=<decimal>&spl-token=<mint>&message=<memo>` (recipient=owner, wallet derives ATA; amount=decimal UI units per spec; base58 recipient guard). `canBuildRequest` true for solana → USD₮-Solana auto-appears in the Request tab; memo field now shows for BTC+Solana. +7 tests; fixed the stale `canBuildRequest(solana)===false` test (solana IS a ChainId now → foreign="tron").
+- **A2 [P2] resilient balances — `b89705a`.** `Balance` +`unavailable?`; `getBalances` + `getBalancesForAddress` settle per-asset (one chain's RPC failure → that row `unavailable:true`/0n, rest still load); `page.tsx` totalUsd skips unavailable + both render sites show honest amber "Balance unavailable"; i18n key added. +1 wallet-core test (throwing reader on one chain).
+- **A3 [P2] CI gates — `d7ac9d1`.** `ci.yml` +`a11y` job +`audit` job (mirror smoke, SHA-pinned actions); new `.github/workflows/live-checks.yml` (`workflow_dispatch` → `btc:live`+`sol:live`, read-only, opt-in). HONEST LIMIT: GH Actions not run locally — YAML validated (parses) + all scripts pass locally; first real proof = next push's Actions run.
+- **A5 [P3] plan-doc + counts — `3592141`.** BOUNTY-IMPLEMENTATION-PLAN.md top banner = "historical roadmap, all shipped; current state = CURRENT.md/BOUNTY-CHECKLIST"; BOUNTY-CHECKLIST counts 93/113 + Solana Pay row.
+- **A6 [P3] elliptic low advisory — ALREADY documented** (BOUNTY-CHECKLIST L20-23, SECURITY). No change.
+- **A4 [P2] demo.gif refresh — DEFERRED (needs Yana).** `pnpm demo` (node tools/demo/record.mjs) needs ffmpeg + visual QA, and its flow (create→backup→quiz→portfolio→receive) doesn't showcase passkey/Solana/request — re-recording blind overnight would be unverifiable. Yana: run `corepack pnpm demo` (ffmpeg on PATH) + eyeball, optionally extend record.mjs to show passkey/Solana receive/request.
+**Still open:** BTC live-on-testnet e2e (TODO at top) — unchanged, external resource.
 
 ## Independent re-audit 2026-05-29 — ✅ DONE (5 fair fixes shipped + pushed)
 Second external deep audit (6 findings). Verdict: 1 stale (F2 already fixed), 5 fair — all 5 fixed.
