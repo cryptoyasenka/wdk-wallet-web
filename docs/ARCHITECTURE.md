@@ -58,7 +58,7 @@ storage round-trip, headlessly through in-memory ports (no DOM), so
 entry is ≈226 kB (≈82 kB gzip) — it inlines the QR codec (`qrcode-generator` +
 `jsqr`, P1); WDK itself is code-split into a separate worker chunk off the main
 bundle. The Next app keeps the WDK graph out of First Load; the current richer
-UI shell brings First Load to ≈237 kB — see "First Load JS" below.
+UI shell brings First Load to ≈238 kB — see "First Load JS" below.
 
 ## Alpha-churn containment
 
@@ -176,7 +176,7 @@ between the shipped code and a running BTC wallet.
 **Verified empirically.** Full quartet (lint/typecheck/test/build) green in both
 apps after the un-stub; the BTC crypto graph lands in the code-split WDK worker
 chunk, off the main thread (ADR-004), so there is no main-bundle regression from
-BTC. Current First Load: Next ≈ 237 kB, Svelte main ≈ 226 kB — both grew from
+BTC. Current First Load: Next ≈ 238 kB, Svelte main ≈ 226 kB — both grew from
 the pre-P1 baseline because the P1 QR codec (`qrcode-generator` + `jsqr`) is in
 the app bundle, not from any `@tetherto/*` leaking out of the worker chunk.
 
@@ -287,7 +287,7 @@ shims, see ADR-002) apply to that worker chunk too — which is exactly why the
 real BTC crypto graph lands there and not in First Load. `next build` was
 inspected: the worker chunk carries the WDK manager *and* the seed-owning
 `onmessage` dispatch, while the main First Load chunks contain **zero**
-`@tetherto/*` (Next First Load JS ≈ 237 kB; no `@tetherto/*` in it before or
+`@tetherto/*` (Next First Load JS ≈ 238 kB; no `@tetherto/*` in it before or
 after real BTC shipped — the post-P1 growth is the app-side QR codec, not WDK).
 Net effect: WDK moved entirely out of the main bundle into the worker chunk.
 
