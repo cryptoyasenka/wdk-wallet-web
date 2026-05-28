@@ -21,10 +21,10 @@ Current local bar:
   advisory is upstream in the pinned alpha BTC WDK dependency chain
   (`bitcoinjs-message -> secp256k1 -> elliptic`) and has no patched range in the
   advisory.
-- `wallet-core`: 80 unit tests.
-- `apps/next`: 63 unit tests (payment-request URI builders + recipient-address validation + pre-send safety heuristics + address-book/template load hardening + data-source/privacy validation + watch-only storage validation).
-- `apps/svelte`: 13 headless portability tests.
-- Next First Load JS: about 232 kB; the WDK/BTC graph stays in the worker chunk,
+- `wallet-core`: 84 unit tests.
+- `apps/next`: 97 unit tests (payment-request URI builders + recipient-address validation + pre-send safety heuristics + address-book/template load hardening + data-source/privacy validation + watch-only storage validation + QR-scan URI unwrapping).
+- `apps/svelte`: 16 headless portability tests.
+- Next First Load JS: about 237 kB; the WDK/BTC graph stays in the worker chunk,
   not the main First Load path.
 - `corepack pnpm demo` records `docs/demo.gif` against the production Next build
   and the offline Electrum-WS fixture.
