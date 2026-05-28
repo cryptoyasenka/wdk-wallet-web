@@ -129,7 +129,10 @@ const WATCH_ADDRESS = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 
 /** Wallet flow: create -> seed quiz -> portfolio -> receive a11y -> payment request -> Recovery Check. */
 async function walletFlow(browser, appUrl) {
-  const context = await browser.newContext({ viewport: VIEWPORT });
+  // Pin the UI language: getLocale() auto-detects navigator.language, so on a
+  // uk/ru host (or such a CI runner) the app localizes and the English
+  // role-name assertions below would miss. Force en-US for a deterministic run.
+  const context = await browser.newContext({ viewport: VIEWPORT, locale: "en-US" });
   const page = await context.newPage();
   try {
     await page.goto(appUrl, { waitUntil: "domcontentloaded" });
@@ -190,7 +193,10 @@ async function walletFlow(browser, appUrl) {
  * (public) balance read.
  */
 async function watchOnlyFlow(browser, appUrl) {
-  const context = await browser.newContext({ viewport: VIEWPORT });
+  // Pin the UI language: getLocale() auto-detects navigator.language, so on a
+  // uk/ru host (or such a CI runner) the app localizes and the English
+  // role-name assertions below would miss. Force en-US for a deterministic run.
+  const context = await browser.newContext({ viewport: VIEWPORT, locale: "en-US" });
   const page = await context.newPage();
   try {
     await page.goto(appUrl, { waitUntil: "domcontentloaded" });

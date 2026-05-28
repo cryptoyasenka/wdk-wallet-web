@@ -128,7 +128,10 @@ async function completeSeedQuiz(page, seedPhrase) {
 
 /** Walk the full wallet UI, auditing each screen. */
 async function auditWallet(browser, appUrl, results) {
-  const context = await browser.newContext({ viewport: VIEWPORT, bypassCSP: true });
+  // Pin the UI language: getLocale() auto-detects navigator.language, so on a
+  // uk/ru host (or such a CI runner) the app localizes and the English
+  // role-name assertions below would miss. Force en-US for a deterministic run.
+  const context = await browser.newContext({ viewport: VIEWPORT, bypassCSP: true, locale: "en-US" });
   const page = await context.newPage();
   try {
     await page.goto(appUrl, { waitUntil: "domcontentloaded" });
