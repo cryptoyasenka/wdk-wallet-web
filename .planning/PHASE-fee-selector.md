@@ -1,6 +1,7 @@
 # PHASE — BTC fee speed selector
 
-**Status:** planning → implementing. Decided 2026-05-29 (Yana picked option A).
+**Status:** ✅ DONE 2026-05-29 (option A). Shipped: core `5f8e760`, UI `ea8b487`.
+Live end-to-end (funded BTC + Electrum) NOT run; core flow unit-tested (`fee-preference.test.ts`), UI type-checked, smoke+a11y green (no regression).
 
 ## Goal (honest, SDK-bounded)
 Let the user pick a **Bitcoin** transaction speed — slow / normal / fast — which
