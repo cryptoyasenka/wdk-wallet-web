@@ -21,8 +21,8 @@ Current local bar:
   advisory is upstream in the pinned alpha BTC WDK dependency chain
   (`bitcoinjs-message -> secp256k1 -> elliptic`) and has no patched range in the
   advisory.
-- `wallet-core`: 92 unit tests.
-- `apps/next`: 106 unit tests (payment-request URI builders + recipient-address validation + pre-send safety heuristics + address-book/template load hardening + data-source/privacy validation + watch-only storage validation + QR-scan URI unwrapping + CSP connect-src env allow-list + unlock-provider passphrase-fallback selection).
+- `wallet-core`: 93 unit tests (incl. resilient per-chain balance loading — one failing reader marks that chain unavailable instead of rejecting the whole portfolio).
+- `apps/next`: 113 unit tests (payment-request URI builders incl. Solana Pay transfer requests + recipient-address validation + pre-send safety heuristics + address-book/template load hardening + data-source/privacy validation + watch-only storage validation + QR-scan URI unwrapping + CSP connect-src env allow-list + unlock-provider passphrase-fallback selection).
 - `apps/svelte`: 16 headless portability tests.
 - Next First Load JS: about 238 kB; the WDK/BTC graph stays in the worker chunk,
   not the main First Load path.
@@ -47,7 +47,7 @@ Current local bar:
 | Passphrase and passkey unlock | Passphrase remains the recovery slot; passkey enrollment adds a separate passkey-encrypted vault slot. | `packages/wallet-core/test/engine.test.ts` covers both slots after passkey enrollment. |
 | Multi-wallet and multi-account | Independent vaults for wallets; HD indices for accounts. | `packages/wallet-core/test/multi-wallet.test.ts`, `packages/wallet-core/test/multi-account.test.ts`. |
 | QR receive and QR scan send | QR render and QR scan are implemented in both app hosts. | `apps/next/app/page.tsx`, `apps/svelte/src/App.svelte`, `apps/svelte/test/extract-address.test.ts`. |
-| Payment requests (EIP-681 / BIP-21) | Receive has an Address/Request switch: pick asset + amount (+ memo for BTC), get a scannable payment-request URI and QR, not just a bare address. | `apps/next/src/lib/paymentRequest.ts`, `apps/next/test/paymentRequest.test.ts`, Receive card in `apps/next/app/page.tsx`. |
+| Payment requests (EIP-681 / BIP-21 / Solana Pay) | Receive has an Address/Request switch: pick asset + amount (+ memo for BTC/Solana), get a scannable payment-request URI and QR, not just a bare address. EVM → EIP-681, BTC → BIP-21, Solana USD₮/SOL → Solana Pay transfer request (`solana:<owner>?amount&spl-token`). | `apps/next/src/lib/paymentRequest.ts`, `apps/next/test/paymentRequest.test.ts`, Receive card in `apps/next/app/page.tsx`. |
 | Pre-send safety panel | Confirmation screen shows official-contract badge, recipient status (own/saved/recent/new), address-poisoning warning, gas-paid-separately note, and a recipient explorer link. | `apps/next/src/lib/safety.ts`, `apps/next/test/safety.test.ts`, confirmation block in `apps/next/app/page.tsx`. |
 | Address book v2 + payment templates | Contacts carry a note, favorite flag, and last-used stamp (favorites and recent payees sort first); reusable payment templates prefill recipient+asset+amount on Send. Persisted JSON is shape-validated on load — corrupt rows are dropped, never thrown on. | `apps/next/src/lib/contacts.ts`, `apps/next/test/contacts.test.ts`, Settings address book + Send templates row in `apps/next/app/page.tsx`. |
 | Data sources / privacy | A Settings card exposes every endpoint the wallet uses (EVM RPCs, Electrum-WS, optional indexer, CoinGecko price oracle) with privacy labels. Defaults are privacy-preserving; the price call is a disclosed opt-out toggle. Overrides are validated, stored on-device only, and rebuild the engine on save — never threaded into wallet-core. | `apps/next/src/lib/dataSources.ts`, `apps/next/test/dataSources.test.ts`, `apps/next/src/lib/engine.ts`, `apps/next/src/lib/prices.ts`, Data Sources card in `apps/next/app/page.tsx`. |

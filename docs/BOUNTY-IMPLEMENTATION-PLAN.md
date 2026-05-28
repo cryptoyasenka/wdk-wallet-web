@@ -1,5 +1,14 @@
 # WDK Wallet Bounty Implementation Plan
 
+> **STATUS — historical roadmap, not a to-do list.** Every phase below (Phases
+> 0–6 + the audit follow-ups) is **shipped**. This document is kept for the
+> design rationale and the audit trail; it does **not** describe outstanding
+> work. For the current, authoritative state of the project read
+> [`.planning/CURRENT.md`](../.planning/CURRENT.md) (live working state) and
+> [`BOUNTY-CHECKLIST.md`](./BOUNTY-CHECKLIST.md) (what's implemented + how to
+> verify it). The wallet is a complete, green baseline; remaining items are
+> optional milestone-scope extensions, not gaps.
+
 This plan is written for future agents working in this repository. Follow it in
 order unless the user explicitly changes priorities. Preserve the current
 premium glass UI; do not replace it with a generic dashboard or landing page.
