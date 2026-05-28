@@ -2620,11 +2620,14 @@ function ReceiveRequest({ balances, addresses, copyToClipboard, T }: {
   const asset = selected.asset;
   const address = addressByChain.get(asset.chain)!;
   const isBtc = asset.chain === "bitcoin";
+  // BTC honours a BIP-21 `message`; Solana Pay honours a `message` too — both
+  // surface the memo field. EVM EIP-681 `transfer` has no standard memo.
+  const supportsMemo = isBtc || asset.chain === "solana";
 
   let uri = "";
   let invalid = false;
   try {
-    uri = buildPaymentRequestUri(asset, address, amount.trim() || undefined, isBtc ? memo.trim() || undefined : undefined);
+    uri = buildPaymentRequestUri(asset, address, amount.trim() || undefined, supportsMemo ? memo.trim() || undefined : undefined);
   } catch (e) {
     if (e instanceof InvalidAmountError) invalid = true;
     else throw e;
@@ -2650,7 +2653,7 @@ function ReceiveRequest({ balances, addresses, copyToClipboard, T }: {
         <Input type="text" value={amount} onChange={setAmount} placeholder={T("receive.req_amount_ph")} autoComplete="off" />
       </Field>
 
-      {isBtc && (
+      {supportsMemo && (
         <Field label={T("receive.req_memo")}>
           <Input type="text" value={memo} onChange={setMemo} placeholder={T("receive.req_memo_ph")} autoComplete="off" />
         </Field>

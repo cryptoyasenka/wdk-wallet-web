@@ -12,6 +12,8 @@
  *      ethereum:<to>@<chainId>?value=<weiMinorUnits>
  *  - BTC → BIP-21:
  *      bitcoin:<address>?amount=<btcDecimal>&message=<memo>
+ *  - Solana (USD₮ / SOL) → Solana Pay transfer request:
+ *      solana:<ownerAddress>?amount=<decimal>&spl-token=<mint>&message=<memo>
  *
  * Amount is taken as a human decimal string from the UI and converted to the
  * asset's minor units (bigint) for EVM; BIP-21 keeps a BTC decimal by spec.
@@ -57,6 +59,16 @@ export function assertValidRecipient(address: string, chain: ChainId): void {
     if (/[\s?#&/:]/.test(a)) throw new InvalidAddressError("bitcoin address has invalid characters");
     return;
   }
+  if (chain === "solana") {
+    // Base58 (Bitcoin alphabet) inherently excludes whitespace and every URI
+    // delimiter (?#&/: ), so a charset+length check both shape-checks the pubkey
+    // and blocks URI injection. Not an on-curve check — the wallet's own
+    // derivation produces valid keys; this guards crafted/injecting input.
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a)) {
+      throw new InvalidAddressError("solana address must be base58 (32–44 chars)");
+    }
+    return;
+  }
   if (!/^0x[0-9a-fA-F]{40}$/.test(a)) {
     throw new InvalidAddressError("EVM address must be 0x followed by 40 hex characters");
   }
@@ -83,7 +95,7 @@ export function decimalToMinorUnits(decimal: string, decimals: number): bigint {
 
 /** True when this asset/chain can be expressed as a payment request URI here. */
 export function canBuildRequest(asset: Asset): boolean {
-  if (asset.chain === "bitcoin") return true;
+  if (asset.chain === "bitcoin" || asset.chain === "solana") return true;
   return EVM_CHAIN_IDS[asset.chain] !== undefined;
 }
 
@@ -116,6 +128,23 @@ export function buildPaymentRequestUri(
     if (memo && memo.trim() !== "") params.set("message", memo.trim());
     const query = params.toString();
     return query ? `bitcoin:${to}?${query}` : `bitcoin:${to}`;
+  }
+
+  if (asset.chain === "solana") {
+    // Solana Pay transfer request: recipient is the OWNER address (the paying
+    // wallet derives the associated token account itself — never the ATA here),
+    // `amount` is in DECIMAL "user" units (uiAmountString, NOT base units like
+    // EVM), and `spl-token` names the mint. The amount is validated against the
+    // mint's decimals; the memo surfaces as Solana Pay `message` (wallet-shown).
+    const params = new URLSearchParams();
+    if (amountDecimal && amountDecimal.trim() !== "") {
+      decimalToMinorUnits(amountDecimal, asset.decimals); // throws on >decimals / ≤0
+      params.set("amount", amountDecimal.trim());
+    }
+    if (asset.token) params.set("spl-token", asset.token);
+    if (memo && memo.trim() !== "") params.set("message", memo.trim());
+    const query = params.toString();
+    return query ? `solana:${to}?${query}` : `solana:${to}`;
   }
 
   const chainId = EVM_CHAIN_IDS[asset.chain];

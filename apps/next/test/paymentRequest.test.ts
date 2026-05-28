@@ -18,6 +18,9 @@ const usdtEth: Asset = { symbol: "USDT", chain: "ethereum", token: "0xdAC17F958D
 const usdtPolygon: Asset = { symbol: "USDT", chain: "polygon", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6 };
 const ethNative: Asset = { symbol: "ETH", chain: "ethereum", decimals: 18 };
 const btc: Asset = { symbol: "BTC", chain: "bitcoin", decimals: 8 };
+const usdtSol: Asset = { symbol: "USDT", chain: "solana", token: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", decimals: 6 };
+const solNative: Asset = { symbol: "SOL", chain: "solana", decimals: 9 };
+const solOwner = "5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9";
 
 describe("decimalToMinorUnits", () => {
   it("converts whole and fractional decimals without float error", () => {
@@ -39,15 +42,17 @@ describe("decimalToMinorUnits", () => {
 });
 
 describe("canBuildRequest", () => {
-  it("is true for BTC and configured EVM chains", () => {
+  it("is true for BTC, configured EVM chains, and Solana", () => {
     expect(canBuildRequest(btc)).toBe(true);
     expect(canBuildRequest(usdtEth)).toBe(true);
     expect(canBuildRequest(usdtPolygon)).toBe(true);
+    expect(canBuildRequest(usdtSol)).toBe(true);
+    expect(canBuildRequest(solNative)).toBe(true);
   });
 
   it("is false for a chain outside the wallet scope", () => {
-    // `solana` is not a ChainId; the cast simulates malformed/foreign input.
-    expect(canBuildRequest({ symbol: "USDT", chain: "solana", decimals: 6 } as unknown as Asset)).toBe(false);
+    // `tron` was purged from ChainId; the cast simulates malformed/foreign input.
+    expect(canBuildRequest({ symbol: "USDT", chain: "tron", decimals: 6 } as unknown as Asset)).toBe(false);
   });
 });
 
@@ -91,6 +96,43 @@ describe("buildPaymentRequestUri — BTC (BIP-21)", () => {
 
   it("validates the amount before producing any URI", () => {
     expect(() => buildPaymentRequestUri(btc, "bc1qexample", "-1")).toThrow(InvalidAmountError);
+  });
+});
+
+describe("buildPaymentRequestUri — Solana Pay (transfer request)", () => {
+  it("encodes solana:<owner>?amount=<decimal>&spl-token=<mint> for SPL USD₮", () => {
+    expect(buildPaymentRequestUri(usdtSol, solOwner, "10.5")).toBe(
+      `solana:${solOwner}?amount=10.5&spl-token=Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB`,
+    );
+  });
+
+  it("keeps the amount as decimal UI units, not minor units (per Solana Pay)", () => {
+    const uri = buildPaymentRequestUri(usdtSol, solOwner, "1");
+    expect(uri).toContain("amount=1");
+    expect(uri).not.toContain("1000000");
+  });
+
+  it("returns a bare spl-token request when no amount is given", () => {
+    expect(buildPaymentRequestUri(usdtSol, solOwner)).toBe(
+      `solana:${solOwner}?spl-token=Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB`,
+    );
+  });
+
+  it("encodes a native SOL request with no spl-token", () => {
+    expect(buildPaymentRequestUri(solNative, solOwner, "0.25")).toBe(`solana:${solOwner}?amount=0.25`);
+  });
+
+  it("url-encodes the Solana Pay message from the memo field", () => {
+    expect(buildPaymentRequestUri(usdtSol, solOwner, "5", "invoice #42")).toContain("message=invoice+%2342");
+  });
+
+  it("rejects more fractional digits than the mint supports (6)", () => {
+    expect(() => buildPaymentRequestUri(usdtSol, solOwner, "0.0000001")).toThrow(InvalidAmountError);
+  });
+
+  it("rejects a non-base58 or URI-injecting solana recipient", () => {
+    expect(() => buildPaymentRequestUri(usdtSol, "0OIl")).toThrow(InvalidAddressError);
+    expect(() => buildPaymentRequestUri(usdtSol, `${solOwner}?amount=1`)).toThrow(InvalidAddressError);
   });
 });
 
