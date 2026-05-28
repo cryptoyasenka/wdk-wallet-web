@@ -32,7 +32,10 @@ export interface WatchedWallet {
   readonly createdAt: number;
 }
 
-const STORAGE_KEY = "wdk-watch-wallets";
+/** localStorage key for watched addresses. Exported so the Delete-Wallet flow
+ * can wipe this privacy-sensitive data alongside the seed vaults. */
+export const WATCH_WALLETS_STORAGE_KEY = "wdk-watch-wallets";
+const STORAGE_KEY = WATCH_WALLETS_STORAGE_KEY;
 
 /** `0x` followed by exactly 40 hex chars. Case-insensitive; no checksum check. */
 export function isValidEvmAddress(value: string): boolean {

@@ -43,7 +43,7 @@ import { buildPaymentRequestUri, canBuildRequest, InvalidAmountError } from "@/l
 import { classifyRecipient, detectPoisoning, isOfficialToken, officialTokenContracts } from "@/lib/safety";
 import {
   WATCH_CHAINS, addWatchWallet, removeWatchWallet, loadWatchWallets,
-  isValidEvmAddress, watchChainToChainId,
+  isValidEvmAddress, watchChainToChainId, WATCH_WALLETS_STORAGE_KEY,
   type WatchedWallet, type WatchChain,
 } from "@/lib/watchOnly";
 import { t, getLocale, setLocale as persistLocale, type Locale } from "@/lib/i18n";
@@ -62,9 +62,15 @@ interface ToastItem { id: number; type: ToastType; message: string }
 
 const RECEIVE_CHAINS: readonly ChainId[] = ["bitcoin", "ethereum"];
 const WALLET_NAMES_KEY = "wdk-wallet-names";
-const LOCAL_STORAGE_KEYS_ON_WALLET_DELETE = [WALLET_NAMES_KEY, "wdk-contacts", "wdk-templates"] as const;
 const AUTO_LOCK_KEY = "wdk-autolock-min";
 const DEFAULT_AUTOLOCK_MIN = 5;
+// Everything Delete-Wallet must erase from localStorage. The IndexedDB store
+// (all vaults + unlock salts) is dropped separately. This list includes the
+// watch-only addresses (privacy-sensitive) and the auto-lock preference so the
+// "wipe all data for this wallet" promise is honest, not partial.
+const LOCAL_STORAGE_KEYS_ON_WALLET_DELETE = [
+  WALLET_NAMES_KEY, "wdk-contacts", "wdk-templates", WATCH_WALLETS_STORAGE_KEY, AUTO_LOCK_KEY,
+] as const;
 
 // BIP-39 word list subset for quiz decoys (common, non-confusing words)
 const DECOY_WORDS = [
