@@ -848,6 +848,13 @@ export default function Page() {
     const key = sendAssetKey || assetKey(balances[0]!.asset);
     const found = balances.find((b) => assetKey(b.asset) === key);
     if (found) {
+      // A failed-read balance carries a 0n placeholder, not a real zero — never
+      // let "Max" present it as a spendable amount (same honesty rule the total
+      // and the balance rows follow). Say it's unreadable instead of filling 0.
+      if (found.unavailable) {
+        addToast("info", T("balance.unavailable"));
+        return;
+      }
       setSendAmount(formatUnits(found.amount, found.asset.decimals));
       // BTC pays its fee out of this same balance, so sending the whole amount
       // leaves nothing for the network fee and the tx can't be built. Tokens
@@ -2603,8 +2610,9 @@ function Qr({ value, chain }: { readonly value: string; readonly chain: string }
 
 /**
  * Receive → Request mode. Lets the user turn a receive address into a shareable
- * payment-request URI (EIP-681 for EVM, BIP-21 for BTC) with an optional amount
- * and — for BTC only, where the standard honours it — a memo. The URI is what
+ * payment-request URI (EIP-681 for EVM, BIP-21 for BTC, Solana Pay for Solana)
+ * with an optional amount and — for BTC and Solana, where the standard honours
+ * a memo — a message. The URI is what
  * gets encoded as the QR and copied, so a payer scans an amount-filled request
  * instead of just a bare address. Invalid amounts are rejected before any URI
  * is produced; nothing partial is ever rendered.
