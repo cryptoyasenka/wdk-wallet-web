@@ -1,6 +1,61 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-29 (final pre-submission audit — 3 fixes shipped)
+**Last touched:** 2026-05-29 (independent re-audit triage — plan locked, executing)
+
+## 🔴 TODO (carry-over, explicit ask)
+- [ ] **Run BTC on testnet end-to-end** — the BTC fee-speed selector + send path were
+  NOT exercised live (needs funded testnet BTC + a testnet Electrum-WS endpoint).
+  Harness ready: `BTC_LIVE_WS_URL`/`NETWORK`/`ADDRESS`/`MIN_SATS` env into `pnpm btc:live`
+  (`tools/e2e/btc-live.mjs`). Confirm slow/normal/fast actually change the on-chain fee.
+
+## Independent re-audit 2026-05-29 — triage + fix plan (EXECUTING)
+Second external deep audit (6 findings). `verify`+`pnpm audit` were green for them too.
+My verdict per finding (verified against code, not the report's word):
+- **F1 [P1] passkey breaks promised passphrase fallback — FAIR/REAL, top value.**
+  i18n L156/L157 literally promise "your passphrase still works", but
+  `SelectingUnlockProvider.#active()` (webauthnUnlock.ts:383-388) routes to WebAuthn
+  whenever a passkey is enrolled; `onUnlock` (page.tsx:678) FORCES a passphrase then
+  ignores it → on PRF failure a user with a VALID passphrase is locked out, and the
+  passkey adds friction (typed pass is dead). Vault is TWO blobs (engine.ts:140
+  selects blob by recorded credential; reencrypt:610-614 ADDS passkey blob, passphrase
+  blob survives) ⇒ both keys decrypt; bug is purely SELECTION. FIX: (a) prefer
+  passphrase when one is set — `#active()`: pending-passphrase→#passphrase, else
+  enrolled→#webauthn, else #passphrase; add `hasPendingPassphrase()` to PassphraseUnlock
+  (`!!#passphrase`). (b) WalletApp+SelectingUnlockProvider: `unlockWithPasskey()`
+  (`setPassphrase(null); engine.unlock()`) + `isPasskeyEnrolled()`. (c) Locked screen
+  (page.tsx:1233-1241): when webauthnOk && enrolled show "Unlock with passkey" primary +
+  passphrase as optional fallback; add `passkeyEnrolled` state probed on enter("locked").
+  (d) UV hardening preferred→required at webauthnUnlock.ts:228/252/306 (note tradeoff:
+  roaming authenticators w/o UV; platform ones all do UV). (e) i18n new keys
+  lock.unlock_passkey / lock.or_passphrase (en/ru/uk). Honest: WebAuthn ceremony not
+  unit-testable in node (no navigator.credentials) → cover by typecheck+build+smoke.
+- **F2 [P1] smoke/a11y fail on locale — STALE / ALREADY FIXED (a066c47).**
+  `locale:"en-US"` present in smoke.mjs:135,199 + a11y.mjs:134 (grep-verified). Auditor
+  ran a pre-a066c47 checkout. probe.mjs already gone. Baseline gate (running) = proof.
+  NO code change; report honestly.
+- **F3 [P2] Delete Wallet leaves watch-only — FAIR.** Delete (page.tsx:2304-2317) nukes
+  whole IndexedDB + LOCAL_STORAGE_KEYS_ON_WALLET_DELETE (L65: wallet-names, wdk-contacts,
+  wdk-templates) but MISSES `wdk-watch-wallets` (watchOnly.ts STORAGE_KEY:35, privacy) +
+  `wdk-autolock-min` (L66). Copy (i18n:218) says "wipe all data for this wallet". FIX:
+  export STORAGE_KEY as WATCH_WALLETS_STORAGE_KEY; add it + AUTO_LOCK_KEY to the delete list.
+- **F4 [P2] No CSP env path for indexer/price/custom-RPC — FAIR.** cspAllowlist.ts
+  envRpcOrigins() (L59) only reads NEXT_PUBLIC_ETHEREUM_RPC_URLS; ds.csp_blocked (i18n:214)
+  promises self-host CSP-env unblocks but no var adds ONLY to connect-src. FIX: add
+  `envConnectSrcOrigins()` reading `NEXT_PUBLIC_CONNECT_SRC_ORIGINS`, fold into
+  staticConnectSrcOrigins(); update .env.example + SECURITY-REVIEW §6 + test/cspAllowlist.
+- **F5 [P2] historyProvider no timeout — FAIR, trivial.** historyProvider.ts:127 plain
+  fetch; prices.ts uses AbortSignal.timeout(8000). FIX: add `signal: AbortSignal.timeout(8000)`
+  (catch already []s on abort).
+- **F6 [P2] RECEIVE_CHAINS only btc+eth — FAIR (Solana real; EVM = shared addr).**
+  page.tsx:63. EVM addr identical across eth/polygon/arbitrum/plasma ⇒ naive expand =
+  4 dup rows. Solana addr unique + flagship USD₮. canBuildRequest true btc+4EVM, FALSE
+  solana. FIX: expand RECEIVE_CHAINS to all 6 + DEDUPE Address-mode by address (group EVM,
+  combined label); Request mode then offers USD₮ on all EVM+BTC, Solana=address-only
+  (graceful). getAddress per-chain already UnsupportedChainError-guarded (page.tsx:500-504).
+Order: F5→F3→F4→F1→F6, atomic commits (no AI traces), then verify+smoke+a11y, then docs/counts.
+
+---
+**FINAL PRE-SUBMISSION AUDIT (2026-05-29):** Full adversarial pass (crypto/host/anti-phishing/network/UI/supply-chain/live user-flow). Verdict: code is exceptionally clean + honest; crypto core strong (worker seed isolation, PBKDF2-600k/HKDF/AES-GCM, WebAuthn PRF all correct); zero XSS sinks / console / type-escapes / secret-logging; i18n complete (every key en+ru+uk, every used key defined). Four audit fixes + a BTC fee-speed selector feature shipped to main, all green (verify 92+97+16=205 tests, smoke 6/6, a11y 0-violations/8-screens, audit 1 LOW=documented elliptic):
 
 **FINAL PRE-SUBMISSION AUDIT (2026-05-29):** Full adversarial pass (crypto/host/anti-phishing/network/UI/supply-chain/live user-flow). Verdict: code is exceptionally clean + honest; crypto core strong (worker seed isolation, PBKDF2-600k/HKDF/AES-GCM, WebAuthn PRF all correct); zero XSS sinks / console / type-escapes / secret-logging; i18n complete (every key en+ru+uk, every used key defined). Four audit fixes + a BTC fee-speed selector feature shipped to main, all green (verify 92+97+16=205 tests, smoke 6/6, a11y 0-violations/8-screens, audit 1 LOW=documented elliptic):
 - `2cf3767` **REAL BUG** — QR scan of an EIP-681 ERC-20 transfer URI (`ethereum:<token>@<chain>/transfer?address=<recipient>`, the exact form the Receive card generates for USDT/XAU₮) returned the TOKEN contract, not the recipient → could pay the token contract. Fixed `extract-address.ts` in BOTH apps (still byte-identical) to read the `address` param for the function-call form; +regression tests (next 87→97, svelte 13→16, added the missing apps/next suite).
