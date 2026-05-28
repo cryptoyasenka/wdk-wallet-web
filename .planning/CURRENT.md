@@ -1,6 +1,14 @@
 # CURRENT — wdk-wallet-web
 
-**Last touched:** 2026-05-29 (3rd audit — Solana Pay + resilient balances + CI gates shipped; gate GREEN)
+**Last touched:** 2026-05-29 (A3 CI finished + verified on GitHub; final audit; Max honesty fix — all green)
+
+## GOAL 2026-05-29 — finish A3 CI + final audit + 10/10 — ✅ DONE
+Goal: "доделай A3 CI; кроме тестов BTC прогон ещё финальный аудит, доведи проект на 10/10 для подачи." (BTC live-testnet = out of scope, external resource.)
+- **A3 CI — verified DONE on GitHub (caveat closed).** The old honest caveat ("GH Actions not run locally") is resolved with proof: run **26608666931** (d8bb0d4) shows the NEW `a11y` ✓ + `audit` ✓ jobs really executed green (not skipped); run **26609154962** (9a600ee) all 6 green with **0** deprecation annotations.
+- **`9a600ee`** — pinned all 3 actions to Node24-runtime SHAs (checkout v6.0.2 `de0fac2e…`, setup-node v6.4.0 `48b55a01…`, pnpm/action-setup v6.0.8 `0e279bb9…`) in ci.yml + live-checks.yml, ahead of GitHub's June-2 force-migration; killed the 6 "Node.js 20 deprecated" warnings. pnpm `version` input still optional → packageManager still read (confirmed via action.yml).
+- **`3cd5a04`** — final-audit fix: "Max" button no longer fills a failed-read balance's `0n` placeholder as a spendable amount (the one place A2's honesty rule leaked) → now toasts `balance.unavailable` + returns. Also fixed the stale ReceiveRequest header comment to name Solana Pay. +10/-2 page.tsx, reuses existing i18n key.
+- **Final adversarial audit verdict: CLEAN.** paymentRequest.ts (Solana Pay) correct; engine.ts resilient balances correct + per-asset granular; i18n complete (222 keys × en/ru/uk, all 208 used keys defined); Solana config decimals correct (USD₮=6, SOL=9); Solana Pay tests real (7 exact-URI); `requestable` correctly independent of `unavailable` (A1 not undercut by A2). Gate GREEN: wallet-core **93** + next **113** + svelte **16** = **222** unit; build First Load **239 kB** (was 238, +1kB Solana Pay — within docs' "about 238"). smoke 6/6 + a11y 0≥serious proven on CI run for HEAD.
+- **Deferred (NOT blockers):** A4 demo.gif (Yana visual QA — ffmpeg + eyeball, should showcase passkey/Solana/request); BTC live-testnet e2e (funded testnet BTC + testnet Electrum-WS — external); README "Solana Pay" mention optional (BOUNTY-CHECKLIST is the authoritative reviewer map, already has it).
 
 ## 🔴 TODO (carry-over, explicit ask)
 - [ ] **Run BTC on testnet end-to-end** — the BTC fee-speed selector + send path were
