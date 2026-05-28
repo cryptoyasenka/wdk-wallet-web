@@ -279,6 +279,20 @@ const translations: Record<string, Record<Locale, string>> = {
   "misc.recipient": { en: "Recipient", ru: "Получатель", uk: "Отримувач" },
   "misc.network_fee": { en: "Network fee", ru: "Комиссия сети", uk: "Комісія мережі" },
   "account.name_template": { en: "Account #", ru: "Аккаунт #", uk: "Акаунт #" },
+
+  // Fee speed (Bitcoin only — the one chain WDK lets us tier)
+  "fee.speed": { en: "Network speed", ru: "Скорость сети", uk: "Швидкість мережі" },
+  "fee.slow": { en: "Slow", ru: "Медленная", uk: "Повільна" },
+  "fee.normal": { en: "Normal", ru: "Обычная", uk: "Звичайна" },
+  "fee.fast": { en: "Fast", ru: "Быстрая", uk: "Швидка" },
+  "fee.slow_hint": { en: "~1 hour", ru: "~1 час", uk: "~1 год" },
+  "fee.normal_hint": { en: "~30 min", ru: "~30 мин", uk: "~30 хв" },
+  "fee.fast_hint": { en: "~10 min", ru: "~10 мин", uk: "~10 хв" },
+  "send.max_btc_fee_warn": {
+    en: "Sending the whole BTC balance leaves nothing for the network fee — lower it a bit.",
+    ru: "Отправка всего баланса BTC не оставит средств на комиссию сети — уменьшите немного.",
+    uk: "Надсилання всього балансу BTC не залишить коштів на комісію мережі — зменшіть трохи.",
+  },
 };
 
 export function t(key: string, locale: Locale): string {

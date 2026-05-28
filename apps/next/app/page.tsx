@@ -22,6 +22,7 @@ import {
   type Asset,
   type Balance,
   type ChainId,
+  type FeePreference,
   type FeeQuote,
   type TxIntent,
 } from "@wdk-web/wallet-core";
@@ -168,6 +169,9 @@ export default function Page() {
   const [sendTo, setSendTo] = useState("");
   const [sendAmount, setSendAmount] = useState("");
   const [quote, setQuote] = useState<{ readonly intent: TxIntent; readonly fee: FeeQuote } | null>(null);
+  // Transaction speed — only Bitcoin honors it (WDK confirmationTarget); the
+  // selector below is shown for BTC only. Default "normal".
+  const [feePreference, setFeePreference] = useState<FeePreference>("normal");
   const [sentHash, setSentHash] = useState<string | null>(null);
   const [activity, setActivity] = useState<readonly ActivityItem[] | null>(null);
   const [activityError, setActivityError] = useState<string | null>(null);
@@ -698,14 +702,22 @@ export default function Page() {
       if (!to) throw new Error(T("error.recipient_required"));
       const amount = parseUnits(sendAmount, asset.decimals, T);
       const intent: TxIntent = { asset, to, amount };
-      const fee = await getWalletApp().engine.quoteSend(intent);
+      // Bitcoin is the only chain WDK lets us tier (confirmationTarget); for
+      // every other asset the preference is a no-op, so pass it only for BTC.
+      const fee = await getWalletApp().engine.quoteSend(
+        intent,
+        asset.chain === "bitcoin" ? feePreference : undefined,
+      );
       setQuote({ intent, fee });
     });
 
   const onConfirmSend = () =>
     act(async () => {
       if (!quote) return;
-      const res = await getWalletApp().engine.send(quote.intent);
+      const res = await getWalletApp().engine.send(
+        quote.intent,
+        quote.intent.asset.chain === "bitcoin" ? feePreference : undefined,
+      );
       // Stamp a saved recipient as just-used so the address book can surface
       // recent payees first (no-op if the recipient isn't a saved contact).
       setContacts(touchContact(quote.intent.to, quote.intent.asset.chain));
@@ -725,6 +737,15 @@ export default function Page() {
     setError(null);
     setQuote(null);
   };
+
+  /** Pick a BTC speed tier and re-quote so the shown fee reflects it. */
+  const onChangeFeePreference = (p: FeePreference) =>
+    act(async () => {
+      setFeePreference(p);
+      if (!quote || quote.intent.asset.chain !== "bitcoin") return;
+      const fee = await getWalletApp().engine.quoteSend(quote.intent, p);
+      setQuote({ intent: quote.intent, fee });
+    });
 
   const onSelectAccount = (index: number) =>
     act(async () => {
@@ -772,6 +793,10 @@ export default function Page() {
     const found = balances.find((b) => assetKey(b.asset) === key);
     if (found) {
       setSendAmount(formatUnits(found.amount, found.asset.decimals));
+      // BTC pays its fee out of this same balance, so sending the whole amount
+      // leaves nothing for the network fee and the tx can't be built. Tokens
+      // pay gas in the native coin, so their Max is fine. Nudge, don't block.
+      if (found.asset.chain === "bitcoin") addToast("info", T("send.max_btc_fee_warn"));
     }
   };
 
@@ -1424,6 +1449,30 @@ export default function Page() {
                   <Row k={T("misc.recipient")} v={quote.intent.to} mono />
                   <Row k={T("misc.network_fee")} v={`${formatUnits(quote.fee.fee, quote.fee.feeAsset.decimals)} ${quote.fee.feeAsset.symbol}`} />
                 </dl>
+                {quote.intent.asset.chain === "bitcoin" && (
+                  <div className="mb-4">
+                    <p className="mb-2 text-xs text-[--color-muted]">{T("fee.speed")}</p>
+                    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={T("fee.speed")}>
+                      {(["slow", "normal", "fast"] as const).map((p) => (
+                        <button
+                          key={p}
+                          role="radio"
+                          aria-checked={feePreference === p}
+                          disabled={busy}
+                          onClick={() => onChangeFeePreference(p)}
+                          className={`rounded-md border px-3 py-2 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                            feePreference === p
+                              ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                              : "border-[--color-border] text-[--color-muted] hover:text-white"
+                          }`}
+                        >
+                          <span className="block text-xs font-medium">{T(`fee.${p}`)}</span>
+                          <span className="block text-[10px] opacity-70">{T(`fee.${p}_hint`)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <SafetyPanel
                   asset={quote.intent.asset}
                   to={quote.intent.to}
