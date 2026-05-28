@@ -1,0 +1,32 @@
+name: live-checks
+
+# Opt-in, network-dependent end-to-end checks. NOT part of the per-push `ci`
+# gate, which must stay deterministic and offline. These hit live, READ-ONLY
+# public mainnet endpoints to prove the real @tetherto transport works end to
+# end (the path FakeWdkAdapter in `pnpm test` and the BTC-unconfigured smoke
+# never exercise):
+#   - btc:live — reads a known on-chain BTC balance over a public Electrum-WS
+#   - sol:live — reads a known SPL USD₮ balance over a public Solana RPC
+# Run manually from the Actions tab (workflow_dispatch). No secrets required;
+# the defaults are immutable / long-lived holders with generous floors so they
+# cannot flake. Targets are overridable via the script env vars documented in
+# tools/e2e/btc-live.mjs and tools/e2e/sol-live.mjs.
+on:
+  workflow_dispatch:
+
+# Least-privilege: read-only, like ci.yml — these jobs only read the repo and
+# make outbound read-only RPC calls; they never write releases, tags, or deploys.
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: "20", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm btc:live
+      - run: pnpm sol:live

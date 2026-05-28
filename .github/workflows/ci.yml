@@ -67,6 +67,31 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm smoke
+  # Accessibility gate: same build + serve + headless-browser path as smoke, but
+  # runs axe-core (WCAG 2.0/2.1 A+AA) across the wallet's screens and fails on any
+  # violation at impact >= serious. Proves the a11y bar at runtime, not in review.
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: "20", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm a11y
+  # Dependency advisory gate: `--audit-level moderate` is the bar the project
+  # commits to (BOUNTY-CHECKLIST). It must pass with only the one documented,
+  # no-patch-available `elliptic` low advisory in the alpha BTC WDK chain.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: "20", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level moderate
   secret-scan:
     runs-on: ubuntu-latest
     steps:
