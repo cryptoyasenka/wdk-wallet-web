@@ -42,6 +42,13 @@ export type Amount = bigint;
 export interface Balance {
   readonly asset: Asset;
   readonly amount: Amount;
+  /**
+   * Set true when this chain's balance read failed (RPC/reader error) so the
+   * rest of the portfolio can still load. The amount is then 0n as a
+   * placeholder and the UI shows an honest "unavailable", never a fake zero.
+   * Omitted (not `false`) on success, per exactOptionalPropertyTypes.
+   */
+  readonly unavailable?: boolean;
 }
 
 export interface TxIntent {

@@ -1003,6 +1003,7 @@ export default function Page() {
   // ---- USD calculations ----
   const totalUsd = balances
     ? balances.reduce((sum, b) => {
+        if (b.unavailable) return sum; // never fold a failed-read placeholder into the total
         const price = prices[b.asset.symbol] ?? 0;
         const amount = Number(formatUnits(b.amount, b.asset.decimals));
         return sum + amount * price;
@@ -1400,11 +1401,17 @@ export default function Page() {
                           <span className="text-[--color-muted] text-xs">{T("misc.on")} {b.asset.chain}</span>
                         </span>
                         <span className="text-right">
-                          <span className="font-mono text-emerald-400 font-medium block">
-                            {formatUnits(b.amount, b.asset.decimals)}
-                          </span>
-                          {price > 0 && (
-                            <span className="text-[10px] text-[--color-muted]">{formatUsd(usdValue)}</span>
+                          {b.unavailable ? (
+                            <span className="text-[10px] text-amber-300/80">{T("balance.unavailable")}</span>
+                          ) : (
+                            <>
+                              <span className="font-mono text-emerald-400 font-medium block">
+                                {formatUnits(b.amount, b.asset.decimals)}
+                              </span>
+                              {price > 0 && (
+                                <span className="text-[10px] text-[--color-muted]">{formatUsd(usdValue)}</span>
+                              )}
+                            </>
                           )}
                         </span>
                       </motion.li>
@@ -1859,11 +1866,17 @@ export default function Page() {
                           <span className="text-[--color-muted] text-xs">{T("misc.on")} {b.asset.chain}</span>
                         </span>
                         <span className="text-right">
-                          <span className="font-mono text-emerald-400 font-medium block">
-                            {formatUnits(b.amount, b.asset.decimals)}
-                          </span>
-                          {price > 0 && (
-                            <span className="text-[10px] text-[--color-muted]">{formatUsd(usdValue)}</span>
+                          {b.unavailable ? (
+                            <span className="text-[10px] text-amber-300/80">{T("balance.unavailable")}</span>
+                          ) : (
+                            <>
+                              <span className="font-mono text-emerald-400 font-medium block">
+                                {formatUnits(b.amount, b.asset.decimals)}
+                              </span>
+                              {price > 0 && (
+                                <span className="text-[10px] text-[--color-muted]">{formatUsd(usdValue)}</span>
+                              )}
+                            </>
                           )}
                         </span>
                       </motion.li>

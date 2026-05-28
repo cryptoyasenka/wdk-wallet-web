@@ -393,15 +393,23 @@ function buildEngine(
         // portfolio (an explicit getAddress/send on that chain still raises a
         // typed UnsupportedChainError — failing loud only when asked directly).
         if (!chains[asset.chain]) continue;
-        let address = addressByChain.get(asset.chain);
-        if (address === undefined) {
-          address = await s.deriveAddress(asset.chain, acct);
-          addressByChain.set(asset.chain, address);
+        // Resilient per-asset: a single chain's RPC/reader failure marks THAT
+        // row unavailable instead of rejecting the whole portfolio (one bad
+        // public RPC must not blank every balance). The UI shows the honest
+        // "unavailable" marker; callers never see a fabricated zero.
+        try {
+          let address = addressByChain.get(asset.chain);
+          if (address === undefined) {
+            address = await s.deriveAddress(asset.chain, acct);
+            addressByChain.set(asset.chain, address);
+          }
+          const amount = asset.token
+            ? await r.getTokenBalance(asset.chain, asset.token, address)
+            : await r.getNativeBalance(asset.chain, address);
+          balances.push({ asset, amount });
+        } catch {
+          balances.push({ asset, amount: 0n, unavailable: true });
         }
-        const amount = asset.token
-          ? await r.getTokenBalance(asset.chain, asset.token, address)
-          : await r.getNativeBalance(asset.chain, address);
-        balances.push({ asset, amount });
       }
       return balances;
     },
@@ -428,10 +436,16 @@ function buildEngine(
       const reader = await readerForReads();
       const balances: Balance[] = [];
       for (const asset of inScope) {
-        const amount = asset.token
-          ? await reader.getTokenBalance(asset.chain, asset.token, address)
-          : await reader.getNativeBalance(asset.chain, address);
-        balances.push({ asset, amount });
+        // Resilient per-asset (same rationale as getBalances): one chain's
+        // reader failure marks that row unavailable, not the whole watch view.
+        try {
+          const amount = asset.token
+            ? await reader.getTokenBalance(asset.chain, asset.token, address)
+            : await reader.getNativeBalance(asset.chain, address);
+          balances.push({ asset, amount });
+        } catch {
+          balances.push({ asset, amount: 0n, unavailable: true });
+        }
       }
       return balances;
     },

@@ -194,6 +194,48 @@ describe("wallet engine — portfolio", () => {
     expect(balances[0]?.asset.symbol).toBe("USDT");
     expect(balances[0]?.amount).toBe(1_234_567n);
   });
+
+  it("marks one chain unavailable instead of failing the whole portfolio when its reader throws", async () => {
+    // One bad public RPC must not blank every balance: getBalances settles
+    // per-asset — the failing chain is flagged unavailable (amount 0n), the
+    // rest still load. The UI shows an honest marker, never a fake zero.
+    class PartialFailAdapter extends FakeWdkAdapter {
+      override async createBalanceReader(_chains: ChainRegistry): Promise<WdkBalanceReader> {
+        return {
+          async getNativeBalance(): Promise<bigint> {
+            return 0n;
+          },
+          async getTokenBalance(chain): Promise<bigint> {
+            if (chain === "polygon") throw new Error("RPC down");
+            return 5_000_000n;
+          },
+          async getTransactionStatus(): Promise<"pending" | "confirmed" | "failed"> {
+            return "confirmed";
+          },
+          dispose(): void {},
+        };
+      }
+    }
+
+    const { deps } = makeDeps();
+    const engine = createWalletEngineWithAdapter(new PartialFailAdapter(), deps, {
+      chains: buildChainRegistry(),
+      assets: [
+        { symbol: "USDT", chain: "ethereum", token: USDT_ETHEREUM, decimals: 6 },
+        { symbol: "USDT", chain: "polygon", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6 },
+      ],
+    });
+    await engine.createWallet();
+    await engine.unlock();
+
+    const balances = await engine.getBalances(); // must NOT reject
+    const eth = balances.find((b) => b.asset.chain === "ethereum");
+    const poly = balances.find((b) => b.asset.chain === "polygon");
+    expect(eth?.amount).toBe(5_000_000n);
+    expect(eth?.unavailable).toBeUndefined();
+    expect(poly?.unavailable).toBe(true);
+    expect(poly?.amount).toBe(0n);
+  });
 });
 
 describe("wallet engine — watch-only reads (Phase 5)", () => {

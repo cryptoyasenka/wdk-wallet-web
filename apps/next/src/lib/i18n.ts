@@ -274,6 +274,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "misc.save": { en: "Save", ru: "Сохранить", uk: "Зберегти" },
   "misc.remove": { en: "Remove", ru: "Удалить", uk: "Видалити" },
   "misc.on": { en: "on", ru: "на", uk: "у" },
+  "balance.unavailable": { en: "Balance unavailable", ru: "Баланс недоступен", uk: "Баланс недоступний" },
   "misc.view_explorer": { en: "View on explorer", ru: "Посмотреть в проводнике", uk: "Переглянути в провіднику" },
   "misc.amount": { en: "Amount", ru: "Сумма", uk: "Сума" },
   "misc.asset": { en: "Asset", ru: "Актив", uk: "Актив" },
