@@ -21,7 +21,7 @@ Current local bar:
   advisory is upstream in the pinned alpha BTC WDK dependency chain
   (`bitcoinjs-message -> secp256k1 -> elliptic`) and has no patched range in the
   advisory.
-- `wallet-core`: 84 unit tests.
+- `wallet-core`: 88 unit tests.
 - `apps/next`: 97 unit tests (payment-request URI builders + recipient-address validation + pre-send safety heuristics + address-book/template load hardening + data-source/privacy validation + watch-only storage validation + QR-scan URI unwrapping).
 - `apps/svelte`: 16 headless portability tests.
 - Next First Load JS: about 237 kB; the WDK/BTC graph stays in the worker chunk,

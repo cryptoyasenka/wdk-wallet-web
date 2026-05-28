@@ -18,6 +18,10 @@ export class WorkerWdkAdapter implements WdkAdapter {
   readonly #worker: Worker;
   readonly #pending = new Map<number, Pending>();
   #nextId = 1;
+  // Latched once the worker dies (crash or an undeserializable message). After
+  // that every outstanding and future RPC rejects with this reason instead of
+  // hanging forever on a worker that will never reply.
+  #failure: Error | null = null;
 
   constructor(worker: Worker) {
     this.#worker = worker;
@@ -29,10 +33,22 @@ export class WorkerWdkAdapter implements WdkAdapter {
       if (msg.ok) slot.resolve(msg.result);
       else slot.reject(rehydrateError(msg.error));
     };
+    // A worker crash, or a reply that fails structured-clone, would otherwise
+    // leave every in-flight RPC pending forever — a frozen unlock/send with no
+    // error to surface. Reject all outstanding calls and latch the failure so
+    // later calls fail fast rather than hang on a worker that is gone.
+    const die = (reason: string): void => {
+      this.#failure ??= new Error(reason);
+      for (const slot of this.#pending.values()) slot.reject(this.#failure);
+      this.#pending.clear();
+    };
+    this.#worker.onerror = (event: ErrorEvent) => die(event.message || "crypto worker crashed");
+    this.#worker.onmessageerror = () => die("crypto worker sent an undeserializable message");
   }
 
   /** Post a request and resolve with its (caller-known-shaped) result. */
   #req<T>(make: (id: number) => WorkerRequest): Promise<T> {
+    if (this.#failure) return Promise.reject(this.#failure);
     const id = this.#nextId++;
     const msg = make(id);
     return new Promise<T>((resolve, reject) => {
