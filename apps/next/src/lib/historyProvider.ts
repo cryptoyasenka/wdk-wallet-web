@@ -26,9 +26,10 @@
  *       } ] }
  *
  * Hardening: the response is untrusted remote JSON. Every row is shape-validated
- * and malformed rows are dropped, never thrown on. A non-2xx, network, or parse
- * failure yields [] for that (chain, asset), so the core falls back to the local
- * log — a bad indexer degrades activity gracefully instead of breaking it.
+ * and malformed rows are dropped, never thrown on. A non-2xx, timeout, network,
+ * or parse failure yields [] for that (chain, asset), so the core falls back to
+ * the local log — a bad indexer degrades activity gracefully instead of breaking
+ * it. The request is time-bounded (8 s) so a hung indexer cannot stall Activity.
  */
 import {
   DEFAULT_ASSETS,
@@ -124,7 +125,13 @@ export function createIndexerHistoryProvider(baseUrl: string): HistoryProvider {
         return [];
       }
       try {
-        const res = await fetch(url, { headers: { accept: "application/json" } });
+        // Bound the request: a slow/hung indexer must not stall the Activity
+        // list, which awaits these calls across every asset. An abort (or any
+        // network/parse error) is caught below and degrades to [] → local log.
+        const res = await fetch(url, {
+          headers: { accept: "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
         if (!res.ok) return [];
         const body: unknown = await res.json();
         const rows = (body as { transactions?: unknown } | null)?.transactions;
