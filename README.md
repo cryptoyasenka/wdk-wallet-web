@@ -1,4 +1,4 @@
-# WDK Wallet — Web Starter
+# WDK Wallet: Web Starter
 
 A self-custodial, multi-chain web wallet built on Tether's
 [Wallet Development Kit](https://github.com/tetherto/wdk-core). It is the
@@ -19,13 +19,13 @@ runs in a dedicated Web Worker, and there is nothing custodial in between.
 > `corepack pnpm demo` (one-time `corepack pnpm exec playwright install
 > chromium`, plus `ffmpeg` on PATH).
 
-**Live demo:** **https://wdk-wallet-web-production.up.railway.app** — the real
+**Live demo:** **https://wdk-wallet-web-production.up.railway.app**, the real
 built app, served under the same strict per-request-nonce CSP and security
 headers as production. It boots with zero config, so it runs on its five
 keyless default chains (Ethereum, Polygon, Arbitrum, Plasma + Solana); BTC
 surfaces the honest "unsupported chain" notice until an Electrum-WS endpoint is
 configured, exactly as described below. Your seed is generated and encrypted in
-your own browser — the deploy holds no keys and nothing custodial.
+your own browser; the deploy holds no keys and nothing custodial.
 
 ## Run it in two minutes
 
@@ -48,12 +48,12 @@ No endpoint set → the wallet runs on its five keyless default chains (Ethereum
 Polygon, Arbitrum, Plasma + Solana) and BTC surfaces a typed, honest
 "unsupported chain" error instead of failing silently.
 
-## Scope: the bounty asked for BTC + USD₮ — both ship
+## Scope: the bounty asked for BTC + USD₮, both ship
 
 | Bounty ask | Status |
 |---|---|
-| Send / receive **USD₮** on web | ✅ shipped — USDT on Ethereum, Polygon, Arbitrum & Plasma (WDK EVM manager) + Solana (WDK Solana manager) + XAU₮ on Ethereum |
-| Send / receive **BTC** on web | ✅ shipped — pure-JS WDK BTC manager + injected Electrum-WS client, in the worker |
+| Send / receive **USD₮** on web | ✅ shipped: USDT on Ethereum, Polygon, Arbitrum & Plasma (WDK EVM manager) + Solana (WDK Solana manager) + XAU₮ on Ethereum |
+| Send / receive **BTC** on web | ✅ shipped: pure-JS WDK BTC manager + injected Electrum-WS client, in the worker |
 | Self-custodial, keys client-side | ✅ WebCrypto vault + Web Worker signer (ADR-004) |
 | Unlock | ✅ WebAuthn passkey (PRF) with a PBKDF2 passphrase fallback (ADR-005) |
 | Multi-wallet / multi-account | ✅ N independent BIP-39 seeds, each with HD accounts; zero-migration back-compat |
@@ -61,21 +61,21 @@ Polygon, Arbitrum, Plasma + Solana) and BTC surfaces a typed, honest
 | Reusable across hosts | ✅ headless core consumed byte-unchanged by a second app (Svelte) |
 
 Beyond the BTC + USD₮ ask, the wallet ships **four EVM networks**
-(Ethereum, Polygon, Arbitrum, Plasma — via the WDK EVM manager) **plus
+(Ethereum, Polygon, Arbitrum, Plasma, all via the WDK EVM manager) **plus
 Solana** (USD₮ as an SPL token, via `@tetherto/wdk-wallet-solana` through
-the same adapter seam) **plus BTC** — all five non-BTC chains are
+the same adapter seam) **plus BTC**. All five non-BTC chains are
 default-on with keyless public RPC. Honest CI bound: only the Ethereum
 and BTC (fixture) flows are exercised end-to-end in the demo / CI; the
 Solana, Polygon, Arbitrum and Plasma managers are wired, typed, built and
 config + portfolio covered, but their live-RPC send/receive is not part of
-CI. **Lightning / Spark are not shipped** — reachable on the same adapter
+CI. **Lightning / Spark are not shipped**: reachable on the same adapter
 shape, deliberately left as documented extension points, not claimed as
 done.
 
 The one honest operational dependency: a browser cannot open a raw Electrum TCP
 socket, so BTC needs a **public Electrum-WS endpoint** to point at (env-driven,
 failover via `@tetherto/wdk-failover-provider`). That is a real deployment
-input, not a missing feature — see `docs/RN-TO-WEB-MAP.md` →
+input, not a missing feature. See `docs/RN-TO-WEB-MAP.md` →
 "Bitcoin on web (shipped)".
 
 ## Why this is structured the way it is
@@ -84,13 +84,13 @@ This is not "create-next-app + paste the WDK quickstart". It mirrors the
 architecture of Tether's own RN starter, which cleanly separates
 **platform-agnostic wallet logic** from **platform-specific UI / storage**:
 
-- **`packages/wallet-core`** — a headless, fully-typed, tested WDK wallet engine
+- **`packages/wallet-core`**: a headless, fully-typed, tested WDK wallet engine
   (orchestration, encrypted key vault, chains / failover config, balances, send,
   receive, activity). Zero UI. Zero framework lock-in.
-- **`apps/next`** — the reference Next.js app: full screen parity with the RN
+- **`apps/next`**, the reference Next.js app: full screen parity with the RN
   starter (onboarding → wallet-setup → unlock → portfolio → token detail → send
   → receive → activity → settings).
-- **`apps/svelte`** (package `svelte-proof`) — a Svelte 5 + Vite app that runs
+- **`apps/svelte`** (package `svelte-proof`): a Svelte 5 + Vite app that runs
   the core's state machine against the **byte-unchanged** engine, proving
   `wallet-core` is genuinely framework-agnostic, not Next-coupled. Ships with a
   headless portability test (`test/portability.test.ts`).
@@ -128,9 +128,9 @@ corepack pnpm --filter next dev
 
 `corepack pnpm smoke` builds the production app, serves it on a free port, and
 drives a real browser through the reviewer walkthrough under the live strict
-CSP — a passing run is also proof of zero CSP violations.
+CSP. A passing run is also proof of zero CSP violations.
 
-CI (`.github/workflows/ci.yml`) runs the same bar on every push and PR —
+CI (`.github/workflows/ci.yml`) runs the same bar on every push and PR:
 `lint · typecheck · test · build` across **both** apps on a Node 20 + 22
 matrix, plus a committed-secret scan. The same quartet runs locally via
 `corepack pnpm verify`; the caveat at the top of `ci.yml` explains why a local green
@@ -148,7 +148,7 @@ and a CI green mean the same thing. WDK is alpha; package versions are pinned
   and BTC-fixture flows are exercised end-to-end; the other managers (Solana,
   Polygon, Arbitrum, Plasma) are wired, typed, built and config + portfolio
   unit-covered, but their live-RPC paths are not in CI.
-- **Not shipped (honest):** Lightning / Spark — same adapter shape, left as
+- **Not shipped (honest):** Lightning / Spark, same adapter shape, left as
   documented extension points, not claimed as done. Token-detail and settings
   screens are folded into the single page rather than separate routes.
 - **BTC operational dependency:** needs a public Electrum-WS endpoint
