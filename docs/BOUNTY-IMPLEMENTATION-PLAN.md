@@ -1,6 +1,6 @@
 # WDK Wallet Bounty Implementation Plan
 
-> **STATUS — historical roadmap, not a to-do list.** Every phase below (Phases
+> **STATUS: historical roadmap, not a to-do list.** Every phase below (Phases
 > 0–6 + the audit follow-ups) is **shipped**. This document is kept for the
 > design rationale and the audit trail; it does **not** describe outstanding
 > work. For the current, authoritative state of what is implemented and how to
@@ -75,7 +75,7 @@ These are selected from open-source wallet research:
 ## Phase 0: Baseline Integrity (do first)
 
 Surfaced by the 2026-05-26 deep audit. The Phase 1-3 work described as "already
-ships" above currently lives ONLY in the working tree — uncommitted, unpushed,
+ships" above currently lives ONLY in the working tree: uncommitted, unpushed,
 saved nowhere. `origin/main == HEAD`, so a reviewer cloning origin sees a STALE
 baseline (no bounty docs, pre-Phase-1 UI, "72 tests / 169 kB"). Before any
 feature work, make the baseline real.
@@ -86,7 +86,7 @@ feature work, make the baseline real.
   / Next UI + new libs / Svelte / docs) and push to origin. WIP is acceptable
   per commit, but the baseline must exist in history.
 - Reconcile committed doc numbers with reality: test count (72 → 76), Next First
-  Load JS (stale "169" → 223 kB), and any past-tense phase framing — so the
+  Load JS (stale "169" → 223 kB), and any past-tense phase framing, so the
   numbers a reviewer reads match what `corepack pnpm build` + test output print.
 - Forward commits only. Do NOT `git rebase -i` published history.
 
@@ -296,7 +296,7 @@ Add `Data Sources` card:
   - `Local activity only` (default)
   - `Use configured indexer`
 - (Audit 2026-05-26) Price oracle (CoinGecko) row. `apps/next/src/lib/prices.ts`
-  already fetches `api.coingecko.com` unconditionally on load — an undisclosed
+  already fetches `api.coingecko.com` unconditionally on load, an undisclosed
   third-party call that contradicts SECURITY.md's "all data local". Surface it
   here as a real data source: a `Fetch USD prices` toggle (default on) and an
   optional endpoint override, so the privacy posture is honest and opt-out.
@@ -311,7 +311,7 @@ Add `Data Sources` card:
   here rather than silent.
 - (Audit 2026-05-26) Every endpoint configured in this card (EVM RPC, Electrum
   WS, indexer, CoinGecko, block explorers) is the authoritative `connect-src`
-  allowlist for the CSP shipped in Phase 6 — keep the two lists in sync.
+  allowlist for the CSP shipped in Phase 6. Keep the two lists in sync.
 
 ### Architecture Constraint
 
@@ -449,14 +449,14 @@ Add `docs/SECURITY-REVIEW.md`:
 - verification commands;
 - browser support caveats.
 
-### (Audit 2026-05-26) Correct existing SECURITY.md — do NOT only add the new doc
+### (Audit 2026-05-26) Correct existing SECURITY.md: do NOT only add the new doc
 
 The current `docs/SECURITY.md` makes two claims the code does not back. This is
 the most damaging kind of issue for a project whose whole pitch is honesty, so
 fix the source doc, not just append a new one:
 
 - Remove / reclassify the **hardware-wallet path** (lines ~37/39/51, listed
-  under "What we do"). There is no Ledger/Trezor path — `ledger-bitcoin` is
+  under "What we do"). There is no Ledger/Trezor path: `ledger-bitcoin` is
   stubbed to `false` in both bundlers and the vite config comment states this
   software web wallet never does Ledger signing. Move it to an explicit
   "extension point, not shipped" note or delete it.
@@ -510,7 +510,7 @@ Small, do opportunistically inside the phase that touches the area:
 
 ## Recommended Execution Order
 
-0. Phase 0: Baseline Integrity (commit + push the working tree) — do first
+0. Phase 0: Baseline Integrity (commit + push the working tree), do first
 1. Phase 1: Payment Request QR
 2. Phase 2: Pre-Send Safety Panel
 3. Phase 3: Address Book v2
