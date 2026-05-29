@@ -16,15 +16,15 @@ the web platform stops.
 | Adversary | Can they reach keys? | Mitigation / honest limit |
 |---|---|---|
 | **Remote network attacker** (no code on the page) | No. | Keys never leave the device; only AES-GCM ciphertext is stored. TLS to RPC/price endpoints; no key material is ever transmitted. |
-| **Malicious/compromised dependency** on the page | Yes, in principle. | `script-src` allows no inline/eval and `connect-src` is pinned (§6), so exfiltration and remote-code injection are sharply constrained; pinned + lockfile-audited deps in CI. Not a *complete* defence — see XSS below. |
-| **XSS / compromised main thread** | Yes — can ask the worker to sign. | The Web Worker is **defence-in-depth, not a boundary** against XSS. The CSP is the primary control here (no inline script, no eval, no remote script). RN's separate-runtime worklet is strictly stronger; we say so. |
+| **Malicious/compromised dependency** on the page | Yes, in principle. | `script-src` allows no inline/eval and `connect-src` is pinned (§6), so exfiltration and remote-code injection are sharply constrained; pinned + lockfile-audited deps in CI. Not a *complete* defence. See XSS below. |
+| **XSS / compromised main thread** | Yes, can ask the worker to sign. | The Web Worker is **defence-in-depth, not a boundary** against XSS. The CSP is the primary control here (no inline script, no eval, no remote script). RN's separate-runtime worklet is strictly stronger; we say so. |
 | **Local attacker with the locked device** | Only the ciphertext. | Vault is AES-GCM-256; the wrapping key derives from a passkey PRF or a 600k-iteration PBKDF2 passphrase. No plaintext seed at rest. |
-| **Local attacker after unlock** (warm session) | The decrypted seed lives in worker memory. | Sessions lock on tab-hide/idle; decrypted lifetime is minimised and buffers are zeroised. No HSM on the web — stated plainly. |
+| **Local attacker after unlock** (warm session) | The decrypted seed lives in worker memory. | Sessions lock on tab-hide/idle; decrypted lifetime is minimised and buffers are zeroised. No HSM on the web, stated plainly. |
 | **Phishing / malicious recipient** | N/A to keys; targets the user. | Pre-send safety panel: official-contract badge, recipient classification, address-poisoning warning, itemised confirmation from decoded tx data (not opaque hex). |
 | **Passive network observer** (which addresses you hold) | Sees RPC/price traffic. | Privacy-preserving defaults: local-only activity, no indexer, price oracle is a disclosed opt-out. All endpoints are surfaced in the Data Sources card (§5). |
 
 Out of scope: a compromised OS/browser binary, a malicious browser extension with
-host permissions, and hardware side-channels — no web app can defend these, and
+host permissions, and hardware side-channels. No web app can defend these, and
 we do not claim to.
 
 ## 2. Secrets lifecycle
@@ -47,11 +47,11 @@ delete:  IndexedDB record removed; no localStorage.clear() of unrelated host dat
 - **Honest exception:** at *create* (seed shown for backup) and *import* (seed
   typed) the phrase transits the main thread because the DOM is main-thread. No
   browser wallet avoids this; the RN starter has the identical property.
-- **Vault decryption runs in the worker** — the AES-GCM key crosses as a
+- **Vault decryption runs in the worker**: the AES-GCM key crosses as a
   non-extractable, structured-cloneable `CryptoKey` handle, never as raw bytes.
 - **What "zeroise" can and cannot cover (honest limit):** the binary key
   buffers (`Uint8Array`) are wiped in place via libsodium's `sodium_memzero`.
-  The seed *phrase* itself, though, is a JS `string` — immutable, so it can only
+  The seed *phrase* itself, though, is a JS `string`, immutable, so it can only
   be dropped for garbage collection, never overwritten in place. We minimise its
   lifetime (decrypt → bind straight into the WDK manager → drop the local
   reference and the signer's copy on `dispose()`) rather than claiming a wipe the
@@ -65,7 +65,7 @@ Two wrapping-key paths, **preferred-when-enrolled, never both at once** (ADR-005
 - **Passkey (WebAuthn PRF / CTAP2 `hmac-secret`):** the PRF yields a 32-byte
   full-entropy secret → **HKDF-SHA256** → wrap key. HKDF (not PBKDF2) is correct
   here precisely *because* the input is already full-entropy; stretching it would
-  be pure cost. A passkey **signature** is never used as a key — it is
+  be pure cost. A passkey **signature** is never used as a key. It is
   non-deterministic.
 - **Passphrase:** **PBKDF2-SHA256, 600,000 iterations** → wrap key. The
   iteration count stretches a low-entropy human secret.
@@ -98,13 +98,13 @@ Every endpoint the wallet can talk to is explicit and user-owned, surfaced in th
 - **Bitcoin Electrum-WS**: operator-supplied; empty = BTC stays unregistered
   (honest `UnsupportedChainError`, no silent failure).
 - **History**: `local` (outgoing send log only) by default; `indexer` is opt-in
-  and queries only the configured indexer (ADR-003 — no hardcoded public-history
+  and queries only the configured indexer (ADR-003: no hardcoded public-history
   fetch in core).
 - **Price oracle (CoinGecko)**: the one third-party call; a **disclosed, opt-out
   toggle**. When off, no CoinGecko request is made at all.
 
 Overrides are shape-validated, stored **on-device only** (localStorage), and
-rebuild the engine on save — they are **never threaded into wallet-core**, which
+rebuild the engine on save. They are **never threaded into wallet-core**, which
 stays env/option-driven and storage-agnostic.
 
 ## 6. CSP rationale (per directive)
@@ -120,7 +120,7 @@ rendering so the nonce reaches Next's inline bootstrap scripts.
 | `style-src` | `'self' 'unsafe-inline'` | Next/Tailwind inject inline `<style>`. Inline *style* is not a script-execution vector the way inline script is; nonce-ing every style block is not worth the breakage. |
 | `img-src` | `'self' blob: data:` | App icons/QR; `data:`/`blob:` for client-generated images. |
 | `font-src` | `'self'` | Self-hosted Outfit font. |
-| `connect-src` | `'self'` + default RPC origins + `https://api.coingecko.com` + `NEXT_PUBLIC_ETHEREUM_RPC_URLS` origins + `NEXT_PUBLIC_CONNECT_SRC_ORIGINS` origins + `wss:` | Pins network egress. The allowed origins come from one shared module, [`src/lib/cspAllowlist.ts`](../apps/next/src/lib/cspAllowlist.ts) — `middleware.ts` builds `connect-src` from it and the Data Sources UI reads the same list to warn the user (see honest limit below), so the two cannot drift. The default RPC origins mirror `chains/index.ts` public lists; that link is itself drift-guarded by [`test/cspAllowlist.test.ts`](../apps/next/test/cspAllowlist.test.ts) (it runs in Node and can import both, where the Edge bundle cannot). Two deploy-env sources are folded in: `NEXT_PUBLIC_ETHEREUM_RPC_URLS` (the same var `engine.ts` reads for the Ethereum RPC chain) and `NEXT_PUBLIC_CONNECT_SRC_ORIGINS` — a dedicated knob that allow-lists an origin for the CSP *only*, so a self-hoster can permit a custom indexer/price/RPC origin without it doubling as an Ethereum RPC. CoinGecko is the disclosed price oracle. `wss:` is allowed wholesale because the Electrum endpoint is always operator-supplied (no public default to pin). |
+| `connect-src` | `'self'` + default RPC origins + `https://api.coingecko.com` + `NEXT_PUBLIC_ETHEREUM_RPC_URLS` origins + `NEXT_PUBLIC_CONNECT_SRC_ORIGINS` origins + `wss:` | Pins network egress. The allowed origins come from one shared module, [`src/lib/cspAllowlist.ts`](../apps/next/src/lib/cspAllowlist.ts): `middleware.ts` builds `connect-src` from it and the Data Sources UI reads the same list to warn the user (see honest limit below), so the two cannot drift. The default RPC origins mirror `chains/index.ts` public lists; that link is itself drift-guarded by [`test/cspAllowlist.test.ts`](../apps/next/test/cspAllowlist.test.ts) (it runs in Node and can import both, where the Edge bundle cannot). Two deploy-env sources are folded in: `NEXT_PUBLIC_ETHEREUM_RPC_URLS` (the same var `engine.ts` reads for the Ethereum RPC chain) and `NEXT_PUBLIC_CONNECT_SRC_ORIGINS`, a dedicated knob that allow-lists an origin for the CSP *only*, so a self-hoster can permit a custom indexer/price/RPC origin without it doubling as an Ethereum RPC. CoinGecko is the disclosed price oracle. `wss:` is allowed wholesale because the Electrum endpoint is always operator-supplied (no public default to pin). |
 | `worker-src` | `'self' blob:` | The WDK crypto worker is spawned from a bundler URL/blob. |
 | `object-src` | `'none'` | No plugins/embeds. |
 | `base-uri` | `'self'` | Blocks `<base>` tag hijacking of relative URLs. |
@@ -129,7 +129,7 @@ rendering so the nonce reaches Next's inline bootstrap scripts.
 
 Plus request-independent headers from `next.config.mjs` (every route): `X-Content-Type-Options:
 nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`,
-`Strict-Transport-Security: max-age=63072000; includeSubDomains` (HSTS — `preload`
+`Strict-Transport-Security: max-age=63072000; includeSubDomains` (HSTS: `preload`
 omitted so the template makes no irrevocable list commitment on a deployer's
 behalf; ignored over plain http, safe in local dev), and `Permissions-Policy`
 denying every powerful feature except same-origin `camera` (the QR scanner is the
@@ -152,11 +152,11 @@ settings layer also rejects plaintext `http:`/`ws:` overrides outright (only
 addresses and is mixed-content-blocked on the https-served app anyway; dev keeps
 the insecure schemes so a `http://localhost:8545` node stays testable.
 
-**Scope — `apps/next` only.** This CSP and the static headers above ship from the
+**Scope: `apps/next` only.** This CSP and the static headers above ship from the
 Next app, which is the deployable surface. `apps/svelte` is the portability proof
 (ADR-005): a Vite SPA that exercises the same wallet-core engine to show the seam
 is framework-agnostic, and it ships **without** these headers. It is not a
-hardened deploy target — if a Svelte build were ever shipped to users, its host
+hardened deploy target. If a Svelte build were ever shipped to users, its host
 would have to supply an equivalent nonce-CSP and header set. We say so rather than
 let the Svelte app imply parity it does not carry.
 
@@ -165,7 +165,7 @@ let the Svelte app imply parity it does not carry.
 `corepack pnpm audit --audit-level moderate` passes. One **low** advisory remains
 and is accepted, not silently ignored:
 
-- **`bitcoinjs-message → secp256k1 → elliptic`** — upstream in the pinned **alpha
+- **`bitcoinjs-message → secp256k1 → elliptic`**: upstream in the pinned **alpha
   BTC WDK** dependency chain. There is **no patched range** in the advisory, so it
   cannot be resolved by a version bump today. It is `low` severity and confined to
   the BTC path. WDK is alpha and version-pinned; a fix lands when upstream
@@ -196,11 +196,11 @@ smoke proves there are no CSP violations that break the app.
 ## 9. Browser support caveats
 
 - **WebAuthn PRF** is not universal. Where it is unavailable, the wallet falls
-  back to the passphrase slot — selection is by real enrolment, not assumption.
+  back to the passphrase slot. Selection is by real enrolment, not assumption.
 - **The browser cannot open raw Electrum TCP**, so BTC requires an
   Electrum-over-WebSocket endpoint (hence `wss:` in `connect-src`).
 - **IndexedDB + WebCrypto + Dedicated Workers** are required; all are baseline in
-  current evergreen browsers. Private-mode storage eviction can drop the vault —
+  current evergreen browsers. Private-mode storage eviction can drop the vault;
   the offline seed backup is the recovery path.
 - **`'strict-dynamic'`** is honoured by CSP-Level-3 browsers; older engines fall
   back to the `'self'` source, which still covers the same-origin chunks.
