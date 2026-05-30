@@ -72,7 +72,14 @@ These are selected from open-source wallet research:
 - Keep changes test-backed where they touch wallet-core or shared behavior.
 - Use `apply_patch` for manual file edits.
 
-## Phase 0: Baseline Integrity (do first)
+## Phase 0: Baseline Integrity *(historical — completed 2026-05-26)*
+
+> **This phase is done.** The text below is the original brief, kept verbatim
+> for audit-trail purposes. At the time of writing the working tree held
+> uncommitted work; that work has since been committed, pushed, and verified.
+> Current baseline: `corepack pnpm verify` green across all three packages.
+> See [`BOUNTY-CHECKLIST.md`](./BOUNTY-CHECKLIST.md) for the authoritative
+> current state.
 
 Surfaced by the 2026-05-26 deep audit. The Phase 1-3 work described as "already
 ships" above currently lives ONLY in the working tree: uncommitted, unpushed,
