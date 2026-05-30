@@ -88,6 +88,13 @@ const translations: Record<string, Record<Locale, string>> = {
   "lock.unlock_passkey": { en: "Unlock with passkey", ru: "Разблокировать через passkey", uk: "Розблокувати через passkey" },
   "lock.or_passphrase": { en: "or use your passphrase", ru: "или используйте пароль", uk: "або скористайтеся паролем" },
 
+  // QR scanner
+  "scanner.secure_context": { en: "Camera scanning needs a secure context (https or localhost). Type or paste the address instead.", ru: "Сканирование камерой требует защищённого контекста (https или localhost). Введите или вставьте адрес вручную.", uk: "Сканування камерою потребує захищеного контексту (https або localhost). Введіть або вставте адресу вручну." },
+  "scanner.permission_denied": { en: "Camera permission denied. Type or paste the address instead.", ru: "Доступ к камере запрещён. Введите или вставьте адрес вручную.", uk: "Доступ до камери заборонено. Введіть або вставте адресу вручну." },
+  "scanner.no_camera": { en: "No camera found. Type or paste the address instead.", ru: "Камера не найдена. Введите или вставьте адрес вручную.", uk: "Камеру не знайдено. Введіть або вставте адресу вручну." },
+  "scanner.start_failed": { en: "Could not start the camera. Type or paste the address instead.", ru: "Не удалось запустить камеру. Введите или вставьте адрес вручную.", uk: "Не вдалося запустити камеру. Введіть або вставте адресу вручну." },
+  "scanner.preview": { en: "QR scanner camera preview", ru: "Предпросмотр камеры QR-сканера", uk: "Перегляд камери QR-сканера" },
+
   // Account
   "account.title": { en: "Account", ru: "Аккаунт", uk: "Акаунт" },
   "account.add": { en: "Add account", ru: "Добавить аккаунт", uk: "Додати акаунт" },

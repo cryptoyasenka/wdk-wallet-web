@@ -1497,7 +1497,7 @@ export default function Page() {
                   </div>
                 )}
 
-                <QrScanner onResult={setSendTo} label={T("misc.scan_qr")} closeLabel={T("misc.close")} cancelLabel={T("misc.cancel")} />
+                <QrScanner onResult={setSendTo} label={T("misc.scan_qr")} t={T} closeLabel={T("misc.close")} cancelLabel={T("misc.cancel")} />
 
                 <Field label={T("send.amount")}>
                   <div className="flex gap-2">
@@ -2817,7 +2817,7 @@ function SafetyPanel({ asset, to, contacts, ownAddresses, recentRecipient, recen
   );
 }
 
-function QrScanner({ onResult, label, closeLabel, cancelLabel }: { readonly onResult: (address: string) => void; readonly label: string; readonly closeLabel?: string; readonly cancelLabel?: string }) {
+function QrScanner({ onResult, label, t, closeLabel, cancelLabel }: { readonly onResult: (address: string) => void; readonly label: string; readonly t: (key: string) => string; readonly closeLabel?: string; readonly cancelLabel?: string }) {
   const [open, setOpen] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -2839,7 +2839,7 @@ function QrScanner({ onResult, label, closeLabel, cancelLabel }: { readonly onRe
   const start = useCallback(() => {
     setScanError(null);
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-      setScanError("Camera scanning needs a secure context (https or localhost). Type or paste the address instead.");
+      setScanError(t("scanner.secure_context"));
       setOpen(true);
       return;
     }
@@ -2870,11 +2870,11 @@ function QrScanner({ onResult, label, closeLabel, cancelLabel }: { readonly onRe
       })
       .catch((e: unknown) => {
         const name = e instanceof Error ? e.name : "";
-        if (name === "NotAllowedError" || name === "SecurityError") setScanError("Camera permission denied. Type or paste the address instead.");
-        else if (name === "NotFoundError" || name === "OverconstrainedError") setScanError("No camera found. Type or paste the address instead.");
-        else setScanError("Could not start the camera. Type or paste the address instead.");
+        if (name === "NotAllowedError" || name === "SecurityError") setScanError(t("scanner.permission_denied"));
+        else if (name === "NotFoundError" || name === "OverconstrainedError") setScanError(t("scanner.no_camera"));
+        else setScanError(t("scanner.start_failed"));
       });
-  }, [onResult, stop]);
+  }, [onResult, stop, t]);
 
   if (!open) {
     return (
@@ -2889,7 +2889,7 @@ function QrScanner({ onResult, label, closeLabel, cancelLabel }: { readonly onRe
       {scanError ? (
         <p className="text-xs text-red-300">{scanError}</p>
       ) : (
-        <video ref={videoRef} autoPlay playsInline muted className="block w-full rounded-md" aria-label="QR scanner camera preview" />
+        <video ref={videoRef} autoPlay playsInline muted className="block w-full rounded-md" aria-label={t("scanner.preview")} />
       )}
       <button type="button" className="mt-2 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white" onClick={close}>
         {scanError ? (closeLabel || "Close") : (cancelLabel || "Cancel")}
