@@ -31,10 +31,33 @@ export class IndexedDbStorage implements StorageAdapter {
           open.result.createObjectStore(STORE);
         }
       };
-      open.onsuccess = () => resolve(open.result);
+      open.onsuccess = () => {
+        const db = open.result;
+        // If another tab (or our own Delete Wallet) initiates a version change /
+        // deleteDatabase, close this handle so it can't block the operation.
+        db.onversionchange = () => db.close();
+        resolve(db);
+      };
       open.onerror = () => reject(open.error ?? new Error("IndexedDB open failed"));
     });
     return this.#dbPromise;
+  }
+
+  /**
+   * Close the open connection (if any) and forget it, so a later
+   * `deleteDatabase("wdk-wallet")` is not blocked by this singleton's handle.
+   * Idempotent: safe if the DB was never opened or is already closed. The next
+   * storage call lazily reopens via `#db()`.
+   */
+  close(): void {
+    const pending = this.#dbPromise;
+    this.#dbPromise = null;
+    if (!pending) return;
+    // Close once the open settles; swallow a failed open (nothing to close).
+    void pending.then(
+      (db) => db.close(),
+      () => {},
+    );
   }
 
   async #tx(mode: IDBTransactionMode): Promise<IDBObjectStore> {

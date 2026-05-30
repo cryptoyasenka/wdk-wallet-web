@@ -972,7 +972,7 @@ export default function Page() {
     addToast("info", T("send.template_applied"));
   };
 
-  const onSaveDataSources = () => {
+  const onSaveDataSources = async () => {
     const toList = (s: string) => s.split(/[\n,]/).map((u) => u.trim()).filter((u) => u.length > 0);
     const next: DataSources = {
       ethereumRpcUrls: toList(dsForm.ethereumRpcUrls),
@@ -988,8 +988,10 @@ export default function Page() {
     };
     saveDataSources(next); // validates + drops malformed URLs before persisting
     // Rebuild the engine with the new chain options; the unlocked session is
-    // discarded, so send the user back through unlock.
-    resetWalletApp();
+    // discarded, so send the user back through unlock. Await the teardown so the
+    // decrypted seed is proactively wiped (engine.lock) and the old IndexedDB
+    // handle is closed, rather than left to GC.
+    await resetWalletApp();
     clearSession();
     setPhase("locked");
     addToast("success", T("ds.saved_relock"));
@@ -2386,7 +2388,17 @@ export default function Page() {
                 <div className="flex gap-2">
                   <button
                     className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold text-xs px-4 py-2 rounded-lg transition-colors animate-pulse"
-                    onClick={() => {
+                    onClick={async () => {
+                      // Release the open IndexedDB handle first (lock the engine
+                      // + close the connection), otherwise deleteDatabase fires
+                      // `blocked` and never completes. A teardown failure must
+                      // not abort the delete, so it is best-effort.
+                      try {
+                        await getWalletApp().dispose();
+                      } catch {
+                        // ignore — proceed to delete regardless
+                      }
+                      await resetWalletApp();
                       const req = indexedDB.deleteDatabase("wdk-wallet");
                       req.onsuccess = () => {
                         LOCAL_STORAGE_KEYS_ON_WALLET_DELETE.forEach((key) => localStorage.removeItem(key));
@@ -2399,6 +2411,11 @@ export default function Page() {
                       };
                       req.onerror = () => {
                         addToast("error", T("error.delete_failed"));
+                      };
+                      // Another open tab still holds a connection: surface a
+                      // hint instead of hanging silently.
+                      req.onblocked = () => {
+                        addToast("error", T("error.delete_blocked"));
                       };
                     }}
                   >

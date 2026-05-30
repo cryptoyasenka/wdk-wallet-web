@@ -243,6 +243,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "toast.passkey_added": { en: "Passkey enrolled successfully", ru: "Passkey успешно добавлен", uk: "Passkey успішно додано" },
   "error.contact_required": { en: "Name and address are required.", ru: "Имя и адрес обязательны.", uk: "Ім'я та адреса обов'язкові." },
   "error.delete_failed": { en: "Failed to wipe wallet storage.", ru: "Не удалось стереть хранилище кошелька.", uk: "Не вдалося стерти сховище гаманця." },
+  "error.delete_blocked": { en: "Couldn't delete: another open tab is using this wallet. Close other tabs and try again.", ru: "Не удалось удалить: кошелёк открыт в другой вкладке. Закройте остальные вкладки и попробуйте снова.", uk: "Не вдалося видалити: гаманець відкрито в іншій вкладці. Закрийте інші вкладки та спробуйте ще раз." },
 
   // Validation / thrown-error messages
   "error.pass_too_short": { en: "Use a passphrase of at least 8 characters.", ru: "Используйте пароль не менее 8 символов.", uk: "Використовуйте пароль щонайменше з 8 символів." },

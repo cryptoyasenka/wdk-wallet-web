@@ -37,6 +37,10 @@ export interface WalletApp {
   unlockWithPasskey(): Promise<void>;
   /** Whether a passkey is enrolled here, so the locked screen can offer it. */
   isPasskeyEnrolled(): Promise<boolean>;
+  /** Tear down the unlocked session and release the IndexedDB handle: locks the
+   *  engine (disposes signer/reader, wipes the worker seed) then closes the
+   *  storage connection so a `deleteDatabase` can't be blocked. Idempotent. */
+  dispose(): Promise<void>;
 }
 
 /**
@@ -110,15 +114,25 @@ export function getWalletApp(): WalletApp {
       await engine.unlock();
     },
     isPasskeyEnrolled: () => unlock.isPasskeyEnrolled(),
+    dispose: async () => {
+      // Lock first (wipes the worker seed / disposes signer+reader), then drop
+      // the IndexedDB connection. Both are idempotent, so dispose() is too.
+      await engine.lock();
+      storage.close();
+    },
   };
   return app;
 }
 
 /**
- * Drop the memoised engine so the next `getWalletApp()` rebuilds it with fresh
- * chain options. Call after saving Data Sources settings; the caller must send
- * the user back through unlock, since the in-memory unlocked session is gone.
+ * Tear down and drop the memoised engine so the next `getWalletApp()` rebuilds
+ * it with fresh chain options. Disposes the current app first (locks the engine
+ * → wipes the worker seed, closes the IndexedDB handle) rather than leaving it
+ * to GC. Call after saving Data Sources settings; the caller must send the user
+ * back through unlock, since the in-memory unlocked session is gone.
  */
-export function resetWalletApp(): void {
+export async function resetWalletApp(): Promise<void> {
+  const current = app;
   app = null;
+  if (current) await current.dispose();
 }

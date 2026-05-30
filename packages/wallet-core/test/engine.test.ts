@@ -108,6 +108,17 @@ describe("wallet engine — lifecycle", () => {
     expect(await engine.getAddress("ethereum")).toMatch(/^0x[0-9a-f]{8}$/);
   });
 
+  it("lock() is idempotent — locking a locked (or never-unlocked) engine is safe", async () => {
+    // Never unlocked: lock() must resolve without throwing (host dispose path).
+    await expect(engine.lock()).resolves.toBeUndefined();
+    await engine.createWallet();
+    await engine.unlock();
+    await engine.lock();
+    // Second lock on an already-locked engine: still safe, signer stays disposed.
+    await expect(engine.lock()).resolves.toBeUndefined();
+    expect(adapter.signers[0]?.disposed).toBe(true);
+  });
+
   it("wrong passphrase fails the GCM auth tag → VaultDecryptError", async () => {
     await engine.createWallet();
     const wrong = createWalletEngineWithAdapter(
