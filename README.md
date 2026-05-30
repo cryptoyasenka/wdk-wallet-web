@@ -93,7 +93,11 @@ architecture of Tether's own RN starter, which cleanly separates
 - **`apps/svelte`** (package `svelte-proof`): a Svelte 5 + Vite app that runs
   the core's state machine against the **byte-unchanged** engine, proving
   `wallet-core` is genuinely framework-agnostic, not Next-coupled. Ships with a
-  headless portability test (`test/portability.test.ts`).
+  headless portability test (`test/portability.test.ts`). **English-only by
+  design:** the Svelte app is the portability proof that the shared core ports
+  to a second framework; the localized (en/ru/uk) reference wallet is
+  `apps/next`. Svelte localization would duplicate UI work without adding
+  anything to the portability claim.
 
 The headless core is reusable verbatim for a browser-extension wallet and an
 eCommerce checkout (the other two Tether WDK bounties).
