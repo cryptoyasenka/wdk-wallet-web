@@ -1,11 +1,13 @@
 /**
  * Unwrap a scanned payment-URI envelope down to the bare recipient address.
  *
- * Handles BIP-21 (`bitcoin:<addr>?amount=…`) and EIP-681 — both the native
+ * Handles BIP-21 (`bitcoin:<addr>?amount=…`), EIP-681 — both the native
  * value form (`ethereum:[pay-]<addr>[@chainId][?value=…]`) and the ERC-20
  * `transfer` form (`ethereum:<token>[@chainId]/transfer?address=<recipient>`),
  * whose real recipient is the `address` query param, not the leading token
- * contract. The scheme is matched
+ * contract — and Solana Pay (`solana:<owner>?amount=…&spl-token=<mint>&…`),
+ * whose recipient is the owner before the query string (this app generates
+ * exactly that QR). The scheme is matched
  * case-insensitively; the address itself keeps its original case because
  * base58, bech32 and EIP-55 checksums are all case-significant.
  * Anything without a known scheme is returned trimmed and otherwise
@@ -22,7 +24,7 @@
  */
 export function extractAddress(raw: string): string {
   const trimmed = raw.trim();
-  const scheme = ["bitcoin:", "ethereum:"].find((s) =>
+  const scheme = ["bitcoin:", "ethereum:", "solana:"].find((s) =>
     trimmed.toLowerCase().startsWith(s),
   );
   if (!scheme) return trimmed;
