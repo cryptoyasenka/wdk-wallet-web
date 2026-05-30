@@ -1146,7 +1146,7 @@ export default function Page() {
       {/* ---- ONBOARDING ---- */}
       {phase === "onboarding" && (
         <Card>
-          <div className="mb-4 flex gap-2 text-sm">
+          <div className="mb-4 grid grid-cols-3 gap-2 text-sm">
             <Tab active={mode === "create"} onClick={() => setMode("create")}>{T("onboard.create")}</Tab>
             <Tab active={mode === "import"} onClick={() => setMode("import")}>{T("onboard.import")}</Tab>
             <Tab active={mode === "watch"} onClick={() => setMode("watch")}>{T("onboard.watch")}</Tab>
