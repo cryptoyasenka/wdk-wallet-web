@@ -8,12 +8,16 @@
  * heuristics are unit-tested in isolation and the panel just renders the result.
  */
 import type { Asset, ChainId } from "@wdk-web/wallet-core";
+import { normalizeAddress } from "./address";
 import type { Contact } from "./contacts";
 
-/** EVM addresses compare case-insensitively; BTC addresses are case-sensitive. */
+/**
+ * Same payee? EVM compares case-insensitively; BTC and Solana are
+ * case-significant (base58/bech32 carry meaning in case). `normalizeAddress`
+ * is the single source of that rule, shared with the address book.
+ */
 function addressesEqual(a: string, b: string, chain: ChainId): boolean {
-  if (chain === "bitcoin") return a.trim() === b.trim();
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
+  return normalizeAddress(a, chain) === normalizeAddress(b, chain);
 }
 
 export type RecipientStatus =
@@ -63,7 +67,7 @@ export interface PoisoningMatch {
  */
 export function detectPoisoning(ctx: RecipientContext, edge = 6): PoisoningMatch | null {
   const { to, chain, contacts, ownAddresses, recentRecipient, recentChain } = ctx;
-  const norm = (s: string) => (chain === "bitcoin" ? s.trim() : s.trim().toLowerCase());
+  const norm = (s: string) => normalizeAddress(s, chain);
   const target = norm(to);
   if (target.length < edge * 2) return null;
 
@@ -91,7 +95,7 @@ export function detectPoisoning(ctx: RecipientContext, edge = 6): PoisoningMatch
 /** Chain-keyed (`chain:contract`) set from the bundled official asset list. */
 export function officialTokenContracts(assets: readonly Asset[]): ReadonlySet<string> {
   const set = new Set<string>();
-  for (const a of assets) if (a.token) set.add(`${a.chain}:${a.token.toLowerCase()}`);
+  for (const a of assets) if (a.token) set.add(`${a.chain}:${normalizeAddress(a.token, a.chain)}`);
   return set;
 }
 
@@ -102,5 +106,5 @@ export function officialTokenContracts(assets: readonly Asset[]): ReadonlySet<st
  * or the official-Tether checkmark becomes spoofable.
  */
 export function isOfficialToken(asset: Asset, official: ReadonlySet<string>): boolean {
-  return asset.token !== undefined && official.has(`${asset.chain}:${asset.token.toLowerCase()}`);
+  return asset.token !== undefined && official.has(`${asset.chain}:${normalizeAddress(asset.token, asset.chain)}`);
 }

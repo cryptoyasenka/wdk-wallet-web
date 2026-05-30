@@ -12,6 +12,8 @@
  * `JSON.parse` cast.
  */
 
+import { normalizeAddress } from "./address";
+
 export interface Contact {
   name: string;
   address: string;
@@ -48,14 +50,14 @@ function nonEmptyString(v: unknown): v is string {
 
 /**
  * Address identity for matching the same payee. EVM addresses are
- * case-insensitive, BTC addresses are not — this mirrors `addressesEqual` in
- * safety.ts so the address book stays in sync with recipient classification.
- * Without this, a send to `0xabc…` would not stamp a contact saved as `0xABC…`,
- * silently breaking the last-used / recent-sort feature.
+ * case-insensitive; BTC and Solana addresses are not — `normalizeAddress` is
+ * the shared rule, so the address book stays in sync with recipient
+ * classification in safety.ts. Without this, a send to `0xabc…` would not stamp
+ * a contact saved as `0xABC…`, silently breaking the last-used / recent-sort
+ * feature.
  */
 function sameAddress(a: string, b: string, chain: string): boolean {
-  if (chain === "bitcoin") return a.trim() === b.trim();
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
+  return normalizeAddress(a, chain) === normalizeAddress(b, chain);
 }
 
 /**

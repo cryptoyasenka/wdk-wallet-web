@@ -45,6 +45,26 @@ describe("classifyRecipient", () => {
   it("does not cross chains: a contact on another chain is not a match", () => {
     expect(classifyRecipient(ctx({ to: ALICE, chain: "polygon" }))).toEqual({ kind: "new" });
   });
+
+  // Solana addresses are base58 — case is significant, so a case-flipped
+  // variant is a DIFFERENT address and must not be classified as self / saved /
+  // recent. Lower-casing it (the old EVM rule) would misclassify it.
+  it("treats Solana addresses as case-significant (self/saved/recent)", () => {
+    const SOL = "5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9";
+    const flipped = SOL.toLowerCase();
+    const solCtx: RecipientContext = {
+      to: flipped,
+      chain: "solana",
+      contacts: [{ name: "Sol Friend", address: SOL, chain: "solana" }],
+      ownAddresses: [["solana", SOL]],
+      recentRecipient: SOL,
+      recentChain: "solana",
+    };
+    // Same bytes, only case differs → none of self/saved/recent should fire.
+    expect(classifyRecipient(solCtx)).toEqual({ kind: "new" });
+    // Exact-case Solana address still matches self (sanity: not over-rejecting).
+    expect(classifyRecipient({ ...solCtx, to: SOL })).toEqual({ kind: "self" });
+  });
 });
 
 describe("detectPoisoning", () => {
@@ -73,9 +93,12 @@ describe("detectPoisoning", () => {
 });
 
 describe("official token contracts", () => {
+  // Real Solana USD₮ SPL mint — base58, so its case is part of its identity.
+  const USDT_SOLANA_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
   const assets: Asset[] = [
     { symbol: "BTC", chain: "bitcoin", decimals: 8 },
     { symbol: "USDT", chain: "ethereum", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 },
+    { symbol: "USDT", chain: "solana", token: USDT_SOLANA_MINT, decimals: 6 },
   ];
   const official = officialTokenContracts(assets);
 
@@ -98,5 +121,14 @@ describe("official token contracts", () => {
     // token. The official-Tether checkmark must not cross chains, or it spoofs.
     const spoof: Asset = { symbol: "USDT", chain: "arbitrum", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 };
     expect(isOfficialToken(spoof, official)).toBe(false);
+  });
+
+  it("badges the exact-case Solana mint but NOT a case-flipped one", () => {
+    // EVM mints fold case (above); Solana mints are base58 = case-significant.
+    // Lower-casing a Solana mint must therefore lose the badge, not keep it.
+    const real: Asset = { symbol: "USDT", chain: "solana", token: USDT_SOLANA_MINT, decimals: 6 };
+    const flipped: Asset = { symbol: "USDT", chain: "solana", token: USDT_SOLANA_MINT.toLowerCase(), decimals: 6 };
+    expect(isOfficialToken(real, official)).toBe(true);
+    expect(isOfficialToken(flipped, official)).toBe(false);
   });
 });

@@ -5,8 +5,10 @@
  * must be stable. These helpers are pure (no localStorage), so they pin the
  * contract the Settings UI relies on.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  addContact,
+  loadContacts,
   sanitizeContacts,
   sanitizeTemplates,
   sortContacts,
@@ -59,5 +61,48 @@ describe("sanitizeTemplates", () => {
   it("drops templates missing required fields", () => {
     expect(sanitizeTemplates([{ id: "t1", name: "x" }, null, 7])).toEqual([]);
     expect(sanitizeTemplates("nope")).toEqual([]);
+  });
+});
+
+/**
+ * Address-identity dedupe through the public `addContact` path. EVM addresses
+ * fold case (a save to `0xABC…` should NOT re-add `0xabc…`); Solana addresses
+ * are base58 = case-significant (two case-different strings are DISTINCT payees
+ * and must both be stored). `addContact` persists to localStorage, so a minimal
+ * in-memory stub stands in for the node test env.
+ */
+describe("addContact dedupe is chain-aware", () => {
+  const store = new Map<string, string>();
+  const stub = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, v),
+    removeItem: (k: string) => void store.delete(k),
+    clear: () => store.clear(),
+  };
+
+  beforeEach(() => {
+    store.clear();
+    (globalThis as { localStorage?: unknown }).localStorage = stub;
+  });
+  afterEach(() => {
+    delete (globalThis as { localStorage?: unknown }).localStorage;
+  });
+
+  it("dedupes EVM contacts case-insensitively (case-flip is the same payee)", () => {
+    const lower = "0x" + "a".repeat(40);
+    addContact({ name: "Lower", address: lower, chain: "ethereum" });
+    addContact({ name: "Upper", address: lower.toUpperCase(), chain: "ethereum" });
+    const out = loadContacts();
+    expect(out).toHaveLength(1);
+    expect(out[0]?.name).toBe("Lower"); // first wins, second is a no-op
+  });
+
+  it("does NOT dedupe Solana contacts that differ only by case", () => {
+    const SOL = "5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9";
+    addContact({ name: "Real", address: SOL, chain: "solana" });
+    addContact({ name: "Flipped", address: SOL.toLowerCase(), chain: "solana" });
+    const out = loadContacts();
+    expect(out).toHaveLength(2);
+    expect(out.map((c) => c.name).sort()).toEqual(["Flipped", "Real"]);
   });
 });
