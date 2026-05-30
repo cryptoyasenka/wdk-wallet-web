@@ -28,7 +28,7 @@ export function setLocale(locale: Locale): void {
   localStorage.setItem(STORAGE_KEY, locale);
 }
 
-const translations: Record<string, Record<Locale, string>> = {
+export const translations: Record<string, Record<Locale, string>> = {
   // Header
   "app.title": { en: "WDK Web Wallet", ru: "WDK Веб Кошелёк", uk: "WDK Веб-гаманець" },
   "app.subtitle": { en: "Reference self-custodial WDK multi-chain wallet", ru: "Референсный некастодиальный мультичейн WDK кошелёк", uk: "Референсний некастодіальний мультичейн WDK гаманець" },
