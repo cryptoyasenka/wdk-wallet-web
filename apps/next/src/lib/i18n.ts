@@ -31,18 +31,18 @@ export function setLocale(locale: Locale): void {
 const translations: Record<string, Record<Locale, string>> = {
   // Header
   "app.title": { en: "WDK Web Wallet", ru: "WDK Веб Кошелёк", uk: "WDK Веб-гаманець" },
-  "app.subtitle": { en: "Reference self-custodial WDK multi-chain wallet", ru: "Референсный самостоятельный мультичейн WDK кошелёк", uk: "Референсний самостійний мультичейн WDK гаманець" },
+  "app.subtitle": { en: "Reference self-custodial WDK multi-chain wallet", ru: "Референсный некастодиальный мультичейн WDK кошелёк", uk: "Референсний некастодіальний мультичейн WDK гаманець" },
   "app.worker": { en: "Core worker active", ru: "Ядро активно", uk: "Ядро активне" },
 
   // Wallet card
   "wallets.title": { en: "Your Wallets", ru: "Ваши кошельки", uk: "Ваші гаманці" },
   "wallets.new": { en: "New Wallet", ru: "Новый кошелёк", uk: "Новий гаманець" },
-  "wallets.hint": { en: "Each wallet is an independent seed. Switching locks the current wallet. You unlock the one you pick.", ru: "Каждый кошелёк — это независимый seed. Переключение блокирует текущий — вы разблокируете выбранный.", uk: "Кожен гаманець — це незалежний seed. Перемикання блокує поточний — ви розблоковуєте обраний." },
+  "wallets.hint": { en: "Each wallet is an independent seed. Switching locks the current wallet. You unlock the one you pick.", ru: "Каждый кошелёк — это независимый сид. Переключение блокирует текущий — вы разблокируете выбранный.", uk: "Кожен гаманець — це незалежний сид. Перемикання блокує поточний — ви розблоковуєте обраний." },
 
   // Onboarding
   "onboard.create": { en: "Create", ru: "Создать", uk: "Створити" },
   "onboard.import": { en: "Import", ru: "Импорт", uk: "Імпорт" },
-  "onboard.seed_label": { en: "Seed phrase", ru: "Seed-фраза", uk: "Seed-фраза" },
+  "onboard.seed_label": { en: "Seed phrase", ru: "Сид-фраза", uk: "Сид-фраза" },
   "onboard.seed_placeholder": { en: "twelve or twenty-four words separated by spaces", ru: "двенадцать или двадцать четыре слова через пробел", uk: "дванадцять або двадцять чотири слова через пробіл" },
   "onboard.pass_label": { en: "Passphrase (encrypts the vault on this device)", ru: "Пароль (шифрует хранилище на этом устройстве)", uk: "Пароль (шифрує сховище на цьому пристрої)" },
   "onboard.pass_placeholder": { en: "at least 8 characters", ru: "минимум 8 символов", uk: "щонайменше 8 символів" },
@@ -53,7 +53,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "onboard.watch": { en: "Watch", ru: "Наблюдение", uk: "Спостереження" },
 
   // Watch-only (Phase 5)
-  "watch.onboard_hint": { en: "Monitor any EVM address read-only: no seed, no signing.", ru: "Наблюдайте за любым EVM-адресом только для чтения — без seed-фразы и подписи.", uk: "Спостерігайте за будь-якою EVM-адресою лише для читання — без seed-фрази та підпису." },
+  "watch.onboard_hint": { en: "Monitor any EVM address read-only: no seed, no signing.", ru: "Наблюдайте за любым EVM-адресом только для чтения — без сид-фразы и подписи.", uk: "Спостерігайте за будь-якою EVM-адресою лише для читання — без сид-фрази та підпису." },
   "watch.existing": { en: "Watched addresses", ru: "Отслеживаемые адреса", uk: "Відстежувані адреси" },
   "watch.chain_label": { en: "Chain", ru: "Сеть", uk: "Мережа" },
   "watch.address_label": { en: "Address to watch", ru: "Адрес для наблюдения", uk: "Адреса для спостереження" },
@@ -66,18 +66,18 @@ const translations: Record<string, Record<Locale, string>> = {
   "watch.add_another": { en: "Watch another", ru: "Ещё адрес", uk: "Ще адреса" },
   "watch.remove": { en: "Remove", ru: "Удалить", uk: "Видалити" },
   "watch.copy_addr": { en: "Copy watched address", ru: "Копировать адрес", uk: "Копіювати адресу" },
-  "watch.cannot_sign": { en: "Watch-only wallets cannot sign. Import the seed to send.", ru: "Кошельки в режиме наблюдения не могут подписывать. Импортируйте seed-фразу для отправки.", uk: "Гаманці в режимі спостереження не можуть підписувати. Імпортуйте seed-фразу, щоб надсилати." },
+  "watch.cannot_sign": { en: "Watch-only wallets cannot sign. Import the seed to send.", ru: "Кошельки в режиме наблюдения не могут подписывать. Импортируйте сид-фразу для отправки.", uk: "Гаманці в режимі спостереження не можуть підписувати. Імпортуйте сид-фразу, щоб надсилати." },
   "watch.empty": { en: "No balances on this chain for the watched address.", ru: "Нет балансов в этой сети для отслеживаемого адреса.", uk: "Немає балансів у цій мережі для відстежуваної адреси." },
 
   // Backup
-  "backup.title": { en: "Back up your seed phrase", ru: "Сохраните вашу seed-фразу", uk: "Збережіть вашу seed-фразу" },
+  "backup.title": { en: "Back up your seed phrase", ru: "Сохраните вашу сид-фразу", uk: "Збережіть вашу сид-фразу" },
   "backup.desc": { en: "This is the only way to recover the wallet. Write it down offline. It is shown once.", ru: "Это единственный способ восстановить кошелёк. Запишите офлайн. Показывается один раз.", uk: "Це єдиний спосіб відновити гаманець. Запишіть офлайн. Показується один раз." },
   "backup.checkbox": { en: "I have written it down somewhere safe.", ru: "Я записал(а) это в безопасном месте.", uk: "Я записав(ла) це в безпечному місці." },
   "backup.continue": { en: "Continue", ru: "Продолжить", uk: "Продовжити" },
 
   // Backup quiz
-  "quiz.title": { en: "Verify your seed phrase", ru: "Проверьте вашу seed-фразу", uk: "Перевірте вашу seed-фразу" },
-  "quiz.desc": { en: "Select the correct word for each position to verify you saved your seed phrase.", ru: "Выберите правильное слово для каждой позиции, чтобы подтвердить, что вы сохранили seed-фразу.", uk: "Оберіть правильне слово для кожної позиції, щоб підтвердити, що ви зберегли seed-фразу." },
+  "quiz.title": { en: "Verify your seed phrase", ru: "Проверьте вашу сид-фразу", uk: "Перевірте вашу сид-фразу" },
+  "quiz.desc": { en: "Select the correct word for each position to verify you saved your seed phrase.", ru: "Выберите правильное слово для каждой позиции, чтобы подтвердить, что вы сохранили сид-фразу.", uk: "Оберіть правильне слово для кожної позиції, щоб підтвердити, що ви зберегли сид-фразу." },
   "quiz.word_n": { en: "Word #", ru: "Слово #", uk: "Слово #" },
 
   // Lock
@@ -85,7 +85,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "lock.pass_label": { en: "Passphrase", ru: "Пароль", uk: "Пароль" },
   "lock.pass_placeholder": { en: "your passphrase", ru: "ваш пароль", uk: "ваш пароль" },
   "lock.btn": { en: "Unlock", ru: "Разблокировать", uk: "Розблокувати" },
-  "lock.unlock_passkey": { en: "Unlock with passkey", ru: "Разблокировать через passkey", uk: "Розблокувати через passkey" },
+  "lock.unlock_passkey": { en: "Unlock with passkey", ru: "Разблокировать через ключ доступа", uk: "Розблокувати через ключ доступу" },
   "lock.or_passphrase": { en: "or use your passphrase", ru: "или используйте пароль", uk: "або скористайтеся паролем" },
 
   // QR scanner
@@ -98,7 +98,7 @@ const translations: Record<string, Record<Locale, string>> = {
   // Account
   "account.title": { en: "Account", ru: "Аккаунт", uk: "Акаунт" },
   "account.add": { en: "Add account", ru: "Добавить аккаунт", uk: "Додати акаунт" },
-  "account.hint": { en: "Every account derives from the one seed at a distinct HD index. Switching scopes the portfolio, receive address, and activity below; the selection is remembered on this device.", ru: "Каждый аккаунт происходит от одного seed по уникальному HD-индексу. Переключение меняет портфель, адрес и активность; выбор сохраняется на устройстве.", uk: "Кожен акаунт походить від одного seed за унікальним HD-індексом. Перемикання змінює портфель, адресу та активність; вибір зберігається на пристрої." },
+  "account.hint": { en: "Every account derives from the one seed at a distinct HD index. Switching scopes the portfolio, receive address, and activity below; the selection is remembered on this device.", ru: "Каждый аккаунт происходит от одного сида по уникальному HD-индексу. Переключение меняет портфель, адрес и активность; выбор сохраняется на устройстве.", uk: "Кожен акаунт походить від одного сида за унікальним HD-індексом. Перемикання змінює портфель, адресу та активність; вибір зберігається на пристрої." },
 
   // Portfolio
   "portfolio.title": { en: "Portfolio", ru: "Портфель", uk: "Портфель" },
@@ -162,9 +162,9 @@ const translations: Record<string, Record<Locale, string>> = {
 
   // Security
   "security.title": { en: "Security", ru: "Безопасность", uk: "Безпека" },
-  "security.passkey_added": { en: "Passkey added. It will be the preferred unlock next time; your passphrase still works.", ru: "Passkey добавлен. Будет предпочтительным способом разблокировки; пароль по-прежнему работает.", uk: "Passkey додано. Буде кращим способом розблокування; пароль і надалі працює." },
-  "security.passkey_desc": { en: "Add a passkey (Face ID / Touch ID / security key) for unlock. Optional: your passphrase keeps working unchanged; the passkey is just preferred once enrolled.", ru: "Добавьте passkey (Face ID / Touch ID / ключ безопасности) для разблокировки. Опционально — пароль продолжает работать; passkey становится предпочтительным.", uk: "Додайте passkey (Face ID / Touch ID / ключ безпеки) для розблокування. Необов'язково — пароль і надалі працює; passkey стає кращим після додавання." },
-  "security.add_passkey": { en: "Add passkey unlock", ru: "Добавить passkey разблокировку", uk: "Додати розблокування passkey" },
+  "security.passkey_added": { en: "Passkey added. It will be the preferred unlock next time; your passphrase still works.", ru: "Ключ доступа (passkey) добавлен. Будет предпочтительным способом разблокировки; пароль по-прежнему работает.", uk: "Ключ доступу (passkey) додано. Буде кращим способом розблокування; пароль і надалі працює." },
+  "security.passkey_desc": { en: "Add a passkey (Face ID / Touch ID / security key) for unlock. Optional: your passphrase keeps working unchanged; the passkey is just preferred once enrolled.", ru: "Добавьте ключ доступа (passkey: Face ID / Touch ID / ключ безопасности) для разблокировки. Опционально — пароль продолжает работать; ключ доступа становится предпочтительным.", uk: "Додайте ключ доступу (passkey: Face ID / Touch ID / ключ безпеки) для розблокування. Необов'язково — пароль і надалі працює; ключ доступу стає кращим після додавання." },
+  "security.add_passkey": { en: "Add passkey unlock", ru: "Добавить разблокировку ключом доступа", uk: "Додати розблокування ключем доступу" },
 
   // Settings
   "settings.title": { en: "Settings", ru: "Настройки", uk: "Налаштування" },
@@ -174,9 +174,9 @@ const translations: Record<string, Record<Locale, string>> = {
   "settings.minutes": { en: "minutes", ru: "минут", uk: "хвилин" },
   "settings.language": { en: "Language", ru: "Язык", uk: "Мова" },
   "settings.reveal": { en: "Recovery Check", ru: "Проверка восстановления", uk: "Перевірка відновлення" },
-  "settings.reveal_desc": { en: "Enter your passphrase to verify that this wallet can still be decrypted. Seed words stay hidden after onboarding.", ru: "Введите пароль, чтобы проверить, что кошелёк всё ещё расшифровывается. Seed-фраза остаётся скрытой после онбординга.", uk: "Введіть пароль, щоб перевірити, що гаманець усе ще розшифровується. Seed-фраза залишається прихованою після онбордингу." },
+  "settings.reveal_desc": { en: "Enter your passphrase to verify that this wallet can still be decrypted. Seed words stay hidden after onboarding.", ru: "Введите пароль, чтобы проверить, что кошелёк всё ещё расшифровывается. Сид-фраза остаётся скрытой после онбординга.", uk: "Введіть пароль, щоб перевірити, що гаманець усе ще розшифровується. Сид-фраза залишається прихованою після онбордингу." },
   "settings.reveal_btn": { en: "Verify passphrase", ru: "Проверить пароль", uk: "Перевірити пароль" },
-  "settings.recovery_success": { en: "Passphrase verified. Keep your offline seed backup available before deleting or moving this wallet.", ru: "Пароль проверен. Перед удалением или переносом кошелька убедитесь, что офлайн backup seed-фразы доступен.", uk: "Пароль перевірено. Перед видаленням або перенесенням гаманця переконайтеся, що офлайн-резервна копія seed-фрази доступна." },
+  "settings.recovery_success": { en: "Passphrase verified. Keep your offline seed backup available before deleting or moving this wallet.", ru: "Пароль проверен. Перед удалением или переносом кошелька убедитесь, что офлайн-копия сид-фразы доступна.", uk: "Пароль перевірено. Перед видаленням або перенесенням гаманця переконайтеся, що офлайн-резервна копія сид-фрази доступна." },
   "settings.contacts_title": { en: "Address Book", ru: "Адресная книга", uk: "Адресна книга" },
   "settings.contacts_empty": { en: "No saved contacts yet.", ru: "Нет сохранённых контактов.", uk: "Немає збережених контактів." },
   "settings.contacts_add": { en: "Add contact", ru: "Добавить контакт", uk: "Додати контакт" },
@@ -222,7 +222,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "ds.saved_relock": { en: "Data sources saved. Unlock again to apply.", ru: "Источники сохранены. Разблокируйте заново, чтобы применить.", uk: "Джерела збережено. Розблокуйте знову, щоб застосувати." },
   "ds.csp_blocked": { en: "These origins are not in this deployment's Content-Security-Policy allow-list, so the browser will block requests to them. They only work on a self-hosted build whose CSP env includes them:", ru: "Эти узлы не входят в список разрешённых в Content-Security-Policy этого деплоя, поэтому браузер заблокирует запросы к ним. Они заработают только в self-hosted-сборке, чей CSP-env включает их:", uk: "Ці вузли не входять до списку дозволених у Content-Security-Policy цього деплою, тому браузер заблокує запити до них. Вони запрацюють лише в self-hosted-збірці, чий CSP-env включає їх:" },
   "settings.delete": { en: "Delete Wallet", ru: "Удалить кошелёк", uk: "Видалити гаманець" },
-  "settings.delete_desc": { en: "Permanently erase this wallet from this device. This cannot be undone. Make sure you have your seed phrase backed up.", ru: "Безвозвратно удалить этот кошелёк с устройства. Это нельзя отменить. Убедитесь, что у вас есть резервная копия seed-фразы.", uk: "Безповоротно видалити цей гаманець із пристрою. Це не можна скасувати. Переконайтеся, що у вас є резервна копія seed-фрази." },
+  "settings.delete_desc": { en: "Permanently erase this wallet from this device. This cannot be undone. Make sure you have your seed phrase backed up.", ru: "Безвозвратно удалить этот кошелёк с устройства. Это нельзя отменить. Убедитесь, что у вас есть резервная копия сид-фразы.", uk: "Безповоротно видалити цей гаманець із пристрою. Це не можна скасувати. Переконайтеся, що у вас є резервна копія сид-фрази." },
   "settings.delete_btn": { en: "Delete this wallet", ru: "Удалить этот кошелёк", uk: "Видалити цей гаманець" },
   "settings.delete_confirm": { en: "Are you absolutely sure? This will wipe all data for this wallet from this device.", ru: "Вы абсолютно уверены? Это сотрет все данные этого кошелька с этого устройства.", uk: "Ви абсолютно впевнені? Це зітре всі дані цього гаманця з цього пристрою." },
 
@@ -247,7 +247,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "toast.wallet_renamed": { en: "Wallet renamed", ru: "Кошелёк переименован", uk: "Гаманець перейменовано" },
   "toast.wallet_deleted": { en: "Wallet deleted successfully", ru: "Кошелёк успешно удалён", uk: "Гаманець успішно видалено" },
   "toast.wallet_verified": { en: "Wallet created and verified", ru: "Кошелёк создан и проверен", uk: "Гаманець створено та перевірено" },
-  "toast.passkey_added": { en: "Passkey enrolled successfully", ru: "Passkey успешно добавлен", uk: "Passkey успішно додано" },
+  "toast.passkey_added": { en: "Passkey enrolled successfully", ru: "Ключ доступа успешно добавлен", uk: "Ключ доступу успішно додано" },
   "error.contact_required": { en: "Name and address are required.", ru: "Имя и адрес обязательны.", uk: "Ім'я та адреса обов'язкові." },
   "error.delete_failed": { en: "Failed to wipe wallet storage.", ru: "Не удалось стереть хранилище кошелька.", uk: "Не вдалося стерти сховище гаманця." },
   "error.delete_blocked": { en: "Couldn't delete: another open tab is using this wallet. Close other tabs and try again.", ru: "Не удалось удалить: кошелёк открыт в другой вкладке. Закройте остальные вкладки и попробуйте снова.", uk: "Не вдалося видалити: гаманець відкрито в іншій вкладці. Закрийте інші вкладки та спробуйте ще раз." },
@@ -255,7 +255,7 @@ const translations: Record<string, Record<Locale, string>> = {
   // Validation / thrown-error messages
   "error.pass_too_short": { en: "Use a passphrase of at least 8 characters.", ru: "Используйте пароль не менее 8 символов.", uk: "Використовуйте пароль щонайменше з 8 символів." },
   "error.pass_mismatch": { en: "Passphrases do not match.", ru: "Пароли не совпадают.", uk: "Паролі не збігаються." },
-  "error.seed_required": { en: "Enter your seed phrase.", ru: "Введите вашу seed-фразу.", uk: "Введіть вашу seed-фразу." },
+  "error.seed_required": { en: "Enter your seed phrase.", ru: "Введите вашу сид-фразу.", uk: "Введіть вашу сид-фразу." },
   "error.pass_required": { en: "Enter your passphrase.", ru: "Введите ваш пароль.", uk: "Введіть ваш пароль." },
   "error.recipient_required": { en: "Enter a recipient address.", ru: "Введите адрес получателя.", uk: "Введіть адресу отримувача." },
   "error.amount_invalid": { en: "Enter a positive amount, e.g. 12.5", ru: "Введите положительную сумму, напр. 12,5", uk: "Введіть додатну суму, напр. 12,5" },
@@ -263,7 +263,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "error.amount_positive": { en: "Amount must be greater than zero.", ru: "Сумма должна быть больше нуля.", uk: "Сума має бути більшою за нуль." },
   "error.quiz_wrong": { en: "Incorrect answer for word #{n}. Please try again.", ru: "Неверный ответ для слова #{n}. Попробуйте снова.", uk: "Невірна відповідь для слова #{n}. Спробуйте ще раз." },
   "error.wrong_passphrase": { en: "Wrong passphrase, or the vault is corrupt.", ru: "Неверный пароль или хранилище повреждено.", uk: "Невірний пароль або сховище пошкоджено." },
-  "error.invalid_seed": { en: "That is not a valid BIP-39 seed phrase.", ru: "Это не корректная BIP-39 seed-фраза.", uk: "Це не коректна BIP-39 seed-фраза." },
+  "error.invalid_seed": { en: "That is not a valid BIP-39 seed phrase.", ru: "Это не корректная BIP-39 сид-фраза.", uk: "Це не коректна BIP-39 сид-фраза." },
   "error.wallet_exists": { en: "A wallet already exists on this device.", ru: "На этом устройстве уже есть кошелёк.", uk: "На цьому пристрої вже є гаманець." },
   "error.generic": { en: "Something went wrong.", ru: "Что-то пошло не так.", uk: "Щось пішло не так." },
 
