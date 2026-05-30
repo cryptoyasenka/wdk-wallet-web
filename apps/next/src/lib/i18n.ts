@@ -37,7 +37,7 @@ const translations: Record<string, Record<Locale, string>> = {
   // Wallet card
   "wallets.title": { en: "Your Wallets", ru: "Ваши кошельки", uk: "Ваші гаманці" },
   "wallets.new": { en: "New Wallet", ru: "Новый кошелёк", uk: "Новий гаманець" },
-  "wallets.hint": { en: "Each wallet is an independent seed. Switching locks the current wallet — you unlock the one you pick.", ru: "Каждый кошелёк — это независимый seed. Переключение блокирует текущий — вы разблокируете выбранный.", uk: "Кожен гаманець — це незалежний seed. Перемикання блокує поточний — ви розблоковуєте обраний." },
+  "wallets.hint": { en: "Each wallet is an independent seed. Switching locks the current wallet. You unlock the one you pick.", ru: "Каждый кошелёк — это независимый seed. Переключение блокирует текущий — вы разблокируете выбранный.", uk: "Кожен гаманець — це незалежний seed. Перемикання блокує поточний — ви розблоковуєте обраний." },
 
   // Onboarding
   "onboard.create": { en: "Create", ru: "Создать", uk: "Створити" },
@@ -53,7 +53,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "onboard.watch": { en: "Watch", ru: "Наблюдение", uk: "Спостереження" },
 
   // Watch-only (Phase 5)
-  "watch.onboard_hint": { en: "Monitor any EVM address read-only — no seed, no signing.", ru: "Наблюдайте за любым EVM-адресом только для чтения — без seed-фразы и подписи.", uk: "Спостерігайте за будь-якою EVM-адресою лише для читання — без seed-фрази та підпису." },
+  "watch.onboard_hint": { en: "Monitor any EVM address read-only: no seed, no signing.", ru: "Наблюдайте за любым EVM-адресом только для чтения — без seed-фразы и подписи.", uk: "Спостерігайте за будь-якою EVM-адресою лише для читання — без seed-фрази та підпису." },
   "watch.existing": { en: "Watched addresses", ru: "Отслеживаемые адреса", uk: "Відстежувані адреси" },
   "watch.chain_label": { en: "Chain", ru: "Сеть", uk: "Мережа" },
   "watch.address_label": { en: "Address to watch", ru: "Адрес для наблюдения", uk: "Адреса для спостереження" },
@@ -106,7 +106,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "send.recipient_placeholder": { en: "destination address", ru: "адрес назначения", uk: "адреса призначення" },
   "send.amount": { en: "Amount", ru: "Сумма", uk: "Сума" },
   "send.review": { en: "Review transaction", ru: "Проверить транзакцию", uk: "Перевірити транзакцію" },
-  "send.confirm_hint": { en: "Decoded from the transaction — not raw hex. Check every line.", ru: "Декодировано из транзакции — не сырой hex. Проверьте каждую строку.", uk: "Декодовано з транзакції — не сирий hex. Перевірте кожен рядок." },
+  "send.confirm_hint": { en: "Decoded from the transaction, not raw hex. Check every line.", ru: "Декодировано из транзакции — не сырой hex. Проверьте каждую строку.", uk: "Декодовано з транзакції — не сирий hex. Перевірте кожен рядок." },
   "send.confirm_btn": { en: "Confirm & send", ru: "Подтвердить и отправить", uk: "Підтвердити та надіслати" },
   "send.cancel": { en: "Cancel", ru: "Отмена", uk: "Скасувати" },
   "send.broadcast": { en: "Broadcast. It appears below as pending until the network confirms it.", ru: "Отправлено. Появится ниже как ожидающее до подтверждения сетью.", uk: "Надіслано. З'явиться нижче як очікувана до підтвердження мережею." },
@@ -136,12 +136,12 @@ const translations: Record<string, Record<Locale, string>> = {
   // Pre-send safety panel
   "safety.title": { en: "Before you send", ru: "Перед отправкой", uk: "Перед надсиланням" },
   "safety.official_token": { en: "Official Tether contract", ru: "Официальный контракт Tether", uk: "Офіційний контракт Tether" },
-  "safety.unknown_token": { en: "Unrecognised token contract — verify it.", ru: "Неизвестный контракт токена — проверьте его.", uk: "Невідомий контракт токена — перевірте його." },
+  "safety.unknown_token": { en: "Unrecognised token contract. Verify it.", ru: "Неизвестный контракт токена — проверьте его.", uk: "Невідомий контракт токена — перевірте його." },
   "safety.sending": { en: "Sending", ru: "Отправка", uk: "Надсилання" },
   "safety.recipient_self": { en: "This is one of your own receive addresses.", ru: "Это один из ваших адресов получения.", uk: "Це одна з ваших адрес отримання." },
   "safety.recipient_saved": { en: "Saved contact", ru: "Сохранённый контакт", uk: "Збережений контакт" },
   "safety.recipient_recent": { en: "Recently used recipient.", ru: "Недавно использованный получатель.", uk: "Нещодавно використаний отримувач." },
-  "safety.recipient_new": { en: "New recipient — not in your address book.", ru: "Новый получатель — нет в адресной книге.", uk: "Новий отримувач — немає в адресній книзі." },
+  "safety.recipient_new": { en: "New recipient, not in your address book.", ru: "Новый получатель — нет в адресной книге.", uk: "Новий отримувач — немає в адресній книзі." },
   "safety.poisoning": { en: "Looks like a known address but is NOT the same. Check every character.", ru: "Похоже на известный адрес, но это НЕ он. Проверьте каждый символ.", uk: "Схоже на відому адресу, але це НЕ вона. Перевірте кожен символ." },
   "safety.poisoning_resembles": { en: "Resembles", ru: "Похоже на", uk: "Схоже на" },
   "safety.gas_note": { en: "Network fee is paid separately in the chain's native coin, not in the token amount above.", ru: "Комиссия сети оплачивается отдельно в нативной монете сети, а не из суммы токена выше.", uk: "Комісія мережі сплачується окремо в нативній монеті мережі, а не із суми токена вище." },
@@ -151,12 +151,12 @@ const translations: Record<string, Record<Locale, string>> = {
   "activity.title": { en: "Activity", ru: "Активность", uk: "Активність" },
   "activity.refresh": { en: "Refresh", ru: "Обновить", uk: "Оновити" },
   "activity.empty": { en: "No transactions yet. Send or receive funds to see activity here.", ru: "Транзакций пока нет. Отправьте или получите средства, чтобы увидеть активность.", uk: "Транзакцій поки немає. Надішліть або отримайте кошти, щоб побачити активність." },
-  "activity.hint": { en: "Outgoing sends made in this wallet via this app. Inbound and external transfers need a WDK indexer — see docs/ARCHITECTURE.md (ADR-003). Statuses come from the on-chain receipt, never guessed.", ru: "Исходящие отправки из этого кошелька через это приложение. Входящие и внешние переводы требуют WDK-индексер. Статусы из блокчейна, не угаданы.", uk: "Вихідні надсилання з цього гаманця через цей застосунок. Вхідні та зовнішні перекази потребують WDK-індексатора. Статуси з блокчейну, не вгадані." },
+  "activity.hint": { en: "Outgoing sends made in this wallet via this app. Inbound and external transfers need a WDK indexer. See docs/ARCHITECTURE.md (ADR-003). Statuses come from the on-chain receipt, never guessed.", ru: "Исходящие отправки из этого кошелька через это приложение. Входящие и внешние переводы требуют WDK-индексер. Статусы из блокчейна, не угаданы.", uk: "Вихідні надсилання з цього гаманця через цей застосунок. Вхідні та зовнішні перекази потребують WDK-індексатора. Статуси з блокчейну, не вгадані." },
 
   // Security
   "security.title": { en: "Security", ru: "Безопасность", uk: "Безпека" },
   "security.passkey_added": { en: "Passkey added. It will be the preferred unlock next time; your passphrase still works.", ru: "Passkey добавлен. Будет предпочтительным способом разблокировки; пароль по-прежнему работает.", uk: "Passkey додано. Буде кращим способом розблокування; пароль і надалі працює." },
-  "security.passkey_desc": { en: "Add a passkey (Face ID / Touch ID / security key) for unlock. Optional — your passphrase keeps working unchanged; the passkey is just preferred once enrolled.", ru: "Добавьте passkey (Face ID / Touch ID / ключ безопасности) для разблокировки. Опционально — пароль продолжает работать; passkey становится предпочтительным.", uk: "Додайте passkey (Face ID / Touch ID / ключ безпеки) для розблокування. Необов'язково — пароль і надалі працює; passkey стає кращим після додавання." },
+  "security.passkey_desc": { en: "Add a passkey (Face ID / Touch ID / security key) for unlock. Optional: your passphrase keeps working unchanged; the passkey is just preferred once enrolled.", ru: "Добавьте passkey (Face ID / Touch ID / ключ безопасности) для разблокировки. Опционально — пароль продолжает работать; passkey становится предпочтительным.", uk: "Додайте passkey (Face ID / Touch ID / ключ безпеки) для розблокування. Необов'язково — пароль і надалі працює; passkey стає кращим після додавання." },
   "security.add_passkey": { en: "Add passkey unlock", ru: "Добавить passkey разблокировку", uk: "Додати розблокування passkey" },
 
   // Settings
@@ -228,7 +228,7 @@ const translations: Record<string, Record<Locale, string>> = {
 
   // Toast messages
   "toast.copied": { en: "Copied to clipboard", ru: "Скопировано", uk: "Скопійовано" },
-  "toast.copy_failed": { en: "Could not copy — copy it manually", ru: "Не удалось скопировать — скопируйте вручную", uk: "Не вдалося скопіювати — скопіюйте вручну" },
+  "toast.copy_failed": { en: "Could not copy. Copy it manually", ru: "Не удалось скопировать — скопируйте вручную", uk: "Не вдалося скопіювати — скопіюйте вручну" },
   "toast.sent": { en: "Transaction broadcast successfully", ru: "Транзакция успешно отправлена", uk: "Транзакцію успішно надіслано" },
   "toast.locked": { en: "Wallet locked", ru: "Кошелёк заблокирован", uk: "Гаманець заблоковано" },
   "toast.autolock": { en: "Wallet auto-locked due to inactivity", ru: "Кошелёк заблокирован из-за бездействия", uk: "Гаманець заблоковано через бездіяльність" },
@@ -251,7 +251,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "error.pass_required": { en: "Enter your passphrase.", ru: "Введите ваш пароль.", uk: "Введіть ваш пароль." },
   "error.recipient_required": { en: "Enter a recipient address.", ru: "Введите адрес получателя.", uk: "Введіть адресу отримувача." },
   "error.amount_invalid": { en: "Enter a positive amount, e.g. 12.5", ru: "Введите положительную сумму, напр. 12,5", uk: "Введіть додатну суму, напр. 12,5" },
-  "error.amount_decimals": { en: "Too many decimal places — this asset has {n}.", ru: "Слишком много знаков после запятой — у этого актива {n}.", uk: "Забагато знаків після коми — у цього активу {n}." },
+  "error.amount_decimals": { en: "Too many decimal places: this asset has {n}.", ru: "Слишком много знаков после запятой — у этого актива {n}.", uk: "Забагато знаків після коми — у цього активу {n}." },
   "error.amount_positive": { en: "Amount must be greater than zero.", ru: "Сумма должна быть больше нуля.", uk: "Сума має бути більшою за нуль." },
   "error.quiz_wrong": { en: "Incorrect answer for word #{n}. Please try again.", ru: "Неверный ответ для слова #{n}. Попробуйте снова.", uk: "Невірна відповідь для слова #{n}. Спробуйте ще раз." },
   "error.wrong_passphrase": { en: "Wrong passphrase, or the vault is corrupt.", ru: "Неверный пароль или хранилище повреждено.", uk: "Невірний пароль або сховище пошкоджено." },
@@ -283,7 +283,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "misc.network_fee": { en: "Network fee", ru: "Комиссия сети", uk: "Комісія мережі" },
   "account.name_template": { en: "Account #", ru: "Аккаунт #", uk: "Акаунт #" },
 
-  // Fee speed (Bitcoin only — the one chain WDK lets us tier)
+  // Fee speed (Bitcoin only, the one chain WDK lets us tier)
   "fee.speed": { en: "Network speed", ru: "Скорость сети", uk: "Швидкість мережі" },
   "fee.slow": { en: "Slow", ru: "Медленная", uk: "Повільна" },
   "fee.normal": { en: "Normal", ru: "Обычная", uk: "Звичайна" },
@@ -292,7 +292,7 @@ const translations: Record<string, Record<Locale, string>> = {
   "fee.normal_hint": { en: "~30 min", ru: "~30 мин", uk: "~30 хв" },
   "fee.fast_hint": { en: "~10 min", ru: "~10 мин", uk: "~10 хв" },
   "send.max_btc_fee_warn": {
-    en: "Sending the whole BTC balance leaves nothing for the network fee — lower it a bit.",
+    en: "Sending the whole BTC balance leaves nothing for the network fee. Lower it a bit.",
     ru: "Отправка всего баланса BTC не оставит средств на комиссию сети — уменьшите немного.",
     uk: "Надсилання всього балансу BTC не залишить коштів на комісію мережі — зменшіть трохи.",
   },
