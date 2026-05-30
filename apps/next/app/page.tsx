@@ -2075,20 +2075,26 @@ export default function Page() {
 
                     {editingContactKey === key && (
                       <div className="glass-card rounded-xl p-3 mt-2 flex flex-col gap-2 border border-emerald-500/20 bg-emerald-500/5">
-                        <input
-                          type="text"
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                          placeholder={T("settings.contacts_name")}
-                          value={editContactName}
-                          onChange={(e) => setEditContactName(e.target.value)}
-                        />
-                        <input
-                          type="text"
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                          placeholder={T("settings.contacts_note_ph")}
-                          value={editContactNote}
-                          onChange={(e) => setEditContactNote(e.target.value)}
-                        />
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_name")}</span>
+                          <input
+                            type="text"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                            placeholder={T("settings.contacts_name")}
+                            value={editContactName}
+                            onChange={(e) => setEditContactName(e.target.value)}
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_note")}</span>
+                          <input
+                            type="text"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                            placeholder={T("settings.contacts_note_ph")}
+                            value={editContactNote}
+                            onChange={(e) => setEditContactNote(e.target.value)}
+                          />
+                        </label>
                         <div className="flex gap-2 justify-end">
                           <button
                             className="rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white transition-colors"
@@ -2109,13 +2115,16 @@ export default function Page() {
                     {templatingContactKey === key && (
                       <div className="glass-card rounded-xl p-3 mt-2 flex flex-col gap-2 border border-emerald-500/20 bg-emerald-500/5">
                         <span className="text-xs font-medium text-white">{T("settings.tpl_title")}</span>
-                        <input
-                          type="text"
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                          placeholder={T("settings.tpl_name_ph")}
-                          value={newTemplateName}
-                          onChange={(e) => setNewTemplateName(e.target.value)}
-                        />
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.tpl_name")}</span>
+                          <input
+                            type="text"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                            placeholder={T("settings.tpl_name_ph")}
+                            value={newTemplateName}
+                            onChange={(e) => setNewTemplateName(e.target.value)}
+                          />
+                        </label>
                         <select
                           className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
                           value={newTemplateAssetKey}
@@ -2126,13 +2135,16 @@ export default function Page() {
                             <option key={assetKey(a)} value={assetKey(a)}>{a.symbol}</option>
                           ))}
                         </select>
-                        <input
-                          type="text"
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                          placeholder={T("settings.tpl_amount")}
-                          value={newTemplateAmount}
-                          onChange={(e) => setNewTemplateAmount(e.target.value)}
-                        />
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.tpl_amount")}</span>
+                          <input
+                            type="text"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                            placeholder={T("receive.req_amount_ph")}
+                            value={newTemplateAmount}
+                            onChange={(e) => setNewTemplateAmount(e.target.value)}
+                          />
+                        </label>
                         <div className="flex gap-2 justify-end">
                           <button
                             className="rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white transition-colors"
@@ -2181,27 +2193,36 @@ export default function Page() {
               <div className="glass-card rounded-xl p-4 mt-3 flex flex-col gap-3 border border-emerald-500/20 bg-emerald-500/5">
                 <span className="text-sm font-medium text-white">{T("settings.contacts_add_title")}</span>
                 <div className="flex flex-col gap-2">
-                  <input
-                    type="text"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                    placeholder={T("settings.contacts_name")}
-                    value={newContactName}
-                    onChange={(e) => setNewContactName(e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                    placeholder={T("settings.contacts_address")}
-                    value={newContactAddress}
-                    onChange={(e) => setNewContactAddress(e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                    placeholder={T("settings.contacts_note_ph")}
-                    value={newContactNote}
-                    onChange={(e) => setNewContactNote(e.target.value)}
-                  />
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_name")}</span>
+                    <input
+                      type="text"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                      placeholder={T("settings.contacts_name")}
+                      value={newContactName}
+                      onChange={(e) => setNewContactName(e.target.value)}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_address")}</span>
+                    <input
+                      type="text"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                      placeholder={T("settings.contacts_address")}
+                      value={newContactAddress}
+                      onChange={(e) => setNewContactAddress(e.target.value)}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_note")}</span>
+                    <input
+                      type="text"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                      placeholder={T("settings.contacts_note_ph")}
+                      value={newContactNote}
+                      onChange={(e) => setNewContactNote(e.target.value)}
+                    />
+                  </label>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_chain")}</label>
                     <select
