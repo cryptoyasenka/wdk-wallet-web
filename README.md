@@ -11,9 +11,11 @@ seed, unlock with a passkey or passphrase, then send and receive real BTC and
 USD₮ (plus XAUT). Key material never leaves the browser, the WDK signer
 runs in a dedicated Web Worker, and there is nothing custodial in between.
 
-> **Reviewing this for the bounty?** → **[`JUDGES.md`](JUDGES.md)**: a 60-second
-> live-demo tour, a "verify each claim yourself" command map, and a candid note on
-> exactly what is proven runnable versus what is left on the author.
+> **Reviewing this for the bounty?** Start with **[`SUBMISSION.md`](SUBMISSION.md)**
+> — the entry: what shipped vs. the ask, evaluate-in-5-minutes, honest limits. Then
+> **[`JUDGES.md`](JUDGES.md)** for a 60-second live-demo tour, a "verify each claim
+> yourself" command map, and a candid note on what is proven runnable versus what is
+> left on the author.
 
 ![Wallet demo: create → back up seed → portfolio (BTC + USD₮) → receive (real client-derived addresses)](docs/demo.gif)
 
