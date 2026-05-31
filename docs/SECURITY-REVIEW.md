@@ -31,8 +31,8 @@ we do not claim to.
 
 ```
 create:  entropy → mnemonic shown once (main thread, backup screen)
-                 → AES-GCM seal (worker) → ciphertext → IndexedDB
-import:  user types mnemonic (main thread) → seal (worker) → IndexedDB
+                 → AES-GCM seal (main thread) → ciphertext → IndexedDB
+import:  user types mnemonic (main thread) → seal (main thread) → IndexedDB
 unlock:  passkey PRF | passphrase → wrap key → openSeed (worker) → signer in worker
 sign:    main thread sends an INTENT (amount/asset/chain/recipient) → worker signs
 lock:    worker drops the decrypted seed + signer; zeroise buffers
