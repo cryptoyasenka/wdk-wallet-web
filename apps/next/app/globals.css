@@ -23,6 +23,22 @@ body {
   color-scheme: dark;
 }
 
+/* Native <select> open list: pin solid, readable dark options. color-scheme:
+   dark above fixes the closed control, but on some Windows Chrome builds the
+   highlighted/selected row still paints light text on a near-white highlight
+   (unreadable). Pinning the option bg + the checked/hover row keeps every
+   option legible when the dropdown opens. (macOS Chrome renders the list
+   natively and ignores these — it's already legible there.) */
+select option {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+select option:checked,
+select option:hover {
+  background-color: #10b981;
+  color: #ffffff;
+}
+
 body {
   min-height: 100vh;
   position: relative;
