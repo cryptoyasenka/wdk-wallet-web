@@ -168,8 +168,8 @@ and a CI green mean the same thing. WDK is alpha; package versions are pinned
 - **WDK is alpha:** `@tetherto/*` versions are pinned exact and quarantined
   behind `packages/wallet-core/src/wdk/` (ESLint-enforced), so an upstream break
   is one-file localized.
-- **Repo is local-only** in the working tree; the public deliverable is a
-  scoped mirror.
+- **Public repo:** this repository is the canonical public deliverable; the
+  Railway live demo above auto-deploys from `main`.
 - **Not for production use with real funds yet.** The web has no exact
   equivalent of the RN starter's BareKit worklet + native Keychain +
   biometrics; we do not pretend it does. The real threat model and the residual
