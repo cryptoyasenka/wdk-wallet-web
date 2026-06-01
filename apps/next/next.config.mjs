@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
 
   // Static, request-independent security headers for EVERY route (incl. static
   // assets). The Content-Security-Policy is NOT here: a strict `script-src`

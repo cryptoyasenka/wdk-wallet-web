@@ -20,8 +20,11 @@ Electrum TCP socket).
 
 1. Open the URL → **Create wallet** → set a passphrase.
 2. **Back up the seed** and pass the seed quiz (the backup gate is enforced).
-3. Land on the **portfolio**: BTC + USD₮ across Ethereum / Polygon / Arbitrum /
-   Plasma + Solana (+ XAU₮ on Ethereum), with opt-out live prices.
+3. Land on the **portfolio**: USD₮ across Ethereum / Polygon / Arbitrum /
+   Plasma + Solana (+ XAU₮ on Ethereum), with opt-out live prices. BTC is enabled
+   when an Electrum-WS endpoint is configured; the zero-config demo shows the
+   honest unsupported-chain state, and `corepack pnpm btc:live` proves the real
+   BTC transport path.
 4. **Receive** → toggle Address ⇄ Request → pick asset + amount → get a scannable
    EIP-681 / BIP-21 / Solana Pay URI and QR, not just a bare address.
 5. **Send** → enter a recipient → see the pre-send **safety panel**
@@ -67,11 +70,12 @@ stays offline and deterministic.
 - An actual **on-chain broadcast** of a send requires funded testnet keys. WDK
   couples sign-and-broadcast in `account.sendTransaction` / `account.transfer`
   (there is no offline sign-without-broadcast primitive to assert against, so we
-  do **not** fabricate one). The end-to-end "money actually moved" proof is
-  therefore a short **recorded send video** rather than a script in this repo.
-- A 2–3 minute **walkthrough video** and a manual **two-tab Delete-Wallet** check
-  (a browser-lifecycle behaviour that is not unit-testable) are likewise
-  author-side.
+  do **not** fabricate one). The end-to-end "money actually moved" proof should
+  therefore be supplied as a short **recorded send video** in the bounty form
+  rather than as a script in this repo.
+- A 2-3 minute **walkthrough video** and a manual **two-tab Delete-Wallet** check
+  (a browser-lifecycle behaviour that is not unit-testable) should likewise be
+  supplied author-side.
 
 This is the one honest gap the live-read harnesses and unit tests cannot close on
 their own — everything up to the final broadcast is runnable above.

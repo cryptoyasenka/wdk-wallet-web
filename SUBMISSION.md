@@ -68,8 +68,9 @@ A step-by-step tour and a full "verify each claim yourself" command table live i
 - The end-to-end **"money actually moved" broadcast** needs funded testnet keys. WDK
   couples sign-and-broadcast in `account.sendTransaction` / `account.transfer` (there
   is no offline sign-without-broadcast primitive to assert against, so it is **not**
-  fabricated); that final step is shown as a short **recorded send video**, while the
-  send orchestration, signing intent, and fee quotes are unit-tested in-repo.
+  fabricated); that final proof should be attached in the bounty form as a short
+  **recorded send video**, while the send orchestration, signing intent, and fee
+  quotes are unit-tested in-repo.
 - **BTC needs a public Electrum-WS endpoint** — a browser cannot open a raw Electrum
   TCP socket. That is a deployment input, not a missing feature.
 - **Lightning / Spark** are not shipped: same adapter shape, left as documented

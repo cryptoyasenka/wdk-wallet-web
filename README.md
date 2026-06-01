@@ -17,11 +17,13 @@ runs in a dedicated Web Worker, and there is nothing custodial in between.
 > yourself" command map, and a candid note on what is proven runnable versus what is
 > left on the author.
 
-![Wallet demo: create → back up seed → portfolio (BTC + USD₮) → receive (real client-derived addresses)](docs/demo.gif)
+![Wallet demo: create → back up seed → portfolio (BTC fixture + USD₮) → receive (real client-derived addresses)](docs/demo.gif)
 
 > Recorded end-to-end against the real built app. The BTC row is served by a
 > local, offline Electrum-WS fixture (no endpoint, no secret); the addresses
-> and keys are real client-side derivation. Regenerate locally:
+> and keys are real client-side derivation. This GIF is the reproducible product
+> preview, not the funded send-broadcast proof; attach the separate walkthrough /
+> send-proof video in the bounty form. Regenerate locally:
 > `corepack pnpm demo` (one-time `corepack pnpm exec playwright install
 > chromium`, plus `ffmpeg` on PATH).
 
