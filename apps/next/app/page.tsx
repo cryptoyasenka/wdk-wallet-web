@@ -29,7 +29,7 @@ import {
 import qrcode from "qrcode-generator";
 import jsQR from "jsqr";
 import { getWalletApp, resetWalletApp } from "@/lib/engine";
-import { loadDataSources, saveDataSources, sanitizeDataSources, cspBlockedOrigins, type DataSources, type IndexerMode } from "@/lib/dataSources";
+import { loadDataSources, saveDataSources, sanitizeDataSources, cspBlockedOrigins, deployEndpointDefaults, type DataSources, type IndexerMode } from "@/lib/dataSources";
 import { extractAddress } from "@/lib/extract-address";
 import { isWebAuthnSupported } from "@/lib/webauthnUnlock";
 import { explorerUrl, addressExplorerUrl } from "@/lib/explorer";
@@ -318,6 +318,14 @@ export default function Page() {
       }),
     );
   }, [dsForm]);
+
+  // Deploy-time endpoint defaults inlined at build (NEXT_PUBLIC_*). Surfaced under
+  // the matching Data Sources field when the user set no local override, so the card
+  // discloses every endpoint the wallet actually talks to — not just device-local
+  // overrides. Build-constant; compute once. Same source the engine reads.
+  const deploy = useMemo(() => deployEndpointDefaults(), []);
+  const liveDemoUrl = "https://wdk-wallet-web-production.up.railway.app";
+  const walkthroughUrl = "https://github.com/cryptoyasenka/wdk-wallet-web/blob/main/docs/walkthrough.mp4";
 
   // ---- Post-send inline save contact states ----
   const [newContactSendName, setNewContactSendName] = useState("");
@@ -1146,6 +1154,12 @@ export default function Page() {
       {/* ---- ONBOARDING ---- */}
       {phase === "onboarding" && (
         <Card>
+          <div className="mb-4 flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">{T("badge.assets")}</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-300">{T("badge.worker")}</span>
+            <a href={liveDemoUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-300 hover:text-white hover:border-white/20 transition-colors">{T("badge.live")}</a>
+            <a href={walkthroughUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-300 hover:text-white hover:border-white/20 transition-colors">{T("badge.video")}</a>
+          </div>
           <div className="mb-4 grid grid-cols-3 gap-2 text-sm">
             <Tab active={mode === "create"} onClick={() => setMode("create")}>{T("onboard.create")}</Tab>
             <Tab active={mode === "import"} onClick={() => setMode("import")}>{T("onboard.import")}</Tab>
@@ -2312,6 +2326,12 @@ export default function Page() {
                     value={dsForm[key]}
                     onChange={(e) => setDsForm((f) => ({ ...f, [key]: e.target.value }))}
                   />
+                  {key === "ethereumRpcUrls" && deploy.ethereumRpcUrls.length > 0 && dsForm.ethereumRpcUrls.trim() === "" && (
+                    <span className="mt-1 block text-[11px] text-[--color-muted]">
+                      {T("ds.deploy_uses")}{" "}
+                      <span className="font-mono break-anywhere text-slate-300">{deploy.ethereumRpcUrls.join(", ")}</span>
+                    </span>
+                  )}
                 </label>
               ))}
 
@@ -2324,6 +2344,16 @@ export default function Page() {
                   value={dsForm.btcElectrumWsUrl}
                   onChange={(e) => setDsForm((f) => ({ ...f, btcElectrumWsUrl: e.target.value }))}
                 />
+                {dsForm.btcElectrumWsUrl.trim() === "" &&
+                  (deploy.btcElectrumWsUrl ? (
+                    <span className="mt-1 block text-[11px] text-[--color-muted]">
+                      {T("ds.deploy_uses")}{" "}
+                      <span className="font-mono break-anywhere text-slate-300">{deploy.btcElectrumWsUrl}</span>{" "}
+                      {T("ds.deploy_override_hint")}
+                    </span>
+                  ) : (
+                    <span className="mt-1 block text-[11px] text-[--color-muted]">{T("ds.btc_ws_off")}</span>
+                  ))}
               </label>
 
               <label className="block">

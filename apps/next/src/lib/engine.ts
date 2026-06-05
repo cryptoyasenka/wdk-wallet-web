@@ -21,7 +21,7 @@ import {
 import { IndexedDbStorage } from "./storage";
 import { SelectingUnlockProvider } from "./webauthnUnlock";
 import { StubCryptoWorker } from "./cryptoWorker";
-import { loadDataSources, type DataSources } from "./dataSources";
+import { deployEndpointDefaults, loadDataSources, type DataSources } from "./dataSources";
 import { createIndexerHistoryProvider } from "./historyProvider";
 
 export interface WalletApp {
@@ -54,14 +54,11 @@ function chainOptions(ds: DataSources): BuildChainsOptions {
   const opts: BuildChainsOptions = {};
 
   // Deploy-time env defaults (only Ethereum RPC + BTC Electrum are env-driven).
-  const envEth = (process.env.NEXT_PUBLIC_ETHEREUM_RPC_URLS ?? "")
-    .split(",")
-    .map((u) => u.trim())
-    .filter((u) => u.length > 0);
-  if (envEth.length > 0) opts.ethereumRpcUrls = envEth;
-
-  const envBtc = process.env.NEXT_PUBLIC_BTC_ELECTRUM_WS_URL?.trim();
-  if (envBtc) opts.btcElectrumWsUrl = envBtc;
+  // Shared with the Data Sources card via deployEndpointDefaults() so the endpoint
+  // disclosed to the user is exactly the one this layer hands to the engine.
+  const env = deployEndpointDefaults();
+  if (env.ethereumRpcUrls.length > 0) opts.ethereumRpcUrls = env.ethereumRpcUrls;
+  if (env.btcElectrumWsUrl) opts.btcElectrumWsUrl = env.btcElectrumWsUrl;
 
   // Runtime user overrides win when set (the Data Sources settings card).
   if (ds.ethereumRpcUrls.length > 0) opts.ethereumRpcUrls = ds.ethereumRpcUrls;

@@ -56,6 +56,29 @@ export const DEFAULT_DATA_SOURCES: DataSources = {
 const STORAGE_KEY = "wdk-data-sources";
 
 /**
+ * The two endpoints a deployment can set at build time via `NEXT_PUBLIC_*`
+ * (statically inlined into the client bundle). Only the Ethereum RPC list and the
+ * Bitcoin Electrum-WS URL are env-driven; every other chain rides keyless public
+ * defaults. Read by BOTH the engine's chain-option layering and the Data Sources
+ * card, so the endpoint disclosed to the user can never drift from the one the
+ * wallet actually talks to — which is what keeps the "every network endpoint this
+ * wallet talks to" privacy claim true on a deploy that, e.g., enables BTC via env.
+ */
+export interface DeployEndpointDefaults {
+  ethereumRpcUrls: string[];
+  btcElectrumWsUrl: string;
+}
+
+export function deployEndpointDefaults(): DeployEndpointDefaults {
+  const ethereumRpcUrls = (process.env.NEXT_PUBLIC_ETHEREUM_RPC_URLS ?? "")
+    .split(",")
+    .map((u) => u.trim())
+    .filter((u) => u.length > 0);
+  const btcElectrumWsUrl = process.env.NEXT_PUBLIC_BTC_ELECTRUM_WS_URL?.trim() ?? "";
+  return { ethereumRpcUrls, btcElectrumWsUrl };
+}
+
+/**
  * Parse a comma/newline-separated list of URLs, keeping only those that parse
  * and whose protocol is allowed. Order is preserved; blanks and invalid entries
  * are dropped rather than throwing.

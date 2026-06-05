@@ -4,12 +4,13 @@
  * validation, untrusted-JSON hardening (bad values fall back to the
  * privacy-preserving default, never throw), and the connect-src origin set.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_DATA_SOURCES,
   DEFAULT_PRICE_ENDPOINT,
   connectSrcOrigins,
   cspBlockedOrigins,
+  deployEndpointDefaults,
   originOf,
   parseUrlList,
   sanitizeDataSources,
@@ -147,5 +148,43 @@ describe("cspBlockedOrigins", () => {
       pricesEnabled: false,
     });
     expect(out).toEqual([]);
+  });
+});
+
+describe("deployEndpointDefaults", () => {
+  const ETH = "NEXT_PUBLIC_ETHEREUM_RPC_URLS";
+  const BTC = "NEXT_PUBLIC_BTC_ELECTRUM_WS_URL";
+  const orig = { eth: process.env[ETH], btc: process.env[BTC] };
+  const restore = (key: string, value: string | undefined) => {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  };
+  afterEach(() => {
+    restore(ETH, orig.eth);
+    restore(BTC, orig.btc);
+  });
+
+  it("reads the BTC Electrum-WS endpoint from env, trimmed (the live-deploy case)", () => {
+    process.env[BTC] = "  wss://blockstream.info/electrum-websocket/api  ";
+    delete process.env[ETH];
+    expect(deployEndpointDefaults()).toEqual({
+      ethereumRpcUrls: [],
+      btcElectrumWsUrl: "wss://blockstream.info/electrum-websocket/api",
+    });
+  });
+
+  it("splits the Ethereum RPC list on commas, trimming and dropping blanks", () => {
+    process.env[ETH] = "https://a.example, , https://b.example ";
+    delete process.env[BTC];
+    expect(deployEndpointDefaults()).toEqual({
+      ethereumRpcUrls: ["https://a.example", "https://b.example"],
+      btcElectrumWsUrl: "",
+    });
+  });
+
+  it("returns the zero-config default ([] / \"\") when neither env var is set", () => {
+    delete process.env[ETH];
+    delete process.env[BTC];
+    expect(deployEndpointDefaults()).toEqual({ ethereumRpcUrls: [], btcElectrumWsUrl: "" });
   });
 });

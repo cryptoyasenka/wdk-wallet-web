@@ -33,6 +33,11 @@ export const translations: Record<string, Record<Locale, string>> = {
   "app.title": { en: "WDK Web Wallet", ru: "WDK Веб Кошелёк", uk: "WDK Веб-гаманець" },
   "app.subtitle": { en: "Reference self-custodial WDK multi-chain wallet", ru: "Референсный некастодиальный мультичейн WDK кошелёк", uk: "Референсний некастодіальний мультичейн WDK гаманець" },
   "app.worker": { en: "Core worker active", ru: "Ядро активно", uk: "Ядро активне" },
+  // Judge-facing context badges (onboarding, first screen)
+  "badge.assets": { en: "BTC + USD₮", ru: "BTC + USD₮", uk: "BTC + USD₮" },
+  "badge.worker": { en: "Web Worker signer", ru: "Подпись в Web Worker", uk: "Підпис у Web Worker" },
+  "badge.live": { en: "Live demo ↗", ru: "Живое демо ↗", uk: "Живе демо ↗" },
+  "badge.video": { en: "Walkthrough video ↗", ru: "Видео-обзор ↗", uk: "Відео-огляд ↗" },
 
   // Wallet card
   "wallets.title": { en: "Your Wallets", ru: "Ваши кошельки", uk: "Ваші гаманці" },
@@ -206,7 +211,10 @@ export const translations: Record<string, Record<Locale, string>> = {
   "ds.rpc_solana": { en: "Solana RPC URLs", ru: "RPC-узлы Solana", uk: "RPC-вузли Solana" },
   "ds.rpc_ph": { en: "comma or newline separated; blank = public default", ru: "через запятую или с новой строки; пусто = публичный узел", uk: "через кому або з нового рядка; порожньо = публічний вузол" },
   "ds.btc_ws": { en: "Bitcoin Electrum-WS URL", ru: "URL Electrum-WS (Bitcoin)", uk: "URL Electrum-WS (Bitcoin)" },
-  "ds.btc_ws_ph": { en: "wss://… ; blank = BTC disabled", ru: "wss://… ; пусто = BTC отключён", uk: "wss://… ; порожньо = BTC вимкнено" },
+  "ds.btc_ws_ph": { en: "wss://…", ru: "wss://…", uk: "wss://…" },
+  "ds.deploy_uses": { en: "This deployment talks to:", ru: "Этот деплой обращается к:", uk: "Цей деплой звертається до:" },
+  "ds.deploy_override_hint": { en: "Leave blank to keep it; set a value to override on this device only.", ru: "Оставьте пустым, чтобы использовать его; задайте значение, чтобы переопределить только на этом устройстве.", uk: "Залиште порожнім, щоб використати його; задайте значення, щоб перевизначити лише на цьому пристрої." },
+  "ds.btc_ws_off": { en: "Blank, and no deploy default — Bitcoin stays disabled until you add an Electrum-WS endpoint.", ru: "Пусто, и деплой не задаёт узел — Bitcoin отключён, пока вы не добавите Electrum-WS узел.", uk: "Порожньо, і деплой не задає вузол — Bitcoin вимкнено, доки ви не додасте Electrum-WS вузол." },
   "ds.indexer_mode": { en: "Activity source", ru: "Источник истории", uk: "Джерело історії" },
   "ds.indexer_local": { en: "Local activity only", ru: "Только локальная история", uk: "Лише локальна історія" },
   "ds.indexer_remote": { en: "Use configured indexer", ru: "Использовать индексатор", uk: "Використовувати індексатор" },
