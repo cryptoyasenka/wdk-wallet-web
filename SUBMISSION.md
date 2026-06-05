@@ -7,6 +7,7 @@ production-grade **web** counterpart to Tether's `wdk-starter-react-native`, whi
 Tether ships only for React Native.
 
 - **Live demo (no build):** https://wdk-wallet-web-production.up.railway.app
+- **Walkthrough video (~90 s, silent):** [`docs/walkthrough.mp4`](docs/walkthrough.mp4) — create → back up → portfolio → receive → send form
 - **Reviewer guide / verify each claim yourself:** [`JUDGES.md`](JUDGES.md)
 - **Requirement → implementation → verification map:** [`docs/BOUNTY-CHECKLIST.md`](docs/BOUNTY-CHECKLIST.md)
 
@@ -52,7 +53,7 @@ That same headless core is reusable verbatim for the other two Tether WDK bounti
 1. **No build:** open the live demo and walk create → back up seed → portfolio →
    receive (payment-request URI + QR) → send (pre-send safety panel).
 2. **Local gates:** `corepack pnpm install && corepack pnpm verify` — lint, typecheck,
-   **246 unit tests**, and build across all three packages.
+   **249 unit tests**, and build across all three packages.
 3. **Prove the real chains:** `corepack pnpm btc:live` / `corepack pnpm sol:live` run
    the genuine WDK adapters in-process against live endpoints and read real on-chain
    balances — actual transport, not a mock.
@@ -69,8 +70,9 @@ A step-by-step tour and a full "verify each claim yourself" command table live i
   couples sign-and-broadcast in `account.sendTransaction` / `account.transfer` (there
   is no offline sign-without-broadcast primitive to assert against, so it is **not**
   fabricated); that final proof should be attached in the bounty form as a short
-  **recorded send video**, while the send orchestration, signing intent, and fee
-  quotes are unit-tested in-repo.
+  **recorded send video** (the product walkthrough itself ships in-repo at
+  [`docs/walkthrough.mp4`](docs/walkthrough.mp4)), while the send orchestration,
+  signing intent, and fee quotes are unit-tested in-repo.
 - **BTC needs a public Electrum-WS endpoint** — a browser cannot open a raw Electrum
   TCP socket. That is a deployment input, not a missing feature.
 - **Lightning / Spark** are not shipped: same adapter shape, left as documented

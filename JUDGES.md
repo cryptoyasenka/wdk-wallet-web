@@ -9,22 +9,28 @@ inherently on the author.
 **https://wdk-wallet-web-production.up.railway.app**
 
 The real built app, served under the same strict per-request-nonce CSP and
-security headers as production. It boots with zero config on its five keyless
-default chains (Ethereum, Polygon, Arbitrum, Plasma + Solana). **Your seed is
+security headers as production. It runs all six chains — the five keyless defaults
+(Ethereum, Polygon, Arbitrum, Plasma + Solana) **plus Bitcoin**, enabled via a
+public Blockstream Electrum-WS endpoint the deploy points at. **Your seed is
 generated and encrypted in your own browser; the deploy holds no keys and nothing
-custodial.** Bitcoin shows an honest "unsupported chain" notice until an
-Electrum-WS endpoint is configured (see the README — a browser cannot open a raw
-Electrum TCP socket).
+custodial.** (Run it locally with no endpoint configured and Bitcoin instead shows
+an honest "unsupported chain" notice — a browser cannot open a raw Electrum TCP
+socket, so BTC needs an Electrum-WS endpoint to point at. See the README.)
+
+**Prefer to watch?** A silent ~90 s **[walkthrough video](docs/walkthrough.mp4)**
+screencasts the whole flow (create → back up → portfolio → receive → send form);
+the funded on-chain send is a separate clip — see "on the author" below.
 
 ## 60-second tour (on the live demo)
 
 1. Open the URL → **Create wallet** → set a passphrase.
 2. **Back up the seed** and pass the seed quiz (the backup gate is enforced).
 3. Land on the **portfolio**: USD₮ across Ethereum / Polygon / Arbitrum /
-   Plasma + Solana (+ XAU₮ on Ethereum), with opt-out live prices. BTC is enabled
-   when an Electrum-WS endpoint is configured; the zero-config demo shows the
-   honest unsupported-chain state, and `corepack pnpm btc:live` proves the real
-   BTC transport path.
+   Plasma + Solana (+ XAU₮ on Ethereum), with opt-out live prices. **Bitcoin is
+   live on this demo** — the deploy points at a public Blockstream Electrum-WS
+   endpoint; run it locally with no endpoint and BTC shows the honest
+   unsupported-chain state instead. `corepack pnpm btc:live` proves the real BTC
+   transport path either way.
 4. **Receive** → toggle Address ⇄ Request → pick asset + amount → get a scannable
    EIP-681 / BIP-21 / Solana Pay URI and QR, not just a bare address.
 5. **Send** → enter a recipient → see the pre-send **safety panel**
@@ -41,7 +47,7 @@ corepack pnpm install
 
 | To check… | Run |
 |---|---|
-| lint + typecheck + **246 unit tests** + build, across all 3 packages | `corepack pnpm verify` |
+| lint + typecheck + **249 unit tests** + build, across all 3 packages | `corepack pnpm verify` |
 | real-browser E2E walkthrough under the **live strict CSP** | `corepack pnpm smoke` |
 | accessibility — axe-core, WCAG 2.0/2.1 A+AA, every key screen | `corepack pnpm a11y` |
 | **real** BTC transport over a live Electrum-over-WebSocket endpoint | `corepack pnpm btc:live` |
@@ -73,9 +79,10 @@ stays offline and deterministic.
   do **not** fabricate one). The end-to-end "money actually moved" proof should
   therefore be supplied as a short **recorded send video** in the bounty form
   rather than as a script in this repo.
-- A 2-3 minute **walkthrough video** and a manual **two-tab Delete-Wallet** check
-  (a browser-lifecycle behaviour that is not unit-testable) should likewise be
-  supplied author-side.
+- The **walkthrough video** now ships in the repo
+  ([`docs/walkthrough.mp4`](docs/walkthrough.mp4), linked above); what remains
+  author-side is the funded **send** clip and a manual **two-tab Delete-Wallet**
+  check (a browser-lifecycle behaviour that is not unit-testable).
 
 This is the one honest gap the live-read harnesses and unit tests cannot close on
 their own — everything up to the final broadcast is runnable above.

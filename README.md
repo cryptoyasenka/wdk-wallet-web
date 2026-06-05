@@ -22,18 +22,25 @@ runs in a dedicated Web Worker, and there is nothing custodial in between.
 > Recorded end-to-end against the real built app. The BTC row is served by a
 > local, offline Electrum-WS fixture (no endpoint, no secret); the addresses
 > and keys are real client-side derivation. This GIF is the reproducible product
-> preview, not the funded send-broadcast proof; attach the separate walkthrough /
-> send-proof video in the bounty form. Regenerate locally:
+> preview, not the funded send-broadcast proof; the walkthrough video is in
+> [`docs/walkthrough.mp4`](docs/walkthrough.mp4) and the funded send-proof clip is
+> attached in the bounty form. Regenerate locally:
 > `corepack pnpm demo` (one-time `corepack pnpm exec playwright install
 > chromium`, plus `ffmpeg` on PATH).
 
 **Live demo:** **https://wdk-wallet-web-production.up.railway.app**, the real
 built app, served under the same strict per-request-nonce CSP and security
-headers as production. It boots with zero config, so it runs on its five
-keyless default chains (Ethereum, Polygon, Arbitrum, Plasma + Solana); BTC
-surfaces the honest "unsupported chain" notice until an Electrum-WS endpoint is
-configured, exactly as described below. Your seed is generated and encrypted in
-your own browser; the deploy holds no keys and nothing custodial.
+headers as production. It runs all six chains — the five keyless defaults
+(Ethereum, Polygon, Arbitrum, Plasma + Solana) plus **Bitcoin**, enabled via a
+public Blockstream Electrum-WS endpoint the deploy points at. (Run it locally
+with no endpoint configured and BTC instead surfaces the honest "unsupported
+chain" notice, exactly as described below.) Your seed is generated and encrypted
+in your own browser; the deploy holds no keys and nothing custodial.
+
+**Walkthrough video:** a silent ~90 s screencast of the whole flow lives at
+[`docs/walkthrough.mp4`](docs/walkthrough.mp4) (create → back up → portfolio →
+receive → send form). The funded on-chain send is a separate recorded clip — see
+[`SUBMISSION.md`](SUBMISSION.md) → "Honest limits".
 
 ## Run it in two minutes
 
