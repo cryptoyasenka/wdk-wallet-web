@@ -20,20 +20,22 @@
 /**
  * Origins of wallet-core's keyless public RPCs (ETHEREUM/POLYGON/ARBITRUM/
  * PLASMA/SOLANA_PUBLIC_RPCS). Origins, not full URLs — `connect-src` matches by
- * origin. `rpc.ankr.com` is shared by the eth/polygon/arbitrum Ankr endpoints,
- * so it appears once. Solana is a non-EVM net but reaches its RPC over the same
- * browser `fetch`, so its origins must be allowlisted here too or SPL USD₮
- * balance reads are silently blocked by CSP. Kept in sync with the lists in
+ * origin. The dRPC endpoints are per-chain subdomains (eth/polygon/arbitrum
+ * .drpc.org), so each is a distinct origin and is listed separately. Solana is
+ * a non-EVM net but reaches its RPC over the same browser `fetch`, so its
+ * origins must be allowlisted here too or SPL USD₮ balance reads are silently
+ * blocked by CSP. Kept in sync with the lists in
  * `packages/wallet-core/src/chains/index.ts` by `test/cspAllowlist.test.ts`.
  */
 export const DEFAULT_RPC_ORIGINS = [
   "https://ethereum-rpc.publicnode.com",
   "https://eth.llamarpc.com",
-  "https://rpc.ankr.com",
-  "https://polygon-rpc.com",
+  "https://eth.drpc.org",
   "https://polygon-bor-rpc.publicnode.com",
+  "https://polygon.drpc.org",
   "https://arb1.arbitrum.io",
   "https://arbitrum-one-rpc.publicnode.com",
+  "https://arbitrum.drpc.org",
   "https://rpc.plasma.to",
   "https://solana-rpc.publicnode.com",
   "https://api.mainnet-beta.solana.com",

@@ -66,7 +66,7 @@ export const USDT_SOLANA = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
 export const ETHEREUM_PUBLIC_RPCS: readonly string[] = [
   "https://ethereum-rpc.publicnode.com",
   "https://eth.llamarpc.com",
-  "https://rpc.ankr.com/eth",
+  "https://eth.drpc.org",
 ];
 
 const ETHEREUM_CHAIN_ID = 1;
@@ -77,17 +77,18 @@ const ETHEREUM_CHAIN_ID = 1;
  * failover list). Public nodes are rate-limited; production should override
  * via `BuildChainsOptions` / `.env`. ChainIds are the canonical values
  * (chainlist + each chain's own docs): Polygon PoS 137, Arbitrum One 42161,
- * Plasma mainnet 9745.
+ * Plasma mainnet 9745. All endpoints reachability-checked keyless on
+ * 2026-06-07 (eth_chainId → expected id); polygon-rpc.com (HTTP 401, tenant
+ * disabled) and the rpc.ankr.com/* nodes (now key-gated) were dropped.
  */
 export const POLYGON_PUBLIC_RPCS: readonly string[] = [
-  "https://polygon-rpc.com",
   "https://polygon-bor-rpc.publicnode.com",
-  "https://rpc.ankr.com/polygon",
+  "https://polygon.drpc.org",
 ];
 export const ARBITRUM_PUBLIC_RPCS: readonly string[] = [
   "https://arb1.arbitrum.io/rpc",
   "https://arbitrum-one-rpc.publicnode.com",
-  "https://rpc.ankr.com/arbitrum",
+  "https://arbitrum.drpc.org",
 ];
 /**
  * Plasma is a stablecoin-focused EVM L1 (Reth-based, full EVM compat). Simple
