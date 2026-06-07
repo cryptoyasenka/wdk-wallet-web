@@ -6,7 +6,7 @@
   --color-surface: rgba(15, 23, 42, 0.45);
   --color-border: rgba(255, 255, 255, 0.08);
   --color-accent: #10b981; /* Premium emerald green */
-  --color-accent-fg: #022c22; /* emerald-950 ink — AA-readable on the emerald button (≈7.6:1); plain #fff was only 2.53:1 */
+  --color-accent-fg: #022c22; /* emerald-950 ink — AA-readable on the emerald button (≈6:1); plain #fff was only 2.53:1 */
   --color-muted: #94a3b8;
   
   --font-outfit: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
