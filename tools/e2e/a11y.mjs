@@ -91,6 +91,12 @@ async function waitForHttp(url, timeoutMs) {
 
 /** Inject axe and audit the current DOM. Returns axe's violations array. */
 async function audit(page, label, results) {
+  // Screens fade their content in on mount (entrance transition). axe samples
+  // the DOM synchronously, so auditing the instant a heading appears can catch a
+  // mid-fade frame where every element is at ~8% opacity → false-positive
+  // contrast failures. Let the entrance settle so we measure the resting UI the
+  // user actually reads (WCAG contrast applies to stable states, not tween frames).
+  await page.waitForTimeout(500);
   await page.evaluate(axeSource);
   const { violations } = await page.evaluate(
     async (tags) => await window.axe.run(document, { runOnly: tags }),
