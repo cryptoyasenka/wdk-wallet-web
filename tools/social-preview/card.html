@@ -1,0 +1,146 @@
+<!doctype html>
+<!--
+  Source of truth for the GitHub social-preview (og:image), 1280×640.
+  Rendered to ../../.github/social-preview.png by render.mjs (Playwright).
+  Tooling only — lives outside the pnpm workspace, no @tetherto/* imports.
+  Two chip styles via ?v= : "emerald" (uniform filled, default) | "glass"
+  (uniform dark-glass + per-chain colour dot). Everything inline: no network.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 1280px; height: 640px; overflow: hidden;
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    color: #f1f5f9;
+    background:
+      radial-gradient(900px 520px at 16% -12%, rgba(16,185,129,.20), transparent 60%),
+      radial-gradient(760px 620px at 112% 120%, rgba(52,211,153,.12), transparent 55%),
+      linear-gradient(135deg, #0d1e36 0%, #08111f 55%, #060913 100%);
+  }
+  /* left emerald accent bar */
+  body::before {
+    content: ""; position: fixed; left: 0; top: 0; bottom: 0; width: 12px;
+    background: linear-gradient(180deg, #34d399, #10b981);
+  }
+  .wrap {
+    position: relative; width: 100%; height: 100%;
+    padding: 60px 72px 60px 84px; display: flex; flex-direction: column;
+  }
+
+  /* header */
+  .head { display: flex; align-items: center; gap: 22px; }
+  .logo {
+    width: 92px; height: 92px; border-radius: 22px; flex: none;
+    border: 1px solid rgba(255,255,255,.16);
+    box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 0 22px rgba(16,185,129,.18), 0 0 0 1px rgba(16,185,129,.12) inset;
+  }
+  .brand { display: flex; flex-direction: column; gap: 4px; }
+  .brand .name { font-size: 30px; font-weight: 800; letter-spacing: -.6px; color: #f8fafc; }
+  .brand .repo { font-size: 19px; font-weight: 500; color: #94a3b8; letter-spacing: .1px; }
+
+  /* main copy */
+  .main { margin-top: auto; }
+  .title {
+    font-size: 58px; font-weight: 800; line-height: 1.06; letter-spacing: -1.4px;
+    color: #f8fafc; max-width: 1000px;
+  }
+  .title .accent { color: #34d399; }
+  .sub { margin-top: 20px; font-size: 24px; font-weight: 500; color: #9fb0c3; letter-spacing: -.2px; }
+
+  /* chips */
+  .chips { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 14px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 12px 22px; border-radius: 999px;
+    font-size: 22px; font-weight: 700; letter-spacing: -.2px; line-height: 1;
+  }
+  .chip .dot { width: 13px; height: 13px; border-radius: 50%; flex: none; }
+
+  /* ---- variant: emerald (uniform filled) ---- */
+  .v-emerald .chip {
+    color: #ffffff;
+    background: linear-gradient(180deg, #12c08a 0%, #0ea371 100%);
+    border: 1px solid rgba(255,255,255,.20);
+    box-shadow: 0 6px 16px rgba(16,185,129,.22);
+  }
+  .v-emerald .chip .dot { display: none; }
+
+  /* ---- variant: glass (uniform dark + colour dot) ---- */
+  .v-glass .chip {
+    color: #f1f5f9;
+    background: rgba(255,255,255,.065);
+    border: 1.5px solid rgba(255,255,255,.16);
+    box-shadow: 0 6px 16px rgba(0,0,0,.28);
+  }
+  .v-glass .chip[data-c="btc"]  .dot { background: #f7931a; }
+  .v-glass .chip[data-c="usdt"] .dot { background: #26a17b; }
+  .v-glass .chip[data-c="xaut"] .dot { background: #d4af37; }
+  .v-glass .chip[data-c="eth"]  .dot { background: #7b86c2; }
+  .v-glass .chip[data-c="sol"]  .dot { background: #14f195; }
+  .v-glass .chip[data-c="next"] .dot { background: #e6edf3; }
+  .v-glass .chip[data-c="svelte"] .dot { background: #ff3e00; }
+
+  /* footer */
+  .foot {
+    position: absolute; right: 72px; top: 76px;
+    font-size: 19px; font-weight: 600; color: #8aa0b5; letter-spacing: .1px;
+    display: inline-flex; align-items: center; gap: 9px;
+  }
+  .foot .live { width: 9px; height: 9px; border-radius: 50%; background: #34d399; box-shadow: 0 0 10px rgba(52,211,153,.8); }
+</style>
+</head>
+<body class="v-emerald">
+  <div class="wrap">
+    <div class="head">
+      <svg class="logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#0d1e36"/>
+            <stop offset="100%" stop-color="#060913"/>
+          </linearGradient>
+          <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#34d399"/>
+            <stop offset="100%" stop-color="#10b981"/>
+          </linearGradient>
+        </defs>
+        <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+        <path d="M256 80 L384 144 V280 C384 356 320 412 256 440 C192 412 128 356 128 280 V144 Z"
+              fill="none" stroke="url(#accent)" stroke-width="12" stroke-linejoin="round" opacity="0.9"/>
+        <text x="256" y="316" font-family="system-ui, sans-serif" font-size="150" font-weight="700"
+              fill="url(#accent)" text-anchor="middle">W</text>
+        <circle cx="256" cy="374" r="10" fill="#10b981" opacity="0.8"/>
+      </svg>
+      <div class="brand">
+        <div class="name">WDK Wallet</div>
+        <div class="repo">github.com/cryptoyasenka/wdk-wallet-web</div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="title">Self-custodial, multi-chain web wallet on <span class="accent">Tether&rsquo;s WDK</span></div>
+      <div class="sub">Headless-tested core &middot; Next.js reference app &middot; Svelte portability proof</div>
+      <div class="chips">
+        <span class="chip" data-c="btc"><span class="dot"></span>Bitcoin</span>
+        <span class="chip" data-c="usdt"><span class="dot"></span>USD&#8366;</span>
+        <span class="chip" data-c="xaut"><span class="dot"></span>XAU&#8366;</span>
+        <span class="chip" data-c="eth"><span class="dot"></span>Ethereum</span>
+        <span class="chip" data-c="sol"><span class="dot"></span>Solana</span>
+        <span class="chip" data-c="next"><span class="dot"></span>Next.js</span>
+        <span class="chip" data-c="svelte"><span class="dot"></span>Svelte</span>
+      </div>
+    </div>
+
+    <div class="foot"><span class="live"></span>wdk-wallet-web-production.up.railway.app</div>
+  </div>
+
+  <script>
+    // ?v=emerald (default) | ?v=glass — sets the chip style class on <body>.
+    var v = new URLSearchParams(location.search).get("v");
+    document.body.className = v === "glass" ? "v-glass" : "v-emerald";
+  </script>
+</body>
+</html>
