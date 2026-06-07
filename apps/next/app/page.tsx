@@ -1045,7 +1045,7 @@ export default function Page() {
   };
 
   return (
-    <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-5 py-8 font-sans sm:py-10">
+    <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-5 py-8 font-sans sm:py-10 lg:max-w-2xl">
       <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-slate-50 drop-shadow-sm">{T("app.title")}</h1>
