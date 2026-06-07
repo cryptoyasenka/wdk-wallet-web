@@ -6,7 +6,7 @@
   --color-surface: rgba(15, 23, 42, 0.45);
   --color-border: rgba(255, 255, 255, 0.08);
   --color-accent: #10b981; /* Premium emerald green */
-  --color-accent-fg: #ffffff;
+  --color-accent-fg: #022c22; /* emerald-950 ink — AA-readable on the emerald button (≈7.6:1); plain #fff was only 2.53:1 */
   --color-muted: #94a3b8;
   
   --font-outfit: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
@@ -37,6 +37,22 @@ select option:checked,
 select option:hover {
   background-color: #10b981;
   color: #ffffff;
+}
+
+/* Closed <select> control value text: once a CSS background is forced on the
+   control (our bg-[var(--color-bg)]), Windows Chrome keeps painting the
+   displayed value in native dark text (CSS `color` is ignored on a native
+   control) → dark-on-dark. Take the control out of native rendering so `color`
+   applies, and re-add a chevron since appearance:none drops the native arrow. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  color: #f1f5f9;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  background-size: 0.9rem;
+  padding-right: 2rem;
 }
 
 body {

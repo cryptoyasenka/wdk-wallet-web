@@ -1112,7 +1112,7 @@ export default function Page() {
               <div className="flex gap-2 mb-2">
                 <input
                   type="text"
-                  className="flex-1 rounded-md border border-[--color-accent] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[--color-accent] text-white"
+                  className="flex-1 rounded-md border border-[var(--color-accent)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--color-accent)] text-white"
                   value={editWalletNameInput}
                   onChange={(e) => setEditWalletNameInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -1127,7 +1127,7 @@ export default function Page() {
             ) : (
               <div className="flex gap-2 mb-2">
                 <select
-                  className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                  className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
                   aria-label={T("a11y.select_wallet")}
                   value={activeWallet}
                   onChange={(e) => onSelectWallet(Number(e.target.value))}
@@ -1138,14 +1138,14 @@ export default function Page() {
                   ))}
                 </select>
                 <button
-                  className="flex items-center justify-center rounded-md border border-[--color-border] bg-white/5 hover:bg-white/10 px-3 text-[--color-muted] hover:text-white transition-colors"
+                  className="flex items-center justify-center rounded-md border border-[var(--color-border)] bg-white/5 hover:bg-white/10 px-3 text-[var(--color-muted)] hover:text-white transition-colors"
                   onClick={() => renameWallet(activeWallet)}
                   aria-label={T("a11y.rename_wallet")}
                   title={T("a11y.rename_wallet")}
                 ><Pencil size={14} /></button>
               </div>
             )}
-            <p className="text-xs text-[--color-muted]">{T("wallets.hint")}</p>
+            <p className="text-xs text-[var(--color-muted)]">{T("wallets.hint")}</p>
           </Card>
         )}
 
@@ -1169,7 +1169,7 @@ export default function Page() {
           {mode === "import" && (
             <Field label={T("onboard.seed_label")}>
               <textarea
-                className="h-24 w-full resize-none rounded-md border border-[--color-border] bg-[--color-bg] p-3 text-sm break-anywhere outline-none focus:border-[--color-accent]"
+                className="h-24 w-full resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm break-anywhere outline-none focus:border-[var(--color-accent)]"
                 placeholder={T("onboard.seed_placeholder")}
                 value={seedInput}
                 onChange={(e) => setSeedInput(e.target.value)}
@@ -1181,22 +1181,22 @@ export default function Page() {
 
           {mode === "watch" ? (
             <>
-              <p className="mb-3 text-sm text-[--color-muted]">{T("watch.onboard_hint")}</p>
+              <p className="mb-3 text-sm text-[var(--color-muted)]">{T("watch.onboard_hint")}</p>
 
               {watchWallets.length > 0 && (
                 <div className="mb-4">
-                  <div className="mb-1.5 text-[10px] uppercase tracking-wide text-[--color-muted]">{T("watch.existing")}</div>
+                  <div className="mb-1.5 text-[10px] uppercase tracking-wide text-[var(--color-muted)]">{T("watch.existing")}</div>
                   <ul className="flex flex-col gap-1.5">
                     {watchWallets.map((w) => (
                       <li key={w.id}>
                         <button
-                          className="flex w-full items-center gap-2 rounded-md border border-[--color-border] bg-white/5 px-3 py-2 text-left text-sm hover:bg-white/10 transition-colors"
+                          className="flex w-full items-center gap-2 rounded-md border border-[var(--color-border)] bg-white/5 px-3 py-2 text-left text-sm hover:bg-white/10 transition-colors"
                           onClick={() => onOpenWatch(w)}
                         >
                           <Eye size={14} className="shrink-0 text-amber-400" />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-white">{w.label || w.address}</span>
-                            <span className="block truncate text-[10px] text-[--color-muted]">{w.chain} · {w.address}</span>
+                            <span className="block truncate text-[10px] text-[var(--color-muted)]">{w.chain} · {w.address}</span>
                           </span>
                         </button>
                       </li>
@@ -1207,7 +1207,7 @@ export default function Page() {
 
               <Field label={T("watch.chain_label")}>
                 <select
-                  className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
                   value={watchChainInput}
                   onChange={(e) => setWatchChainInput(e.target.value as WatchChain)}
                 >
@@ -1248,8 +1248,8 @@ export default function Page() {
       {phase === "backup" && (
         <Card>
           <h2 className="mb-1 font-medium">{T("backup.title")}</h2>
-          <p className="mb-3 text-sm text-[--color-muted]">{T("backup.desc")}</p>
-          <pre className="mb-4 rounded-md border border-[--color-border] bg-[--color-bg] p-3 text-sm leading-relaxed break-anywhere whitespace-pre-wrap">
+          <p className="mb-3 text-sm text-[var(--color-muted)]">{T("backup.desc")}</p>
+          <pre className="mb-4 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm leading-relaxed break-anywhere whitespace-pre-wrap">
             {revealedSeed}
           </pre>
           <label className="mb-4 flex items-center gap-2 text-sm">
@@ -1266,7 +1266,7 @@ export default function Page() {
       {phase === "quiz" && (
         <Card>
           <h2 className="mb-1 font-medium">{T("quiz.title")}</h2>
-          <p className="mb-4 text-sm text-[--color-muted]">{T("quiz.desc")}</p>
+          <p className="mb-4 text-sm text-[var(--color-muted)]">{T("quiz.desc")}</p>
           <div className="flex flex-col gap-4 mb-4">
             {quizQuestions.map((q) => (
               <div key={q.index}>
@@ -1278,7 +1278,7 @@ export default function Page() {
                       className={`rounded-md border px-3 py-2 text-sm transition-all ${
                         quizAnswers[q.index] === opt
                           ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
-                          : "border-[--color-border] bg-white/5 text-[--color-muted] hover:bg-white/10 hover:text-white"
+                          : "border-[var(--color-border)] bg-white/5 text-[var(--color-muted)] hover:bg-white/10 hover:text-white"
                       }`}
                       onClick={() => setQuizAnswers((prev) => ({ ...prev, [q.index]: opt }))}
                     >
@@ -1299,7 +1299,7 @@ export default function Page() {
               {T("backup.continue")}
             </Button>
             <button
-              className="rounded-md border border-[--color-border] px-4 py-2.5 text-sm text-[--color-muted] hover:text-white"
+              className="rounded-md border border-[var(--color-border)] px-4 py-2.5 text-sm text-[var(--color-muted)] hover:text-white"
               onClick={onSkipQuiz}
               disabled={busy}
             >
@@ -1316,7 +1316,7 @@ export default function Page() {
           {passkeyEnrolled && (
             <div className="mb-4">
               <Button onClick={onUnlockPasskey} busy={busy} workingLabel={T("misc.working")}>{T("lock.unlock_passkey")}</Button>
-              <p className="mt-3 text-xs text-[--color-muted]">{T("lock.or_passphrase")}</p>
+              <p className="mt-3 text-xs text-[var(--color-muted)]">{T("lock.or_passphrase")}</p>
             </div>
           )}
           <Field label={T("lock.pass_label")}>
@@ -1333,12 +1333,12 @@ export default function Page() {
           <Card>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-medium">{T("account.title")}</h2>
-              <button className="text-sm text-[--color-muted] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50" onClick={onAddAccount} disabled={busy}>
+              <button className="text-sm text-[var(--color-muted)] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50" onClick={onAddAccount} disabled={busy}>
                 {T("account.add")}
               </button>
             </div>
             <select
-              className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
               aria-label={T("a11y.select_account")}
               value={activeAccount}
               onChange={(e) => onSelectAccount(Number(e.target.value))}
@@ -1348,7 +1348,7 @@ export default function Page() {
                 <option key={i} value={i}>{T("account.name_template")}{i}</option>
               ))}
             </select>
-            <p className="mt-2 text-xs text-[--color-muted]">{T("account.hint")}</p>
+            <p className="mt-2 text-xs text-[var(--color-muted)]">{T("account.hint")}</p>
           </Card>
 
           {/* Portfolio card */}
@@ -1357,7 +1357,7 @@ export default function Page() {
               <h2 className="font-medium text-lg">{T("portfolio.title")}</h2>
               <div className="flex items-center gap-2">
                 <button
-                  className="flex items-center gap-1 text-sm text-[--color-muted] hover:text-white transition-colors"
+                  className="flex items-center gap-1 text-sm text-[var(--color-muted)] hover:text-white transition-colors"
                   onClick={onOpenSettings}
                   aria-label={T("settings.title")}
                   title={T("settings.title")}
@@ -1365,7 +1365,7 @@ export default function Page() {
                   <Settings size={14} />
                 </button>
                 <button
-                  className="flex items-center gap-1.5 text-sm text-[--color-muted] hover:text-white transition-colors"
+                  className="flex items-center gap-1.5 text-sm text-[var(--color-muted)] hover:text-white transition-colors"
                   onClick={onLock}
                   disabled={busy}
                 >
@@ -1379,7 +1379,7 @@ export default function Page() {
             {balances && balances.length > 0 && totalUsd > 0 && (
               <div className="mb-4 text-center">
                 <p className="text-3xl font-bold text-white tracking-tight">{formatUsd(totalUsd)}</p>
-                <p className="text-xs text-[--color-muted] mt-1">{T("portfolio.total")}</p>
+                <p className="text-xs text-[var(--color-muted)] mt-1">{T("portfolio.total")}</p>
               </div>
             )}
 
@@ -1392,7 +1392,7 @@ export default function Page() {
             {balancesError && (
               <div className="text-sm">
                 <p className="mb-2 text-red-300">{balancesError}</p>
-                <button className="text-[--color-accent] underline-offset-2 hover:underline" onClick={() => void loadUnlockedView()}>{T("misc.retry")}</button>
+                <button className="text-[var(--color-accent)] underline-offset-2 hover:underline" onClick={() => void loadUnlockedView()}>{T("misc.retry")}</button>
               </div>
             )}
             {balances && balances.length === 0 && (
@@ -1400,7 +1400,7 @@ export default function Page() {
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
                   <ArrowDownRight size={24} />
                 </div>
-                <p className="text-sm text-[--color-muted] mb-2">{T("empty.portfolio")}</p>
+                <p className="text-sm text-[var(--color-muted)] mb-2">{T("empty.portfolio")}</p>
                 <button className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors" onClick={() => document.getElementById("receive-section")?.scrollIntoView({ behavior: "smooth" })}>
                   {T("empty.portfolio_cta")}
                 </button>
@@ -1408,7 +1408,7 @@ export default function Page() {
             )}
             {balances && balances.length > 0 && (
               <>
-                <motion.ul variants={listVariants} initial="hidden" animate="show" className="divide-y divide-[--color-border]">
+                <motion.ul variants={listVariants} initial="hidden" animate="show" className="divide-y divide-[var(--color-border)]">
                   {balances.map((b) => {
                     const price = prices[b.asset.symbol] ?? 0;
                     const amount = Number(formatUnits(b.amount, b.asset.decimals));
@@ -1421,7 +1421,7 @@ export default function Page() {
                       >
                         <span>
                           <span className="font-semibold text-white">{b.asset.symbol}</span>{" "}
-                          <span className="text-[--color-muted] text-xs">{T("misc.on")} {b.asset.chain}</span>
+                          <span className="text-[var(--color-muted)] text-xs">{T("misc.on")} {b.asset.chain}</span>
                         </span>
                         <span className="text-right">
                           {b.unavailable ? (
@@ -1432,7 +1432,7 @@ export default function Page() {
                                 {formatUnits(b.amount, b.asset.decimals)}
                               </span>
                               {price > 0 && (
-                                <span className="text-[10px] text-[--color-muted]">{formatUsd(usdValue)}</span>
+                                <span className="text-[10px] text-[var(--color-muted)]">{formatUsd(usdValue)}</span>
                               )}
                             </>
                           )}
@@ -1452,14 +1452,14 @@ export default function Page() {
             <h2 className="mb-3 font-medium">{T("send.title")}</h2>
 
             {(!balances || balances.length === 0) && (
-              <p className="text-sm text-[--color-muted]">{T("send.no_assets")}</p>
+              <p className="text-sm text-[var(--color-muted)]">{T("send.no_assets")}</p>
             )}
 
             {balances && balances.length > 0 && !quote && sentHash === null && (
               <>
                 <Field label={T("send.asset")}>
                   <select
-                    className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                    className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
                     value={sendAssetKey || assetKey(balances[0]!.asset)}
                     onChange={(e) => setSendAssetKey(e.target.value)}
                   >
@@ -1494,7 +1494,7 @@ export default function Page() {
                 {/* Payment templates — one tap prefills recipient + asset + amount */}
                 {templates.length > 0 && (
                   <div className="mb-3">
-                    <div className="mb-1.5 text-[10px] uppercase tracking-wide text-[--color-muted]">{T("send.templates")}</div>
+                    <div className="mb-1.5 text-[10px] uppercase tracking-wide text-[var(--color-muted)]">{T("send.templates")}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {templates.map((tpl) => (
                         <button
@@ -1533,8 +1533,8 @@ export default function Page() {
 
             {quote && (
               <div className="text-sm">
-                <p className="mb-3 text-[--color-muted]">{T("send.confirm_hint")}</p>
-                <dl className="mb-4 divide-y divide-[--color-border] rounded-md border border-[--color-border]">
+                <p className="mb-3 text-[var(--color-muted)]">{T("send.confirm_hint")}</p>
+                <dl className="mb-4 divide-y divide-[var(--color-border)] rounded-md border border-[var(--color-border)]">
                   <Row k={T("misc.amount")} v={`${formatUnits(quote.intent.amount, quote.intent.asset.decimals)} ${quote.intent.asset.symbol}`} />
                   <Row k={T("misc.asset")} v={quote.intent.asset.token ? `${quote.intent.asset.symbol} (${quote.intent.asset.token})` : quote.intent.asset.symbol} />
                   <Row k={T("misc.chain")} v={quote.intent.asset.chain} />
@@ -1543,7 +1543,7 @@ export default function Page() {
                 </dl>
                 {quote.intent.asset.chain === "bitcoin" && (
                   <div className="mb-4">
-                    <p className="mb-2 text-xs text-[--color-muted]">{T("fee.speed")}</p>
+                    <p className="mb-2 text-xs text-[var(--color-muted)]">{T("fee.speed")}</p>
                     <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={T("fee.speed")}>
                       {(["slow", "normal", "fast"] as const).map((p) => (
                         <button
@@ -1555,7 +1555,7 @@ export default function Page() {
                           className={`rounded-md border px-3 py-2 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                             feePreference === p
                               ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
-                              : "border-[--color-border] text-[--color-muted] hover:text-white"
+                              : "border-[var(--color-border)] text-[var(--color-muted)] hover:text-white"
                           }`}
                         >
                           <span className="block text-xs font-medium">{T(`fee.${p}`)}</span>
@@ -1576,7 +1576,7 @@ export default function Page() {
                 />
                 <div className="flex gap-2">
                   <Button onClick={onConfirmSend} busy={busy} workingLabel={T("misc.working")}>{T("send.confirm_btn")}</Button>
-                  <button className="rounded-md border border-[--color-border] px-4 py-2.5 text-sm text-[--color-muted] hover:text-white disabled:cursor-not-allowed disabled:opacity-50" onClick={onCancelQuote} disabled={busy}>{T("send.cancel")}</button>
+                  <button className="rounded-md border border-[var(--color-border)] px-4 py-2.5 text-sm text-[var(--color-muted)] hover:text-white disabled:cursor-not-allowed disabled:opacity-50" onClick={onCancelQuote} disabled={busy}>{T("send.cancel")}</button>
                 </div>
               </div>
             )}
@@ -1596,7 +1596,7 @@ export default function Page() {
                   <ExternalLink size={12} />
                   {T("misc.view_explorer")}
                 </a>
-                <code className="block break-anywhere rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs">
+                <code className="block break-anywhere rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-2 text-xs">
                   {sentHash}
                 </code>
 
@@ -1635,7 +1635,7 @@ export default function Page() {
                   </div>
                 )}
 
-                <button className="mt-3 text-[--color-accent] underline-offset-2 hover:underline" onClick={() => setSentHash(null)}>
+                <button className="mt-3 text-[var(--color-accent)] underline-offset-2 hover:underline" onClick={() => setSentHash(null)}>
                   {T("send.another")}
                 </button>
               </div>
@@ -1652,7 +1652,7 @@ export default function Page() {
               </div>
             </div>
             {addresses.length === 0 && (
-              <p className="text-sm text-[--color-muted]">{T("receive.no_addr")}</p>
+              <p className="text-sm text-[var(--color-muted)]">{T("receive.no_addr")}</p>
             )}
             {receiveMode === "address" ? (
               <ul className="flex flex-col gap-3">
@@ -1660,13 +1660,13 @@ export default function Page() {
                   const primary = chains[0]!;
                   return (
                     <li key={addr}>
-                      <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{chains.join(" · ")}</div>
+                      <div className="mb-1 text-xs uppercase tracking-wide text-[var(--color-muted)]">{chains.join(" · ")}</div>
                       <div className="flex items-start gap-2">
-                        <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
+                        <code className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-2 text-xs break-anywhere">
                           {addr}
                         </code>
                         <button
-                          className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
+                          className="shrink-0 rounded-md border border-[var(--color-border)] px-2 py-2 text-xs text-[var(--color-muted)] hover:text-white"
                           onClick={() => copyToClipboard(addr)}
                           aria-label={`Copy ${primary} receive address`}
                           title={`Copy ${primary} receive address`}
@@ -1693,7 +1693,7 @@ export default function Page() {
           <Card>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-medium">{T("activity.title")}</h2>
-              <button className="text-sm text-[--color-muted] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void loadActivity()} disabled={busy}>
+              <button className="text-sm text-[var(--color-muted)] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void loadActivity()} disabled={busy}>
                 {T("activity.refresh")}
               </button>
             </div>
@@ -1711,11 +1711,11 @@ export default function Page() {
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-400">
                   <ArrowUpRight size={24} />
                 </div>
-                <p className="text-sm text-[--color-muted]">{T("activity.empty")}</p>
+                <p className="text-sm text-[var(--color-muted)]">{T("activity.empty")}</p>
               </div>
             )}
             {activity && activity.length > 0 && (
-              <motion.ul variants={listVariants} initial="hidden" animate="show" className="divide-y divide-[--color-border]">
+              <motion.ul variants={listVariants} initial="hidden" animate="show" className="divide-y divide-[var(--color-border)]">
                 {activity.map((it) => (
                   <motion.li
                     variants={itemVariants}
@@ -1731,8 +1731,8 @@ export default function Page() {
                           {it.direction === "out" ? "−" : "+"}
                           {formatUnits(it.amount, it.asset.decimals)} {it.asset.symbol}
                         </span>{" "}
-                        <span className="text-[--color-muted]">{T("misc.on")} {it.asset.chain}</span>
-                        <span className="block text-xs text-[--color-muted]">
+                        <span className="text-[var(--color-muted)]">{T("misc.on")} {it.asset.chain}</span>
+                        <span className="block text-xs text-[var(--color-muted)]">
                           {new Date(it.timestamp).toLocaleString()}
                         </span>
                       </span>
@@ -1742,7 +1742,7 @@ export default function Page() {
                         href={explorerUrl(it.asset.chain, it.hash)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[--color-muted] hover:text-white transition-colors"
+                        className="text-[var(--color-muted)] hover:text-white transition-colors"
                         aria-label={T("misc.view_explorer")}
                         title={T("misc.view_explorer")}
                       >
@@ -1758,7 +1758,7 @@ export default function Page() {
               </motion.ul>
             )}
 
-            <p className="mt-3 text-xs text-[--color-muted]">{T("activity.hint")}</p>
+            <p className="mt-3 text-xs text-[var(--color-muted)]">{T("activity.hint")}</p>
           </Card>
 
           {/* Security card */}
@@ -1769,7 +1769,7 @@ export default function Page() {
                 <p className="text-sm text-green-300">{T("security.passkey_added")}</p>
               ) : (
                 <>
-                  <p className="mb-3 text-sm text-[--color-muted]">{T("security.passkey_desc")}</p>
+                  <p className="mb-3 text-sm text-[var(--color-muted)]">{T("security.passkey_desc")}</p>
                   <Button onClick={onEnrollPasskey} busy={busy} workingLabel={T("misc.working")}>{T("security.add_passkey")}</Button>
                 </>
               )}
@@ -1790,7 +1790,7 @@ export default function Page() {
                 </span>
               </h2>
               <button
-                className="flex items-center gap-1.5 text-sm text-[--color-muted] hover:text-white transition-colors"
+                className="flex items-center gap-1.5 text-sm text-[var(--color-muted)] hover:text-white transition-colors"
                 onClick={onExitWatch}
               >
                 <LogOut size={14} />
@@ -1800,7 +1800,7 @@ export default function Page() {
 
             {watchWallets.length > 1 && (
               <select
-                className="mb-3 w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                className="mb-3 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
                 aria-label={T("a11y.select_watch")}
                 value={activeWatch.id}
                 onChange={(e) => {
@@ -1814,13 +1814,13 @@ export default function Page() {
               </select>
             )}
 
-            <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{activeWatch.chain}</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-[var(--color-muted)]">{activeWatch.chain}</div>
             <div className="flex items-start gap-2">
-              <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
+              <code className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-2 text-xs break-anywhere">
                 {activeWatch.address}
               </code>
               <button
-                className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
+                className="shrink-0 rounded-md border border-[var(--color-border)] px-2 py-2 text-xs text-[var(--color-muted)] hover:text-white"
                 onClick={() => copyToClipboard(activeWatch.address)}
                 aria-label={T("watch.copy_addr")}
                 title={T("watch.copy_addr")}
@@ -1831,7 +1831,7 @@ export default function Page() {
 
             <div className="mt-3 flex gap-2">
               <button
-                className="flex items-center gap-1.5 rounded-md border border-[--color-border] bg-white/5 px-3 py-2 text-xs text-[--color-muted] hover:text-white transition-colors"
+                className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-white/5 px-3 py-2 text-xs text-[var(--color-muted)] hover:text-white transition-colors"
                 onClick={() => { setMode("watch"); setPhase("onboarding"); }}
               >
                 <Plus size={14} />{T("watch.add_another")}
@@ -1852,7 +1852,7 @@ export default function Page() {
             {balances && balances.length > 0 && totalUsd > 0 && (
               <div className="mb-4 text-center">
                 <p className="text-3xl font-bold text-white tracking-tight">{formatUsd(totalUsd)}</p>
-                <p className="text-xs text-[--color-muted] mt-1">{T("portfolio.total")}</p>
+                <p className="text-xs text-[var(--color-muted)] mt-1">{T("portfolio.total")}</p>
               </div>
             )}
 
@@ -1865,15 +1865,15 @@ export default function Page() {
             {balancesError && (
               <div className="text-sm">
                 <p className="mb-2 text-red-300">{balancesError}</p>
-                <button className="text-[--color-accent] underline-offset-2 hover:underline" onClick={() => void loadWatchView(activeWatch)}>{T("misc.retry")}</button>
+                <button className="text-[var(--color-accent)] underline-offset-2 hover:underline" onClick={() => void loadWatchView(activeWatch)}>{T("misc.retry")}</button>
               </div>
             )}
             {balances && balances.length === 0 && (
-              <p className="py-6 text-center text-sm text-[--color-muted]">{T("watch.empty")}</p>
+              <p className="py-6 text-center text-sm text-[var(--color-muted)]">{T("watch.empty")}</p>
             )}
             {balances && balances.length > 0 && (
               <>
-                <motion.ul variants={listVariants} initial="hidden" animate="show" className="divide-y divide-[--color-border]">
+                <motion.ul variants={listVariants} initial="hidden" animate="show" className="divide-y divide-[var(--color-border)]">
                   {balances.map((b) => {
                     const price = prices[b.asset.symbol] ?? 0;
                     const amount = Number(formatUnits(b.amount, b.asset.decimals));
@@ -1886,7 +1886,7 @@ export default function Page() {
                       >
                         <span>
                           <span className="font-semibold text-white">{b.asset.symbol}</span>{" "}
-                          <span className="text-[--color-muted] text-xs">{T("misc.on")} {b.asset.chain}</span>
+                          <span className="text-[var(--color-muted)] text-xs">{T("misc.on")} {b.asset.chain}</span>
                         </span>
                         <span className="text-right">
                           {b.unavailable ? (
@@ -1897,7 +1897,7 @@ export default function Page() {
                                 {formatUnits(b.amount, b.asset.decimals)}
                               </span>
                               {price > 0 && (
-                                <span className="text-[10px] text-[--color-muted]">{formatUsd(usdValue)}</span>
+                                <span className="text-[10px] text-[var(--color-muted)]">{formatUsd(usdValue)}</span>
                               )}
                             </>
                           )}
@@ -1923,13 +1923,13 @@ export default function Page() {
           {/* Receive card — the watched address + QR */}
           <Card>
             <h2 className="mb-3 font-medium">{T("receive.title")}</h2>
-            <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{activeWatch.chain}</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-[var(--color-muted)]">{activeWatch.chain}</div>
             <div className="flex items-start gap-2">
-              <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
+              <code className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-2 text-xs break-anywhere">
                 {activeWatch.address}
               </code>
               <button
-                className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
+                className="shrink-0 rounded-md border border-[var(--color-border)] px-2 py-2 text-xs text-[var(--color-muted)] hover:text-white"
                 onClick={() => copyToClipboard(activeWatch.address)}
                 aria-label={T("watch.copy_addr")}
                 title={T("watch.copy_addr")}
@@ -1956,14 +1956,14 @@ export default function Page() {
             {/* Auto-Lock Timer */}
             <div className="settings-row">
               <div className="flex items-center gap-2">
-                <Timer size={16} className="text-[--color-muted]" />
+                <Timer size={16} className="text-[var(--color-muted)]" />
                 <div>
                   <p className="text-sm font-medium">{T("settings.autolock")}</p>
-                  <p className="text-xs text-[--color-muted]">{T("settings.autolock_desc")}</p>
+                  <p className="text-xs text-[var(--color-muted)]">{T("settings.autolock_desc")}</p>
                 </div>
               </div>
               <select
-                className="rounded-md border border-[--color-border] bg-[--color-bg] px-2 py-1 text-sm outline-none"
+                className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm outline-none"
                 aria-label={T("settings.autolock")}
                 value={autolockMin}
                 onChange={(e) => onChangeAutolock(Number(e.target.value))}
@@ -1977,11 +1977,11 @@ export default function Page() {
             {/* Language */}
             <div className="settings-row">
               <div className="flex items-center gap-2">
-                <Globe size={16} className="text-[--color-muted]" />
+                <Globe size={16} className="text-[var(--color-muted)]" />
                 <p className="text-sm font-medium">{T("settings.language")}</p>
               </div>
               <select
-                className="rounded-md border border-[--color-border] bg-[--color-bg] px-2 py-1 text-sm outline-none"
+                className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm outline-none"
                 aria-label={T("settings.language")}
                 value={locale}
                 onChange={(e) => changeLocale(e.target.value as Locale)}
@@ -1999,7 +1999,7 @@ export default function Page() {
               <Shield size={16} className="text-amber-400" />
               <h2 className="font-medium">{T("settings.reveal")}</h2>
             </div>
-            <p className="text-sm text-[--color-muted] mb-3">{T("settings.reveal_desc")}</p>
+            <p className="text-sm text-[var(--color-muted)] mb-3">{T("settings.reveal_desc")}</p>
             {settingsRevealedSeed ? (
               <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3">
                 <div className="flex items-start gap-2">
@@ -2022,13 +2022,13 @@ export default function Page() {
           {/* Address Book */}
           <Card>
             <div className="flex items-center gap-2 mb-3">
-              <BookUser size={16} className="text-[--color-muted]" />
+              <BookUser size={16} className="text-[var(--color-muted)]" />
               <h2 className="font-medium">{T("settings.contacts_title")}</h2>
             </div>
             {contacts.length === 0 ? (
-              <p className="text-sm text-[--color-muted]">{T("settings.contacts_empty")}</p>
+              <p className="text-sm text-[var(--color-muted)]">{T("settings.contacts_empty")}</p>
             ) : (
-              <ul className="divide-y divide-[--color-border]">
+              <ul className="divide-y divide-[var(--color-border)]">
                 {contacts.map((c) => {
                   const key = `${c.address}-${c.chain}`;
                   const tplAssets = templatableAssets(c.chain);
@@ -2040,18 +2040,18 @@ export default function Page() {
                           {c.favorite && <Star size={12} className="shrink-0 fill-current text-amber-400" />}
                           {c.name}
                         </span>
-                        <span className="block text-xs text-[--color-muted] break-anywhere">{c.address}</span>
-                        <span className="text-[10px] text-[--color-muted] uppercase">{c.chain}</span>
-                        {c.note && <span className="block text-xs text-[--color-muted] italic">{c.note}</span>}
+                        <span className="block text-xs text-[var(--color-muted)] break-anywhere">{c.address}</span>
+                        <span className="text-[10px] text-[var(--color-muted)] uppercase">{c.chain}</span>
+                        {c.note && <span className="block text-xs text-[var(--color-muted)] italic">{c.note}</span>}
                         {c.lastUsedAt && (
-                          <span className="block text-[10px] text-[--color-muted]">
+                          <span className="block text-[10px] text-[var(--color-muted)]">
                             {T("settings.contacts_last_used")}: {new Date(c.lastUsedAt).toLocaleDateString()}
                           </span>
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-0.5">
                         <button
-                          className={`p-1 transition-colors ${c.favorite ? "text-amber-400 hover:text-amber-300" : "text-[--color-muted] hover:text-white"}`}
+                          className={`p-1 transition-colors ${c.favorite ? "text-amber-400 hover:text-amber-300" : "text-[var(--color-muted)] hover:text-white"}`}
                           onClick={() => onToggleFavorite(c)}
                           aria-label={c.favorite ? T("settings.contacts_unfavorite") : T("settings.contacts_favorite")}
                           title={c.favorite ? T("settings.contacts_unfavorite") : T("settings.contacts_favorite")}
@@ -2059,7 +2059,7 @@ export default function Page() {
                           <Star size={14} className={c.favorite ? "fill-current" : ""} />
                         </button>
                         <button
-                          className="p-1 text-[--color-muted] hover:text-white transition-colors"
+                          className="p-1 text-[var(--color-muted)] hover:text-white transition-colors"
                           onClick={() => onStartEditContact(c)}
                           aria-label={T("settings.contacts_edit")}
                           title={T("settings.contacts_edit")}
@@ -2068,7 +2068,7 @@ export default function Page() {
                         </button>
                         {tplAssets.length > 0 && (
                           <button
-                            className="p-1 text-[--color-muted] hover:text-white transition-colors"
+                            className="p-1 text-[var(--color-muted)] hover:text-white transition-colors"
                             onClick={() => onStartTemplate(c)}
                             aria-label={T("settings.contacts_save_template")}
                             title={T("settings.contacts_save_template")}
@@ -2090,7 +2090,7 @@ export default function Page() {
                     {editingContactKey === key && (
                       <div className="glass-card rounded-xl p-3 mt-2 flex flex-col gap-2 border border-emerald-500/20 bg-emerald-500/5">
                         <label className="flex flex-col gap-1">
-                          <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_name")}</span>
+                          <span className="text-[10px] uppercase text-[var(--color-muted)]">{T("settings.contacts_name")}</span>
                           <input
                             type="text"
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -2100,7 +2100,7 @@ export default function Page() {
                           />
                         </label>
                         <label className="flex flex-col gap-1">
-                          <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_note")}</span>
+                          <span className="text-[10px] uppercase text-[var(--color-muted)]">{T("settings.contacts_note")}</span>
                           <input
                             type="text"
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -2111,7 +2111,7 @@ export default function Page() {
                         </label>
                         <div className="flex gap-2 justify-end">
                           <button
-                            className="rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white transition-colors"
+                            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-white transition-colors"
                             onClick={() => setEditingContactKey(null)}
                           >
                             {T("misc.cancel")}
@@ -2130,7 +2130,7 @@ export default function Page() {
                       <div className="glass-card rounded-xl p-3 mt-2 flex flex-col gap-2 border border-emerald-500/20 bg-emerald-500/5">
                         <span className="text-xs font-medium text-white">{T("settings.tpl_title")}</span>
                         <label className="flex flex-col gap-1">
-                          <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.tpl_name")}</span>
+                          <span className="text-[10px] uppercase text-[var(--color-muted)]">{T("settings.tpl_name")}</span>
                           <input
                             type="text"
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -2140,7 +2140,7 @@ export default function Page() {
                           />
                         </label>
                         <select
-                          className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                          className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
                           value={newTemplateAssetKey}
                           onChange={(e) => setNewTemplateAssetKey(e.target.value)}
                           aria-label={T("settings.tpl_asset")}
@@ -2150,7 +2150,7 @@ export default function Page() {
                           ))}
                         </select>
                         <label className="flex flex-col gap-1">
-                          <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.tpl_amount")}</span>
+                          <span className="text-[10px] uppercase text-[var(--color-muted)]">{T("settings.tpl_amount")}</span>
                           <input
                             type="text"
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -2161,7 +2161,7 @@ export default function Page() {
                         </label>
                         <div className="flex gap-2 justify-end">
                           <button
-                            className="rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white transition-colors"
+                            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-white transition-colors"
                             onClick={() => setTemplatingContactKey(null)}
                           >
                             {T("misc.cancel")}
@@ -2182,10 +2182,10 @@ export default function Page() {
             )}
 
             {templates.length > 0 && (
-                <ul className="mt-3 flex flex-col gap-1.5 border-t border-[--color-border] pt-3">
+                <ul className="mt-3 flex flex-col gap-1.5 border-t border-[var(--color-border)] pt-3">
                   {templates.map((tpl) => (
                     <li key={tpl.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="flex min-w-0 items-center gap-1.5 text-[--color-muted]">
+                      <span className="flex min-w-0 items-center gap-1.5 text-[var(--color-muted)]">
                         <FileText size={12} className="shrink-0" />
                         <span className="truncate text-white">{tpl.name}</span>
                         <span className="shrink-0">· {tpl.assetKey}{tpl.amount ? ` · ${tpl.amount}` : ""}</span>
@@ -2208,7 +2208,7 @@ export default function Page() {
                 <span className="text-sm font-medium text-white">{T("settings.contacts_add_title")}</span>
                 <div className="flex flex-col gap-2">
                   <label className="flex flex-col gap-1">
-                    <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_name")}</span>
+                    <span className="text-[10px] uppercase text-[var(--color-muted)]">{T("settings.contacts_name")}</span>
                     <input
                       type="text"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -2218,7 +2218,7 @@ export default function Page() {
                     />
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_address")}</span>
+                    <span className="text-[10px] uppercase text-[var(--color-muted)]">{T("settings.contacts_address")}</span>
                     <input
                       type="text"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -2228,7 +2228,7 @@ export default function Page() {
                     />
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_note")}</span>
+                    <span className="text-[10px] uppercase text-[var(--color-muted)]">{T("settings.contacts_note")}</span>
                     <input
                       type="text"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -2238,9 +2238,9 @@ export default function Page() {
                     />
                   </label>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase text-[--color-muted]">{T("settings.contacts_chain")}</label>
+                    <label className="text-[10px] uppercase text-[var(--color-muted)]">{T("settings.contacts_chain")}</label>
                     <select
-                      className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                      className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
                       aria-label={T("settings.contacts_chain")}
                       value={newContactChain}
                       onChange={(e) => setNewContactChain(e.target.value)}
@@ -2255,7 +2255,7 @@ export default function Page() {
                 </div>
                 <div className="flex gap-2 justify-end">
                   <button
-                    className="rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white transition-colors"
+                    className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-white transition-colors"
                     onClick={() => {
                       setIsAddingContact(false);
                       setNewContactName("");
@@ -2304,10 +2304,10 @@ export default function Page() {
           {/* Data Sources & Privacy */}
           <Card>
             <div className="flex items-center gap-2 mb-2">
-              <Globe size={16} className="text-[--color-muted]" />
+              <Globe size={16} className="text-[var(--color-muted)]" />
               <h2 className="font-medium">{T("ds.title")}</h2>
             </div>
-            <p className="mb-3 text-xs text-[--color-muted]">{T("ds.intro")}</p>
+            <p className="mb-3 text-xs text-[var(--color-muted)]">{T("ds.intro")}</p>
 
             <div className="flex flex-col gap-3">
               {([
@@ -2318,7 +2318,7 @@ export default function Page() {
                 ["ds.rpc_solana", "solanaRpcUrls"],
               ] as const).map(([label, key]) => (
                 <label key={key} className="block">
-                  <span className="mb-1 block text-xs text-[--color-muted]">{T(label)}</span>
+                  <span className="mb-1 block text-xs text-[var(--color-muted)]">{T(label)}</span>
                   <textarea
                     rows={2}
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors break-anywhere"
@@ -2327,7 +2327,7 @@ export default function Page() {
                     onChange={(e) => setDsForm((f) => ({ ...f, [key]: e.target.value }))}
                   />
                   {key === "ethereumRpcUrls" && deploy.ethereumRpcUrls.length > 0 && dsForm.ethereumRpcUrls.trim() === "" && (
-                    <span className="mt-1 block text-[11px] text-[--color-muted]">
+                    <span className="mt-1 block text-[11px] text-[var(--color-muted)]">
                       {T("ds.deploy_uses")}{" "}
                       <span className="font-mono break-anywhere text-slate-300">{deploy.ethereumRpcUrls.join(", ")}</span>
                     </span>
@@ -2336,7 +2336,7 @@ export default function Page() {
               ))}
 
               <label className="block">
-                <span className="mb-1 block text-xs text-[--color-muted]">{T("ds.btc_ws")}</span>
+                <span className="mb-1 block text-xs text-[var(--color-muted)]">{T("ds.btc_ws")}</span>
                 <input
                   type="text"
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -2346,20 +2346,20 @@ export default function Page() {
                 />
                 {dsForm.btcElectrumWsUrl.trim() === "" &&
                   (deploy.btcElectrumWsUrl ? (
-                    <span className="mt-1 block text-[11px] text-[--color-muted]">
+                    <span className="mt-1 block text-[11px] text-[var(--color-muted)]">
                       {T("ds.deploy_uses")}{" "}
                       <span className="font-mono break-anywhere text-slate-300">{deploy.btcElectrumWsUrl}</span>{" "}
                       {T("ds.deploy_override_hint")}
                     </span>
                   ) : (
-                    <span className="mt-1 block text-[11px] text-[--color-muted]">{T("ds.btc_ws_off")}</span>
+                    <span className="mt-1 block text-[11px] text-[var(--color-muted)]">{T("ds.btc_ws_off")}</span>
                   ))}
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs text-[--color-muted]">{T("ds.indexer_mode")}</span>
+                <span className="mb-1 block text-xs text-[var(--color-muted)]">{T("ds.indexer_mode")}</span>
                 <select
-                  className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
                   value={dsForm.indexerMode}
                   onChange={(e) => setDsForm((f) => ({ ...f, indexerMode: e.target.value as IndexerMode }))}
                 >
@@ -2370,7 +2370,7 @@ export default function Page() {
 
               {dsForm.indexerMode === "indexer" && (
                 <label className="block">
-                  <span className="mb-1 block text-xs text-[--color-muted]">{T("ds.indexer_url")}</span>
+                  <span className="mb-1 block text-xs text-[var(--color-muted)]">{T("ds.indexer_url")}</span>
                   <input
                     type="text"
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -2393,7 +2393,7 @@ export default function Page() {
 
               {dsForm.pricesEnabled && (
                 <label className="block">
-                  <span className="mb-1 block text-xs text-[--color-muted]">{T("ds.price_endpoint")}</span>
+                  <span className="mb-1 block text-xs text-[var(--color-muted)]">{T("ds.price_endpoint")}</span>
                   <input
                     type="text"
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -2404,7 +2404,7 @@ export default function Page() {
                 </label>
               )}
 
-              <ul className="flex flex-col gap-1 rounded-md border border-[--color-border] bg-[--color-bg] p-3 text-[11px] text-[--color-muted]">
+              <ul className="flex flex-col gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-[11px] text-[var(--color-muted)]">
                 <li>· {T("ds.priv_rpc")}</li>
                 <li>· {T("ds.priv_local")}</li>
                 <li>· {T("ds.priv_prices")}</li>
@@ -2432,7 +2432,7 @@ export default function Page() {
               <Trash2 size={16} className="text-red-400" />
               <h2 className="font-medium text-red-400">{T("settings.delete")}</h2>
             </div>
-            <p className="text-sm text-[--color-muted] mb-3">{T("settings.delete_desc")}</p>
+            <p className="text-sm text-[var(--color-muted)] mb-3">{T("settings.delete_desc")}</p>
             {confirmDeleteWallet ? (
               <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 mb-3 text-sm">
                 <p className="text-red-300 font-medium mb-3">{T("settings.delete_confirm")}</p>
@@ -2473,7 +2473,7 @@ export default function Page() {
                     {T("settings.delete_btn")}
                   </button>
                   <button
-                    className="rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white transition-colors"
+                    className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-white transition-colors"
                     onClick={() => setConfirmDeleteWallet(false)}
                   >
                     {T("misc.cancel")}
@@ -2579,7 +2579,7 @@ function Card({ children }: { readonly children: ReactNode }) {
 function Row({ k, v, mono }: { readonly k: string; readonly v: string; readonly mono?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-3 px-3 py-2">
-      <dt className="shrink-0 text-[--color-muted]">{k}</dt>
+      <dt className="shrink-0 text-[var(--color-muted)]">{k}</dt>
       <dd className={`text-right ${mono ? "break-anywhere font-mono text-xs" : ""}`}>{v}</dd>
     </div>
   );
@@ -2588,7 +2588,7 @@ function Row({ k, v, mono }: { readonly k: string; readonly v: string; readonly 
 function Field({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return (
     <label className="mb-4 block">
-      <span className="mb-1 block text-sm text-[--color-muted]">{label}</span>
+      <span className="mb-1 block text-sm text-[var(--color-muted)]">{label}</span>
       {children}
     </label>
   );
@@ -2606,7 +2606,7 @@ function Input({
 }) {
   return (
     <input
-      className="w-full rounded-md glass-input px-3 py-2 text-sm outline-none focus:border-[--color-accent] placeholder-slate-500"
+      className="w-full rounded-md glass-input px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)] placeholder-slate-500"
       type={type}
       value={value}
       placeholder={placeholder}
@@ -2626,7 +2626,7 @@ function Button({ children, onClick, busy, disabled, workingLabel }: {
 }) {
   return (
     <button
-      className="w-full rounded-md glow-btn bg-[--color-accent] px-4 py-2.5 text-sm font-medium text-[--color-accent-fg] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+      className="w-full rounded-md glow-btn bg-[var(--color-accent)] px-4 py-2.5 text-sm font-medium text-[var(--color-accent-fg)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       onClick={onClick}
       disabled={busy || disabled}
     >
@@ -2644,8 +2644,8 @@ function Tab({ children, active, onClick }: {
     <button
       className={`rounded-md px-3 py-1.5 transition-colors ${
         active
-          ? "bg-[--color-accent] text-[--color-accent-fg]"
-          : "border border-[--color-border] text-[--color-muted] hover:text-white"
+          ? "bg-[var(--color-accent)] text-[var(--color-accent-fg)]"
+          : "border border-[var(--color-border)] text-[var(--color-muted)] hover:text-white"
       }`}
       onClick={onClick}
     >
@@ -2702,7 +2702,7 @@ function ReceiveRequest({ balances, addresses, copyToClipboard, T }: {
   const [memo, setMemo] = useState("");
 
   if (requestable.length === 0) {
-    return <p className="text-sm text-[--color-muted]">{T("receive.req_none")}</p>;
+    return <p className="text-sm text-[var(--color-muted)]">{T("receive.req_none")}</p>;
   }
 
   const selected = requestable.find((b) => assetKey(b.asset) === selectedKey) ?? requestable[0]!;
@@ -2726,7 +2726,7 @@ function ReceiveRequest({ balances, addresses, copyToClipboard, T }: {
     <div>
       <Field label={T("misc.asset")}>
         <select
-          className="w-full rounded-md border border-[--color-border] bg-[--color-bg] px-3 py-2 text-sm outline-none focus:border-[--color-accent]"
+          className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
           value={assetKey(asset)}
           onChange={(e) => setSelectedKey(e.target.value)}
         >
@@ -2752,13 +2752,13 @@ function ReceiveRequest({ balances, addresses, copyToClipboard, T }: {
         <p className="text-sm text-red-300">{T("receive.req_invalid")}</p>
       ) : (
         <>
-          <div className="mb-1 text-xs uppercase tracking-wide text-[--color-muted]">{T("receive.req_uri")}</div>
+          <div className="mb-1 text-xs uppercase tracking-wide text-[var(--color-muted)]">{T("receive.req_uri")}</div>
           <div className="flex items-start gap-2">
-            <code className="flex-1 rounded-md border border-[--color-border] bg-[--color-bg] p-2 text-xs break-anywhere">
+            <code className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-2 text-xs break-anywhere">
               {uri}
             </code>
             <button
-              className="shrink-0 rounded-md border border-[--color-border] px-2 py-2 text-xs text-[--color-muted] hover:text-white"
+              className="shrink-0 rounded-md border border-[var(--color-border)] px-2 py-2 text-xs text-[var(--color-muted)] hover:text-white"
               onClick={() => copyToClipboard(uri)}
               aria-label={T("receive.req_copy")}
               title={T("receive.req_copy")}
@@ -2808,11 +2808,11 @@ function SafetyPanel({ asset, to, contacts, ownAddresses, recentRecipient, recen
   const recipientUrl = addressExplorerUrl(asset.chain, to);
 
   return (
-    <div className="mb-4 rounded-md border border-[--color-border] bg-[--color-bg] p-3 text-xs">
-      <div className="mb-2 font-medium text-[--color-muted]">{T("safety.title")}</div>
+    <div className="mb-4 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-xs">
+      <div className="mb-2 font-medium text-[var(--color-muted)]">{T("safety.title")}</div>
       <ul className="flex flex-col gap-1.5">
         <li className="flex items-center gap-2">
-          <Globe size={13} className="shrink-0 text-[--color-muted]" />
+          <Globe size={13} className="shrink-0 text-[var(--color-muted)]" />
           <span>{T("safety.sending")} {asset.symbol} {T("misc.on")} {asset.chain}</span>
         </li>
 
@@ -2841,7 +2841,7 @@ function SafetyPanel({ asset, to, contacts, ownAddresses, recentRecipient, recen
             <AlertTriangle size={13} className="mt-0.5 shrink-0 text-red-400" />
             <span className="text-red-300">
               {T("safety.poisoning")}
-              <span className="mt-1 block break-anywhere font-mono text-[--color-muted]">
+              <span className="mt-1 block break-anywhere font-mono text-[var(--color-muted)]">
                 {T("safety.poisoning_resembles")}: {poisoning.name ? `${poisoning.name} (${poisoning.address})` : poisoning.address}
               </span>
             </span>
@@ -2850,15 +2850,15 @@ function SafetyPanel({ asset, to, contacts, ownAddresses, recentRecipient, recen
 
         {isToken && (
           <li className="flex items-start gap-2">
-            <Info size={13} className="mt-0.5 shrink-0 text-[--color-muted]" />
-            <span className="text-[--color-muted]">{T("safety.gas_note")}</span>
+            <Info size={13} className="mt-0.5 shrink-0 text-[var(--color-muted)]" />
+            <span className="text-[var(--color-muted)]">{T("safety.gas_note")}</span>
           </li>
         )}
 
         {recipientUrl && (
           <li className="flex items-center gap-2">
-            <ExternalLink size={13} className="shrink-0 text-[--color-muted]" />
-            <a href={recipientUrl} target="_blank" rel="noopener noreferrer" className="text-[--color-muted] underline-offset-2 hover:underline">
+            <ExternalLink size={13} className="shrink-0 text-[var(--color-muted)]" />
+            <a href={recipientUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--color-muted)] underline-offset-2 hover:underline">
               {T("safety.view_recipient")}
             </a>
           </li>
@@ -2929,20 +2929,20 @@ function QrScanner({ onResult, label, t, closeLabel, cancelLabel }: { readonly o
 
   if (!open) {
     return (
-      <button type="button" className="mb-4 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white" onClick={start}>
+      <button type="button" className="mb-4 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-white" onClick={start}>
         {label}
       </button>
     );
   }
 
   return (
-    <div className="mb-4 rounded-md border border-[--color-border] bg-[--color-bg] p-2">
+    <div className="mb-4 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-2">
       {scanError ? (
         <p className="text-xs text-red-300">{scanError}</p>
       ) : (
         <video ref={videoRef} autoPlay playsInline muted className="block w-full rounded-md" aria-label={t("scanner.preview")} />
       )}
-      <button type="button" className="mt-2 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-muted] hover:text-white" onClick={close}>
+      <button type="button" className="mt-2 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-white" onClick={close}>
         {scanError ? (closeLabel || "Close") : (cancelLabel || "Cancel")}
       </button>
     </div>
