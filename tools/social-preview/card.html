@@ -59,6 +59,9 @@
     font-size: 22px; font-weight: 700; letter-spacing: -.2px; line-height: 1;
   }
   .chip .dot { width: 13px; height: 13px; border-radius: 50%; flex: none; }
+  /* ?fw=off — drop the framework chips so the row is one category (chains/assets);
+     Next.js/Svelte portability is already stated in the sub-line. */
+  .hide-fw .chip[data-c="next"], .hide-fw .chip[data-c="svelte"] { display: none; }
 
   /* ---- variant: emerald (uniform filled) ---- */
   .v-emerald .chip {
@@ -138,9 +141,11 @@
   </div>
 
   <script>
-    // ?v=emerald (default) | ?v=glass — sets the chip style class on <body>.
-    var v = new URLSearchParams(location.search).get("v");
-    document.body.className = v === "glass" ? "v-glass" : "v-emerald";
+    // ?v=emerald (default) | ?v=glass — chip style. ?fw=off — hide framework chips.
+    var p = new URLSearchParams(location.search);
+    var cls = p.get("v") === "glass" ? "v-glass" : "v-emerald";
+    if (p.get("fw") === "off") cls += " hide-fw";
+    document.body.className = cls;
   </script>
 </body>
 </html>

@@ -27,8 +27,12 @@ const browser = await chromium.launch();
 try {
   for (let i = 0; i < todo.length; i++) {
     const v = todo[i];
+    // a "-nofw" suffix (e.g. "emerald-nofw") hides the Next.js/Svelte chips.
+    const noFw = v.endsWith("-nofw");
+    const base = noFw ? v.slice(0, -"-nofw".length) : v;
     const page = await browser.newPage({ viewport: { width: W, height: H } });
-    const url = pathToFileURL(cardPath).href + "?v=" + encodeURIComponent(v);
+    const url = pathToFileURL(cardPath).href
+      + "?v=" + encodeURIComponent(base) + (noFw ? "&fw=off" : "");
     await page.goto(url, { waitUntil: "load" });
     await page.waitForTimeout(120); // let gradients/shadows settle
     const out = i === 0
