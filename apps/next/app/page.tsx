@@ -2626,7 +2626,7 @@ function Button({ children, onClick, busy, disabled, workingLabel }: {
 }) {
   return (
     <button
-      className="w-full rounded-md glow-btn bg-[var(--color-accent)] px-4 py-2.5 text-sm font-medium text-[var(--color-accent-fg)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+      className="w-full rounded-md glow-btn bg-[var(--color-accent-strong)] px-4 py-2.5 text-sm font-medium text-[var(--color-accent-fg)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       onClick={onClick}
       disabled={busy || disabled}
     >
@@ -2644,7 +2644,7 @@ function Tab({ children, active, onClick }: {
     <button
       className={`rounded-md px-3 py-1.5 transition-colors ${
         active
-          ? "bg-[var(--color-accent)] text-[var(--color-accent-fg)]"
+          ? "bg-[var(--color-accent-strong)] text-[var(--color-accent-fg)]"
           : "border border-[var(--color-border)] text-[var(--color-muted)] hover:text-white"
       }`}
       onClick={onClick}

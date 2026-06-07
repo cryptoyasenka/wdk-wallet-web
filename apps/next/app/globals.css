@@ -5,8 +5,9 @@
   --color-bg: #060913;
   --color-surface: rgba(15, 23, 42, 0.45);
   --color-border: rgba(255, 255, 255, 0.08);
-  --color-accent: #10b981; /* Premium emerald green */
-  --color-accent-fg: #022c22; /* emerald-950 ink — AA-readable on the emerald button (≈6:1); plain #fff was only 2.53:1 */
+  --color-accent: #10b981; /* Premium emerald green — brand accent (glows, borders, focus, charts) */
+  --color-accent-strong: #047857; /* emerald-700 — darker fill for filled controls (primary button, active tab) so the white label clears AA */
+  --color-accent-fg: #ffffff; /* white label on the filled (accent-strong) controls — ≈5.5:1 on emerald-700; white on the lighter emerald-500 was only 2.53:1 */
   --color-muted: #94a3b8;
   
   --font-outfit: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
