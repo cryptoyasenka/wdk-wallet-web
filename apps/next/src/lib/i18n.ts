@@ -267,7 +267,7 @@ export const translations: Record<string, Record<Locale, string>> = {
   "error.pass_required": { en: "Enter your passphrase.", ru: "Введите ваш пароль.", uk: "Введіть ваш пароль." },
   "error.recipient_required": { en: "Enter a recipient address.", ru: "Введите адрес получателя.", uk: "Введіть адресу отримувача." },
   "error.recipient_invalid": { en: "That address is not valid for the selected network.", ru: "Этот адрес недействителен для выбранной сети.", uk: "Ця адреса недійсна для вибраної мережі." },
-  "error.amount_invalid": { en: "Enter a positive amount, e.g. 12.5", ru: "Введите положительную сумму, напр. 12,5", uk: "Введіть додатну суму, напр. 12,5" },
+  "error.amount_invalid": { en: "Enter a positive amount, e.g. 12.5", ru: "Введите положительную сумму, напр. 12.5", uk: "Введіть додатну суму, напр. 12.5" },
   "error.amount_decimals": { en: "Too many decimal places: this asset has {n}.", ru: "Слишком много знаков после запятой — у этого актива {n}.", uk: "Забагато знаків після коми — у цього активу {n}." },
   "error.amount_positive": { en: "Amount must be greater than zero.", ru: "Сумма должна быть больше нуля.", uk: "Сума має бути більшою за нуль." },
   "error.quiz_wrong": { en: "Incorrect answer for word #{n}. Please try again.", ru: "Неверный ответ для слова #{n}. Попробуйте снова.", uk: "Невірна відповідь для слова #{n}. Спробуйте ще раз." },
