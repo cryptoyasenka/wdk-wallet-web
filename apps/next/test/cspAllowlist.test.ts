@@ -20,6 +20,7 @@ import {
   COINGECKO_ORIGIN,
   staticConnectSrcOrigins,
   isOriginAllowedByCsp,
+  allowsWholesaleWss,
   envConnectSrcOrigins,
 } from "../src/lib/cspAllowlist";
 
@@ -112,5 +113,25 @@ describe("envConnectSrcOrigins (NEXT_PUBLIC_CONNECT_SRC_ORIGINS)", () => {
     vi.stubEnv("NEXT_PUBLIC_CONNECT_SRC_ORIGINS", "https://indexer.example.com");
     vi.stubEnv("NEXT_PUBLIC_ETHEREUM_RPC_URLS", "");
     expect(staticConnectSrcOrigins()).toContain("https://indexer.example.com");
+  });
+});
+
+describe("wss: scheme is wholesale only until an Electrum origin is pinned", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("allows wss: wholesale by default (no Electrum origin pinned)", () => {
+    vi.stubEnv("NEXT_PUBLIC_CONNECT_SRC_ORIGINS", "");
+    expect(allowsWholesaleWss()).toBe(true);
+    expect(isOriginAllowedByCsp("wss://anything.example.com:50002")).toBe(true);
+  });
+
+  it("drops wholesale wss: once an explicit wss:// origin is pinned", () => {
+    vi.stubEnv("NEXT_PUBLIC_CONNECT_SRC_ORIGINS", "wss://electrum.mydomain.com:50004");
+    expect(allowsWholesaleWss()).toBe(false);
+    // The pinned endpoint still passes...
+    expect(isOriginAllowedByCsp("wss://electrum.mydomain.com:50004")).toBe(true);
+    // ...but an arbitrary secure socket no longer does — the pin is meaningful,
+    // closing the wss: exfiltration channel a compromised dependency could use.
+    expect(isOriginAllowedByCsp("wss://evil.example.com")).toBe(false);
   });
 });

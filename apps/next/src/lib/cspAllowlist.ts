@@ -102,14 +102,33 @@ export function staticConnectSrcOrigins(): string[] {
 }
 
 /**
+ * Does this deploy permit the `wss:` scheme WHOLESALE in `connect-src`?
+ *
+ * The Bitcoin Electrum-WS endpoint is operator-supplied and has no public
+ * default, so out of the box we allow any secure WebSocket. But once the
+ * operator pins at least one explicit `wss://` origin (their Electrum endpoint,
+ * via `NEXT_PUBLIC_CONNECT_SRC_ORIGINS`), that origin is already in the static
+ * allowlist and we DROP the wholesale scheme: leaving `wss:` wide open would
+ * make the pin pointless and keep an arbitrary-host exfiltration channel open to
+ * a compromised dependency. Shared by `middleware.ts` (which builds
+ * `connect-src`) and `isOriginAllowedByCsp`, so the emitted policy and the UI's
+ * "will this be blocked?" check can never disagree.
+ */
+export function allowsWholesaleWss(): boolean {
+  return !staticConnectSrcOrigins().some((o) => o.startsWith("wss://"));
+}
+
+/**
  * Will this deploy's CSP allow a connection to `origin`? A `wss://` origin is
- * always allowed (Bitcoin Electrum-WS is operator-supplied and `connect-src`
- * permits the `wss:` scheme wholesale — there is no public default to pin). Any
- * other origin (an `https:` RPC / indexer / price endpoint) must be in the
- * static allowlist; everything else is blocked. The settings UI uses this to
+ * allowed wholesale ONLY when no explicit Electrum-WS origin is pinned (see
+ * `allowsWholesaleWss`); once one is pinned, only the listed `wss://` origins
+ * pass. Any other origin (an `https:` RPC / indexer / price endpoint) must be in
+ * the static allowlist; everything else is blocked. The settings UI uses this to
  * warn before a user saves an origin that will silently fail at fetch time.
  */
 export function isOriginAllowedByCsp(origin: string): boolean {
-  if (origin.startsWith("wss://")) return true;
-  return staticConnectSrcOrigins().includes(origin);
+  const origins = staticConnectSrcOrigins();
+  const hasPinnedWss = origins.some((o) => o.startsWith("wss://"));
+  if (origin.startsWith("wss://")) return !hasPinnedWss || origins.includes(origin);
+  return origins.includes(origin);
 }

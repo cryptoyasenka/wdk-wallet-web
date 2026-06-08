@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { staticConnectSrcOrigins } from "./src/lib/cspAllowlist";
+import { allowsWholesaleWss, staticConnectSrcOrigins } from "./src/lib/cspAllowlist";
 
 /**
  * Content-Security-Policy (Phase 6) — emitted per request so it can carry a
@@ -27,13 +27,22 @@ import { staticConnectSrcOrigins } from "./src/lib/cspAllowlist";
  * origin against this same allowlist and warns the user when it will be blocked.
  * The defaults + `NEXT_PUBLIC_*` deploy env cover the shipped config; a
  * self-hoster widens the allowlist via env. `wss:` is allowed wholesale because
- * the Bitcoin Electrum-WS endpoint is always operator-supplied (no public
- * default). Documented in docs/SECURITY-REVIEW.md → "CSP".
+ * the Bitcoin Electrum-WS endpoint is operator-supplied with no public default —
+ * but only until the operator PINS that endpoint via NEXT_PUBLIC_CONNECT_SRC_ORIGINS,
+ * at which point the wholesale scheme is dropped and connect-src permits just the
+ * pinned wss:// origin (see `allowsWholesaleWss`). Documented in
+ * docs/SECURITY-REVIEW.md → "CSP".
  */
 
 function connectSrc(): string[] {
-  // 'self' + the shared static allowlist + wholesale secure WebSockets (Electrum).
-  return [...new Set(["'self'", ...staticConnectSrcOrigins(), "wss:"])];
+  // 'self' + the shared static allowlist, plus the wholesale `wss:` scheme — but
+  // the scheme ONLY when no explicit Electrum-WS origin is pinned. If the
+  // operator has pinned their wss:// endpoint (via NEXT_PUBLIC_CONNECT_SRC_ORIGINS),
+  // it is already in the allowlist and we keep connect-src tight rather than
+  // leaving any secure socket reachable. See allowsWholesaleWss.
+  const base = ["'self'", ...staticConnectSrcOrigins()];
+  if (allowsWholesaleWss()) base.push("wss:");
+  return [...new Set(base)];
 }
 
 export function middleware(request: NextRequest) {
