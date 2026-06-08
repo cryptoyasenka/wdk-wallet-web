@@ -192,11 +192,19 @@ export class WebAuthnUnlock implements UnlockProvider {
         typeof (parsed as EnrollmentRecord).credentialId === "string" &&
         typeof (parsed as EnrollmentRecord).prfSalt === "string"
       ) {
-        return parsed as EnrollmentRecord;
+        const rec = parsed as EnrollmentRecord;
+        // Both handles are base64; verify they actually DECODE here, at the one
+        // read chokepoint. Otherwise a corrupt value would throw a raw
+        // DOMException later, deep inside unlock()/enroll() (`atob`), instead of
+        // falling into the corrupt-entry path below.
+        base64UrlToBytes(rec.credentialId);
+        base64ToBytes(rec.prfSalt);
+        return rec;
       }
     } catch {
-      // Corrupt entry: treat as not-enrolled so selection falls back rather
-      // than hard-failing the whole unlock surface.
+      // Corrupt entry (bad JSON, wrong shape, or undecodable base64): treat as
+      // not-enrolled so selection falls back rather than hard-failing the whole
+      // unlock surface.
     }
     return null;
   }
