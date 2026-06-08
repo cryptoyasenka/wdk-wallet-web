@@ -27,11 +27,9 @@ runs in a dedicated Web Worker, and there is nothing custodial in between.
 
 **Live demo:** **https://wdk-wallet-web-production.up.railway.app**, the real
 built app, served under the same strict per-request-nonce CSP and security
-headers as production. It runs all six chains - the five keyless defaults
-(Ethereum, Polygon, Arbitrum, Plasma + Solana) plus **Bitcoin**, enabled via a
-public Blockstream Electrum-WS endpoint the deploy points at. (Run it locally
-with no endpoint configured and BTC instead surfaces the honest "unsupported
-chain" notice, exactly as described below.) Your seed is generated and encrypted
+headers as production. This deploy runs the five default chains
+(Ethereum, Polygon, Arbitrum, Plasma + Solana) plus **Bitcoin** through a
+public Blockstream Electrum-WS endpoint. Your seed is generated and encrypted
 in your own browser; the deploy holds no keys and nothing custodial.
 
 **Walkthrough video:** a silent ~90 s screencast of the whole flow lives at
@@ -74,17 +72,15 @@ honest "unsupported chain" error instead of failing silently.
 | Multi-wallet / multi-account | Yes. Independent BIP-39 seeds with HD accounts and zero-migration back-compat |
 | QR | Yes. Scan a BIP-21 or EIP-681 request into Send and render Receive as QR |
 | Reusable across hosts | Yes. The same headless core powers a second app in Svelte |
-Beyond the BTC + USD₮ ask, the wallet ships **four EVM networks**
-(Ethereum, Polygon, Arbitrum, Plasma, all via the WDK EVM manager) **plus
-Solana** (USD₮ as an SPL token, via `@tetherto/wdk-wallet-solana` through
-the same adapter seam) **plus BTC**. All five non-BTC chains are
-default-on with keyless public RPC. Honest CI bound: only the Ethereum
-and BTC (fixture) flows are exercised end-to-end in the demo / CI; the
-Solana, Polygon, Arbitrum and Plasma managers are wired, typed, built and
-config + portfolio covered, but their live-RPC send/receive is not part of
-CI. **Lightning / Spark are not shipped**: reachable on the same adapter
-shape, deliberately left as documented extension points, not claimed as
-done.
+Across supported chains, the wallet ships **four EVM networks**
+(Ethereum, Polygon, Arbitrum, Plasma, all via the WDK EVM manager), **Solana**
+(USD₮ as an SPL token via `@tetherto/wdk-wallet-solana` through the same
+adapter seam), and **Bitcoin**. All five non-BTC chains are default-on with
+keyless public RPC. In CI, the Ethereum and BTC fixture flows are exercised
+end-to-end; the Solana, Polygon, Arbitrum, and Plasma managers are wired,
+typed, built, and covered at the config and portfolio layers, but their
+live-RPC send / receive paths are not part of CI. **Lightning / Spark are not
+shipped**: they remain documented extension points.
 
 The one honest operational dependency: a browser cannot open a raw Electrum TCP
 socket, so BTC needs a **public Electrum-WS endpoint** to point at (env-driven,
@@ -92,10 +88,9 @@ failover via `@tetherto/wdk-failover-provider`). That is a real deployment
 input, not a missing feature. See `docs/RN-TO-WEB-MAP.md` →
 "Bitcoin on web (shipped)".
 
-## Why this is structured the way it is
+## Why It Is Structured This Way
 
-This is not "create-next-app + paste the WDK quickstart". It mirrors the
-architecture of Tether's own RN starter, which cleanly separates
+The repo mirrors the architecture of Tether's own RN starter, which cleanly separates
 **platform-agnostic wallet logic** from **platform-specific UI / storage**:
 
 - **`packages/wallet-core`**: a headless, fully-typed, tested WDK wallet engine
@@ -113,8 +108,8 @@ architecture of Tether's own RN starter, which cleanly separates
   `apps/next`. Svelte localization would duplicate UI work without adding
   anything to the portability claim.
 
-The headless core is reusable verbatim for a browser-extension wallet and an
-eCommerce checkout (the other two Tether WDK bounties).
+The same headless core can be reused for a browser extension or an eCommerce
+checkout flow.
 
 ## Layout
 
@@ -133,7 +128,7 @@ docs/
 .github/workflows/ci.yml  lint · typecheck · test · build
 ```
 
-## Develop
+## Verify And Develop
 
 ```bash
 pnpm install
@@ -176,8 +171,7 @@ and a CI green mean the same thing. WDK is alpha; package versions are pinned
 - **WDK is alpha:** `@tetherto/*` versions are pinned exact and quarantined
   behind `packages/wallet-core/src/wdk/` (ESLint-enforced), so an upstream break
   is one-file localized.
-- **Public repo:** this repository is the canonical public deliverable; the
-  Railway live demo above auto-deploys from `main`.
+- **Deployment:** the Railway live demo above auto-deploys from `main`.
 - **Not for production use with real funds yet.** The web has no exact
   equivalent of the RN starter's BareKit worklet + native Keychain +
   biometrics; we do not pretend it does. The real threat model and the residual
