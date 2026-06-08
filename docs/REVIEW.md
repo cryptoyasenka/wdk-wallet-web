@@ -1,8 +1,8 @@
 # Review Guide
 
-A fast, honest orientation. Depth lives in the linked docs - this page just gets
-you to the right place and is candid about what is proven runnable versus what is
-inherently on the author.
+A fast orientation for reviewers. Depth lives in the linked docs - this page
+gets you to the right place and separates what is already reproducible from what
+still requires a manual proof step.
 
 ## Live demo - no build required
 
@@ -19,7 +19,7 @@ socket, so BTC needs an Electrum-WS endpoint to point at. See the README.)
 
 **Prefer to watch?** A silent ~90 s **[walkthrough video](walkthrough.mp4)**
 screencasts the whole flow (create → back up → portfolio → receive → send form);
-the funded on-chain send is a separate clip - see "on the author" below.
+the funded on-chain send is a separate clip - see "Manual proof" below.
 
 ## 60-second tour (on the live demo)
 
@@ -59,7 +59,7 @@ chains and read real on-chain balances - proving the actual transport, not a
 mock. They are opt-in and live outside the workspace, so the default `verify`
 stays offline and deterministic.
 
-## What is proven runnable vs. what is on the author (honest)
+## What is automated vs. what stays manual
 
 **Proven and runnable right now:**
 
@@ -71,18 +71,18 @@ stays offline and deterministic.
   endpoints;
 - the **full UI flow under the production CSP** - `smoke`; accessibility - `a11y`.
 
-**Inherently on the author (cannot be a headless CI artifact):**
+**Manual proof (cannot be a headless CI artifact):**
 
 - An actual **on-chain broadcast** of a send requires funded testnet keys. WDK
   couples sign-and-broadcast in `account.sendTransaction` / `account.transfer`
   (there is no offline sign-without-broadcast primitive to assert against, so we
   do **not** fabricate one). The end-to-end "money actually moved" proof should
-  therefore be supplied as a short **recorded send video** in the bounty form
-  rather than as a script in this repo.
+  therefore be supplied as a short **recorded send video** alongside the
+  submission rather than as a script in this repo.
 - The **walkthrough video** now ships in the repo
-  ([`walkthrough.mp4`](walkthrough.mp4), linked above); what remains
-  author-side is the funded **send** clip and a manual **two-tab Delete-Wallet**
-  check (a browser-lifecycle behaviour that is not unit-testable).
+  ([`walkthrough.mp4`](walkthrough.mp4), linked above); what remains manual is
+  the funded **send** clip and a **two-tab Delete-Wallet** check
+  (a browser-lifecycle behaviour that is not unit-testable).
 
 This is the one honest gap the live-read harnesses and unit tests cannot close on
 their own - everything up to the final broadcast is runnable above.

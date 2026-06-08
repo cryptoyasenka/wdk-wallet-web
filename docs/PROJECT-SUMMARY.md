@@ -11,9 +11,9 @@ Tether ships only for React Native.
 - **Reviewer guide / verify each claim yourself:** [`Review guide`](REVIEW.md)
 - **Requirement → implementation → verification map:** [`Verification checklist`](VERIFICATION-CHECKLIST.md)
 
-## What the bounty asked, and what this delivers
+## What shipped and how it maps to the brief
 
-The ask was **BTC + USD₮ send/receive on the web, self-custodial.** Both ship - plus
+The brief was **BTC + USD₮ send/receive on the web, self-custodial.** Both ship - plus
 more, each scoped honestly:
 
 - **USD₮** on Ethereum, Polygon, Arbitrum & Plasma (WDK EVM manager) **+ Solana**
@@ -45,8 +45,8 @@ logic cleanly separated from platform-specific UI / storage:
 - **`apps/svelte`** - the **same byte-unchanged core** driven by a second framework:
   the portability proof.
 
-That same headless core is reusable verbatim for the other two Tether WDK bounties
-(a browser-extension wallet and an eCommerce checkout).
+That same headless core is reusable verbatim for adjacent targets such as a
+browser-extension wallet or an eCommerce checkout.
 
 ## Evaluate in five minutes
 
@@ -69,7 +69,7 @@ A step-by-step tour and a full "verify each claim yourself" command table live i
 - The end-to-end **"money actually moved" broadcast** needs funded testnet keys. WDK
   couples sign-and-broadcast in `account.sendTransaction` / `account.transfer` (there
   is no offline sign-without-broadcast primitive to assert against, so it is **not**
-  fabricated); that final proof should be attached in the bounty form as a short
+  fabricated); that final proof should travel with the submission as a short
   **recorded send video** (the product walkthrough itself ships in-repo at
   [`walkthrough.mp4`](walkthrough.mp4)), while the send orchestration,
   signing intent, and fee quotes are unit-tested in-repo.
