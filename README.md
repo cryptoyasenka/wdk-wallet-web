@@ -39,16 +39,19 @@ in your own browser; the deploy holds no keys and nothing custodial.
 receive → send form). Product notes and verification details live in
 [`docs/PROJECT-SUMMARY.md`](docs/PROJECT-SUMMARY.md).
 
-## Run it in two minutes
+No install is required to try the wallet. Open the live demo above and use it in
+the browser. The local setup below is for development and independent review.
+
+## Run locally in two minutes
 
 ```bash
 pnpm install
 pnpm --filter next dev          # → http://localhost:3000
 ```
 
-That boots the full wallet on its five keyless default chains with zero config
+That starts the wallet locally on its five default chains with zero config
 (ETH + USD₮ / XAUT on Ethereum, USD₮ on Polygon / Arbitrum / Plasma / Solana).
-To enable Bitcoin, point it at an Electrum-over-WebSocket endpoint:
+To enable Bitcoin locally, point it at an Electrum-over-WebSocket endpoint:
 
 ```bash
 cp apps/next/.env.example apps/next/.env.local
@@ -56,9 +59,9 @@ cp apps/next/.env.example apps/next/.env.local
 pnpm --filter next dev
 ```
 
-No endpoint set → the wallet runs on its five keyless default chains (Ethereum,
-Polygon, Arbitrum, Plasma + Solana) and BTC surfaces a typed, honest
-"unsupported chain" error instead of failing silently.
+With no endpoint set, the local app still runs on its five default chains
+(Ethereum, Polygon, Arbitrum, Plasma + Solana) and BTC surfaces a typed,
+honest "unsupported chain" error instead of failing silently.
 
 ## What Ships Today
 
