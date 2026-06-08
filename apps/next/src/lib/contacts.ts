@@ -129,7 +129,11 @@ export function loadContacts(): Contact[] {
 }
 
 function saveContacts(contacts: Contact[]): void {
-  localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts));
+  try {
+    localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts));
+  } catch {
+    // Best-effort; a full/blocked store leaves the in-memory value usable.
+  }
 }
 
 export function addContact(contact: Contact): Contact[] {
@@ -167,7 +171,11 @@ export function loadTemplates(): PaymentTemplate[] {
 }
 
 function saveTemplates(templates: PaymentTemplate[]): void {
-  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+  try {
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+  } catch {
+    // Best-effort; a full/blocked store leaves the in-memory value usable.
+  }
 }
 
 export function addTemplate(template: PaymentTemplate): PaymentTemplate[] {
