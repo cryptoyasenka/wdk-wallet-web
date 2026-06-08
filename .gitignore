@@ -25,7 +25,6 @@ Thumbs.db
 
 .gstack/
 .planning/
-Codex audit/
 
 # demo recorder QA frames (local artifacts, not shipped)
 tools/demo/frames/

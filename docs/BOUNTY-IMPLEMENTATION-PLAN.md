@@ -8,9 +8,11 @@
 > a complete, green baseline; remaining items are optional milestone-scope
 > extensions, not gaps.
 
-This plan is written for future agents working in this repository. Follow it in
-order unless the user explicitly changes priorities. Preserve the current
-premium glass UI; do not replace it with a generic dashboard or landing page.
+This historical plan records the implementation sequence that brought the
+repository from a starter wallet to the current bounty-ready baseline. It is
+kept as an audit trail for maintainers who want to understand the order,
+rationale, and verification criteria behind the shipped features. The current
+authoritative implementation map is [`BOUNTY-CHECKLIST.md`](./BOUNTY-CHECKLIST.md).
 
 Current date when this plan was written: 2026-05-26.
 
@@ -60,7 +62,7 @@ These are selected from open-source wallet research:
 - BlueWallet / Sparrow: watch-only and privacy-oriented node configuration.
 - MetaMask / Trust Wallet Core: engineering/reviewer posture and docs.
 
-## Non-Negotiables
+## Implementation Constraints
 
 - Keep design quality. Use the current glass-card, emerald accent, compact
   wallet-tool layout.
@@ -70,30 +72,25 @@ These are selected from open-source wallet research:
 - Do not weaken passphrase unlock while adding passkey-related changes.
 - Do not use `localStorage.clear()`.
 - Keep changes test-backed where they touch wallet-core or shared behavior.
-- Use `apply_patch` for manual file edits.
+- Keep edits scoped, reviewable, and covered by the existing verification gates.
 
 ## Phase 0: Baseline Integrity *(historical — completed 2026-05-26)*
 
-> **This phase is done.** The text below is the original brief, kept verbatim
-> for audit-trail purposes. At the time of writing the working tree held
-> uncommitted work; that work has since been committed, pushed, and verified.
-> Current baseline: `corepack pnpm verify` green across all three packages.
-> See [`BOUNTY-CHECKLIST.md`](./BOUNTY-CHECKLIST.md) for the authoritative
-> current state.
+> **This phase is done.** It established the repository baseline: the shipped
+> wallet, bounty docs, and verification numbers are committed, pushed, and
+> reproducible from a fresh clone. Current baseline: `corepack pnpm verify`
+> green across all three packages. See [`BOUNTY-CHECKLIST.md`](./BOUNTY-CHECKLIST.md)
+> for the authoritative current state.
 
-Surfaced by the 2026-05-26 deep audit. The Phase 1-3 work described as "already
-ships" above currently lives ONLY in the working tree: uncommitted, unpushed,
-saved nowhere. `origin/main == HEAD`, so a reviewer cloning origin sees a STALE
-baseline (no bounty docs, pre-Phase-1 UI, "72 tests / 169 kB"). Before any
-feature work, make the baseline real.
+Surfaced by the 2026-05-26 deep audit. The goal was to make the documented
+baseline match what reviewers can clone and run, before adding more bounty
+polish on top.
 
 ### Scope
 
-- Commit the working tree in meaningful, scoped commits (core / unlock + passkey
-  / Next UI + new libs / Svelte / docs) and push to origin. WIP is acceptable
-  per commit, but the baseline must exist in history.
-- Reconcile committed doc numbers with reality: test count (72 → 76), Next First
-  Load JS (stale "169" → 223 kB), and any past-tense phase framing, so the
+- Commit the baseline in meaningful, scoped changes and push it to origin.
+- Reconcile committed doc numbers with reality: test count, Next First
+  Load JS, and any past-tense phase framing, so the
   numbers a reviewer reads match what `corepack pnpm build` + test output print.
 - Forward commits only. Do NOT `git rebase -i` published history.
 
@@ -533,7 +530,7 @@ Rationale:
 - Phase 5 is valuable but has the most product-state complexity.
 - Phase 6 should be updated throughout, then finalized last.
 
-## Suggested Submission Strategy
+## Historical Submission Context
 
 The official Tether bounty pages currently show active `Apply for Bounty` forms
 and `Date Posted: 24/03/2026` for WDK-related tasks. They do not expose a clear

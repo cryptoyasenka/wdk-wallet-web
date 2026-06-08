@@ -127,7 +127,7 @@ docs/
   ARCHITECTURE.md       module boundaries, data flow, ADRs
   BOUNTY-CHECKLIST.md   reviewer map for the Tether WDK bounty
   BOUNTY-IMPLEMENTATION-PLAN.md
-                        ordered roadmap for future bounty polish agents
+                        historical implementation roadmap and rationale
   SECURITY.md           threat model & honest limits
   SECURITY-REVIEW.md    structured review: CSP rationale, secrets lifecycle, audit advisory
   RN-TO-WEB-MAP.md      every RN platform API → its web replacement
