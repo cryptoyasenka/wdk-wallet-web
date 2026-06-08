@@ -566,20 +566,31 @@ function buildEngine(
       // derived for the ACTIVE account so a switch changes the send origin.
       const from = await s.deriveAddress(intent.asset.chain, acct);
       const result = await s.send(intent, acct, feePreference);
-      await appendSend(
-        deps.storage,
-        {
-          hash: result.hash,
-          asset: intent.asset,
-          amount: intent.amount,
-          direction: "out",
-          timestamp: Date.now(),
-          status: "pending",
-          from,
-        },
-        w,
-        acct,
-      );
+      // The tx is now broadcast and irreversible. Recording it in the local
+      // activity log is best-effort: a storage failure (quota exhausted,
+      // private-mode, disk full, blocked handle) must NOT surface as a send
+      // error, or the caller may re-submit a transaction that already landed
+      // on-chain (a double-spend). The on-chain receipt — not this log — is the
+      // source of truth; getActivity() refreshes status from it, and a missed
+      // entry simply means this one outgoing tx is absent from local history.
+      try {
+        await appendSend(
+          deps.storage,
+          {
+            hash: result.hash,
+            asset: intent.asset,
+            amount: intent.amount,
+            direction: "out",
+            timestamp: Date.now(),
+            status: "pending",
+            from,
+          },
+          w,
+          acct,
+        );
+      } catch {
+        /* best-effort: the send already succeeded; never re-throw past a broadcast */
+      }
       return result;
     },
 
