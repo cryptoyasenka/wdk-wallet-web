@@ -359,7 +359,12 @@ export default function Page() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(AUTO_LOCK_KEY);
-      if (stored) setAutolockMin(Number(stored));
+      const n = stored === null ? NaN : Number(stored);
+      // A corrupt or tampered value (NaN, ≤0, ∞) must not reach the timer: the
+      // check is `elapsed > autolockMin * 60_000`, and `> NaN` is always false,
+      // so a bad value would silently disable auto-lock and leave the wallet
+      // unlocked. Accept only a finite positive interval; else keep the default.
+      if (Number.isFinite(n) && n > 0) setAutolockMin(n);
     } catch {
       // Keep the default timer if localStorage is unavailable or malformed.
     }
