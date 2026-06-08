@@ -1,25 +1,25 @@
-# For Judges / Reviewers
+# Review Guide
 
-A fast, honest orientation. Depth lives in the linked docs — this page just gets
+A fast, honest orientation. Depth lives in the linked docs - this page just gets
 you to the right place and is candid about what is proven runnable versus what is
 inherently on the author.
 
-## Live demo — no build required
+## Live demo - no build required
 
 **https://wdk-wallet-web-production.up.railway.app**
 
 The real built app, served under the same strict per-request-nonce CSP and
-security headers as production. It runs all six chains — the five keyless defaults
+security headers as production. It runs all six chains - the five keyless defaults
 (Ethereum, Polygon, Arbitrum, Plasma + Solana) **plus Bitcoin**, enabled via a
 public Blockstream Electrum-WS endpoint the deploy points at. **Your seed is
 generated and encrypted in your own browser; the deploy holds no keys and nothing
 custodial.** (Run it locally with no endpoint configured and Bitcoin instead shows
-an honest "unsupported chain" notice — a browser cannot open a raw Electrum TCP
+an honest "unsupported chain" notice - a browser cannot open a raw Electrum TCP
 socket, so BTC needs an Electrum-WS endpoint to point at. See the README.)
 
-**Prefer to watch?** A silent ~90 s **[walkthrough video](docs/walkthrough.mp4)**
+**Prefer to watch?** A silent ~90 s **[walkthrough video](walkthrough.mp4)**
 screencasts the whole flow (create → back up → portfolio → receive → send form);
-the funded on-chain send is a separate clip — see "on the author" below.
+the funded on-chain send is a separate clip - see "on the author" below.
 
 ## 60-second tour (on the live demo)
 
@@ -27,7 +27,7 @@ the funded on-chain send is a separate clip — see "on the author" below.
 2. **Back up the seed** and pass the seed quiz (the backup gate is enforced).
 3. Land on the **portfolio**: USD₮ across Ethereum / Polygon / Arbitrum /
    Plasma + Solana (+ XAU₮ on Ethereum), with opt-out live prices. **Bitcoin is
-   live on this demo** — the deploy points at a public Blockstream Electrum-WS
+   live on this demo** - the deploy points at a public Blockstream Electrum-WS
    endpoint; run it locally with no endpoint and BTC shows the honest
    unsupported-chain state instead. `corepack pnpm btc:live` proves the real BTC
    transport path either way.
@@ -49,13 +49,13 @@ corepack pnpm install
 |---|---|
 | lint + typecheck + **249 unit tests** + build, across all 3 packages | `corepack pnpm verify` |
 | real-browser E2E walkthrough under the **live strict CSP** | `corepack pnpm smoke` |
-| accessibility — axe-core, WCAG 2.0/2.1 A+AA, every key screen | `corepack pnpm a11y` |
+| accessibility - axe-core, WCAG 2.0/2.1 A+AA, every key screen | `corepack pnpm a11y` |
 | **real** BTC transport over a live Electrum-over-WebSocket endpoint | `corepack pnpm btc:live` |
 | **real** Solana transport over a live mainnet-beta RPC | `corepack pnpm sol:live` |
 | dependency advisories (one accepted upstream `low`) | `corepack pnpm audit --audit-level moderate` |
 
 `btc:live` and `sol:live` run the **genuine WDK adapters in-process** against live
-chains and read real on-chain balances — proving the actual transport, not a
+chains and read real on-chain balances - proving the actual transport, not a
 mock. They are opt-in and live outside the workspace, so the default `verify`
 stays offline and deterministic.
 
@@ -64,12 +64,12 @@ stays offline and deterministic.
 **Proven and runnable right now:**
 
 - create / import / unlock, AES-GCM vault encryption, passkey-PRF + passphrase
-  slots — unit-tested (`corepack pnpm test`, see `packages/wallet-core/test/`);
-- send **orchestration, signing intent, and fee quotes** — unit-tested against the
+  slots - unit-tested (`corepack pnpm test`, see `packages/wallet-core/test/`);
+- send **orchestration, signing intent, and fee quotes** - unit-tested against the
   adapter seam (`packages/wallet-core/test/engine.test.ts`);
-- **live BTC + Solana transport reads** — `btc:live` / `sol:live` against real
+- **live BTC + Solana transport reads** - `btc:live` / `sol:live` against real
   endpoints;
-- the **full UI flow under the production CSP** — `smoke`; accessibility — `a11y`.
+- the **full UI flow under the production CSP** - `smoke`; accessibility - `a11y`.
 
 **Inherently on the author (cannot be a headless CI artifact):**
 
@@ -80,17 +80,17 @@ stays offline and deterministic.
   therefore be supplied as a short **recorded send video** in the bounty form
   rather than as a script in this repo.
 - The **walkthrough video** now ships in the repo
-  ([`docs/walkthrough.mp4`](docs/walkthrough.mp4), linked above); what remains
+  ([`walkthrough.mp4`](walkthrough.mp4), linked above); what remains
   author-side is the funded **send** clip and a manual **two-tab Delete-Wallet**
   check (a browser-lifecycle behaviour that is not unit-testable).
 
 This is the one honest gap the live-read harnesses and unit tests cannot close on
-their own — everything up to the final broadcast is runnable above.
+their own - everything up to the final broadcast is runnable above.
 
 ## Where the depth lives
 
-- **Requirement → implementation → verification map:** [`docs/BOUNTY-CHECKLIST.md`](docs/BOUNTY-CHECKLIST.md)
-- **Security model, CSP rationale, honest limits:** [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md)
-- **Architecture & ADRs** (worker boundary, activity model, unlock design): [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- **RN-starter → web mapping:** [`docs/RN-TO-WEB-MAP.md`](docs/RN-TO-WEB-MAP.md)
-- **WDK dependency pin posture:** [`docs/BOUNTY-CHECKLIST.md`](docs/BOUNTY-CHECKLIST.md) → "Known Honest Limits"
+- **Requirement → implementation → verification map:** [`VERIFICATION-CHECKLIST.md`](VERIFICATION-CHECKLIST.md)
+- **Security model, CSP rationale, honest limits:** [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md)
+- **Architecture & ADRs** (worker boundary, activity model, unlock design): [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- **RN-starter → web mapping:** [`RN-TO-WEB-MAP.md`](RN-TO-WEB-MAP.md)
+- **WDK dependency pin posture:** [`VERIFICATION-CHECKLIST.md`](VERIFICATION-CHECKLIST.md) → "Known Honest Limits"

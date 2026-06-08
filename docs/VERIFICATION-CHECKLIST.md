@@ -1,4 +1,4 @@
-# Tether WDK Bounty Checklist
+# Verification Checklist
 
 This file is a reviewer map: what the bounty asks for, where it is implemented,
 and how to verify it locally.
@@ -82,7 +82,7 @@ Current local bar:
   of them one beta ahead (`wdk-wallet` → beta.9, `wdk-wallet-evm` → beta.13 with
   a `2.0.0-rc.1` major already in flight, `wdk-wallet-solana` → beta.9). These are
   pre-1.0 packages whose API still churns between betas, so the lockfile is pinned
-  to the exact set this wallet was built and green-tested against — a reproducible
+  to the exact set this wallet was built and green-tested against - a reproducible
   install, not a moving target. Upgrading is a tracked follow-up to run against a
   funded-testnet send, not a blind bump: the headless `wallet-core` seam exists
   precisely so a WDK version bump is an isolated, separately-verifiable change.

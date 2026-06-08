@@ -11,26 +11,23 @@ seed, unlock with a passkey or passphrase, then send and receive real BTC and
 USD₮ (plus XAUT). Key material never leaves the browser, the WDK signer
 runs in a dedicated Web Worker, and there is nothing custodial in between.
 
-> **Reviewing this for the bounty?** Start with **[`SUBMISSION.md`](SUBMISSION.md)**
-> — the entry: what shipped vs. the ask, evaluate-in-5-minutes, honest limits. Then
-> **[`JUDGES.md`](JUDGES.md)** for a 60-second live-demo tour, a "verify each claim
-> yourself" command map, and a candid note on what is proven runnable versus what is
-> left on the author.
+**Docs:** [`Project summary`](docs/PROJECT-SUMMARY.md) ·
+[`Review guide`](docs/REVIEW.md) ·
+[`Verification checklist`](docs/VERIFICATION-CHECKLIST.md)
 
 ![Wallet demo: create → back up seed → portfolio (BTC fixture + USD₮) → receive (real client-derived addresses)](docs/demo.gif)
 
 > Recorded end-to-end against the real built app. The BTC row is served by a
-> local, offline Electrum-WS fixture (no endpoint, no secret); the addresses
-> and keys are real client-side derivation. This GIF is the reproducible product
-> preview, not the funded send-broadcast proof; the walkthrough video is in
-> [`docs/walkthrough.mp4`](docs/walkthrough.mp4) and the funded send-proof clip is
-> attached in the bounty form. Regenerate locally:
+> local, offline Electrum-WS fixture so the preview stays reproducible with no
+> endpoint and no secret. The addresses and keys are real client-side
+> derivation. A full walkthrough video lives at
+> [`docs/walkthrough.mp4`](docs/walkthrough.mp4). Regenerate locally:
 > `corepack pnpm demo` (one-time `corepack pnpm exec playwright install
 > chromium`, plus `ffmpeg` on PATH).
 
 **Live demo:** **https://wdk-wallet-web-production.up.railway.app**, the real
 built app, served under the same strict per-request-nonce CSP and security
-headers as production. It runs all six chains — the five keyless defaults
+headers as production. It runs all six chains - the five keyless defaults
 (Ethereum, Polygon, Arbitrum, Plasma + Solana) plus **Bitcoin**, enabled via a
 public Blockstream Electrum-WS endpoint the deploy points at. (Run it locally
 with no endpoint configured and BTC instead surfaces the honest "unsupported
@@ -39,8 +36,8 @@ in your own browser; the deploy holds no keys and nothing custodial.
 
 **Walkthrough video:** a silent ~90 s screencast of the whole flow lives at
 [`docs/walkthrough.mp4`](docs/walkthrough.mp4) (create → back up → portfolio →
-receive → send form). The funded on-chain send is a separate recorded clip — see
-[`SUBMISSION.md`](SUBMISSION.md) → "Honest limits".
+receive → send form). Product notes and verification details live in
+[`docs/PROJECT-SUMMARY.md`](docs/PROJECT-SUMMARY.md).
 
 ## Run it in two minutes
 
@@ -63,18 +60,17 @@ No endpoint set → the wallet runs on its five keyless default chains (Ethereum
 Polygon, Arbitrum, Plasma + Solana) and BTC surfaces a typed, honest
 "unsupported chain" error instead of failing silently.
 
-## Scope: the bounty asked for BTC + USD₮, both ship
+## What Ships Today
 
-| Bounty ask | Status |
+| Capability | Status |
 |---|---|
-| Send / receive **USD₮** on web | ✅ shipped: USDT on Ethereum, Polygon, Arbitrum & Plasma (WDK EVM manager) + Solana (WDK Solana manager) + XAU₮ on Ethereum |
-| Send / receive **BTC** on web | ✅ shipped: pure-JS WDK BTC manager + injected Electrum-WS client, in the worker |
-| Self-custodial, keys client-side | ✅ WebCrypto vault + Web Worker signer (ADR-004) |
-| Unlock | ✅ WebAuthn passkey (PRF) with a PBKDF2 passphrase fallback (ADR-005) |
-| Multi-wallet / multi-account | ✅ N independent BIP-39 seeds, each with HD accounts; zero-migration back-compat |
-| QR | ✅ scan a BIP-21/EIP-681 payment URI into the recipient field; render the receive address as a QR |
-| Reusable across hosts | ✅ headless core consumed byte-unchanged by a second app (Svelte) |
-
+| Send / receive **USD₮** on web | Yes. USDT on Ethereum, Polygon, Arbitrum, Plasma, and Solana, plus XAUT on Ethereum |
+| Send / receive **BTC** on web | Yes. Pure-JS WDK BTC manager with an injected Electrum-WS client in the worker |
+| Self-custodial, keys client-side | Yes. WebCrypto vault and Web Worker signer (ADR-004) |
+| Unlock | Yes. WebAuthn passkey (PRF) with a PBKDF2 passphrase fallback (ADR-005) |
+| Multi-wallet / multi-account | Yes. Independent BIP-39 seeds with HD accounts and zero-migration back-compat |
+| QR | Yes. Scan a BIP-21 or EIP-681 request into Send and render Receive as QR |
+| Reusable across hosts | Yes. The same headless core powers a second app in Svelte |
 Beyond the BTC + USD₮ ask, the wallet ships **four EVM networks**
 (Ethereum, Polygon, Arbitrum, Plasma, all via the WDK EVM manager) **plus
 Solana** (USD₮ as an SPL token, via `@tetherto/wdk-wallet-solana` through
@@ -125,9 +121,9 @@ apps/next/              reference web wallet (the deliverable)
 apps/svelte/            portability proof (Svelte 5 + Vite; pkg svelte-proof)
 docs/
   ARCHITECTURE.md       module boundaries, data flow, ADRs
-  BOUNTY-CHECKLIST.md   reviewer map for the Tether WDK bounty
-  BOUNTY-IMPLEMENTATION-PLAN.md
-                        historical implementation roadmap and rationale
+  PROJECT-SUMMARY.md    concise product and verification summary
+  REVIEW.md             fast reviewer orientation
+  VERIFICATION-CHECKLIST.md  requirement-to-proof map
   SECURITY.md           threat model & honest limits
   SECURITY-REVIEW.md    structured review: CSP rationale, secrets lifecycle, audit advisory
   RN-TO-WEB-MAP.md      every RN platform API → its web replacement
