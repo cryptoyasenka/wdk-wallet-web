@@ -54,14 +54,14 @@ describe("staticConnectSrcOrigins", () => {
     for (const o of DEFAULT_RPC_ORIGINS) expect(origins).toContain(o);
   });
 
-  it("is de-duplicated (rpc.ankr.com appears once)", () => {
+  it("is de-duplicated", () => {
     const origins = staticConnectSrcOrigins();
     expect(new Set(origins).size).toBe(origins.length);
   });
 });
 
 describe("isOriginAllowedByCsp", () => {
-  it("allows any wss:// origin wholesale (operator-supplied Electrum)", () => {
+  it("allows any wss:// origin wholesale until an Electrum origin is pinned", () => {
     expect(isOriginAllowedByCsp("wss://electrum.example.com:50004")).toBe(true);
   });
 
@@ -77,7 +77,7 @@ describe("isOriginAllowedByCsp", () => {
     expect(isOriginAllowedByCsp("https://evil.example.com")).toBe(false);
   });
 
-  it("blocks a plaintext ws:// origin (only wss: is wholesale-allowed)", () => {
+  it("blocks a plaintext ws:// origin", () => {
     expect(isOriginAllowedByCsp("ws://insecure.example.com")).toBe(false);
   });
 });

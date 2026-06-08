@@ -4,7 +4,7 @@
  * validation, untrusted-JSON hardening (bad values fall back to the
  * privacy-preserving default, never throw), and the connect-src origin set.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_DATA_SOURCES,
   DEFAULT_PRICE_ENDPOINT,
@@ -141,13 +141,23 @@ describe("cspBlockedOrigins", () => {
     ]);
   });
 
-  it("never flags a wss:// Electrum origin (wss: is allowed wholesale)", () => {
+  it("does not flag a wss:// Electrum origin while wss: is wholesale-allowed", () => {
     const out = cspBlockedOrigins({
       ...DEFAULT_DATA_SOURCES,
       btcElectrumWsUrl: "wss://e.example:50004",
       pricesEnabled: false,
     });
     expect(out).toEqual([]);
+  });
+
+  it("flags unpinned Electrum origins once this deploy pins a different wss:// origin", () => {
+    vi.stubEnv("NEXT_PUBLIC_CONNECT_SRC_ORIGINS", "wss://pinned.example:50004");
+    const out = cspBlockedOrigins({
+      ...DEFAULT_DATA_SOURCES,
+      btcElectrumWsUrl: "wss://other.example:50004",
+      pricesEnabled: false,
+    });
+    expect(out).toEqual(["wss://other.example:50004"]);
   });
 });
 

@@ -777,7 +777,7 @@ export default function Page() {
       try {
         assertValidRecipient(to, asset.chain);
       } catch (e) {
-        if (e instanceof InvalidAddressError) throw new Error(T("error.recipient_invalid"));
+        if (e instanceof InvalidAddressError) throw new Error(T("error.recipient_invalid"), { cause: e });
         throw e;
       }
       const amount = parseUnits(sendAmount, asset.decimals, T);

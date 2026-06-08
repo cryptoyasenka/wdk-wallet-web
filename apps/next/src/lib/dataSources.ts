@@ -185,7 +185,9 @@ export function connectSrcOrigins(ds: DataSources): string[] {
  * allowlist (defaults + `NEXT_PUBLIC_*` env) silently fails at fetch time. The
  * Data Sources card surfaces this list so the limit is honest instead of a
  * dead setting — a self-hoster fixes it by widening the deploy env / their CSP.
- * (Electrum-WS `wss://` origins are always allowed, so they never appear here.)
+ * Electrum-WS `wss://` origins are allowed wholesale by default, but once this
+ * deploy pins an explicit `wss://` origin in `NEXT_PUBLIC_CONNECT_SRC_ORIGINS`,
+ * any other secure-WebSocket origin is blocked and appears here.
  */
 export function cspBlockedOrigins(ds: DataSources): string[] {
   return connectSrcOrigins(ds).filter((o) => !isOriginAllowedByCsp(o));
