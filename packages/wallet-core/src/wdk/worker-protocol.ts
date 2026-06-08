@@ -68,10 +68,29 @@ export type WorkerResponse =
   | { id: number; ok: true; result: unknown }
   | { id: number; ok: false; error: SerializedError };
 
-/** Flatten an error for the postMessage reply (no class identity over clone). */
+/**
+ * Stand-in message for any FOREIGN error — anything that is not one of the
+ * engine's own `WalletError` types — crossing the worker edge. Foreign text is
+ * uncontrolled: a `@tetherto/wdk-*`, provider, or runtime error can embed a
+ * self-hoster's keyed RPC URL, an internal path, or other noise, and the main
+ * thread renders the message verbatim (apps/next `errorToMessage`). We forward
+ * the error NAME so `instanceof`/debugging survive, but not the free-form text.
+ * No key bytes ever reach a message (ADR-004); this closes the lower-value but
+ * still-uncontrolled foreign-text channel (re-audit Finding 13).
+ */
+export const FOREIGN_WORKER_ERROR_MESSAGE = "the wallet worker reported an unexpected error";
+
+/**
+ * Flatten an error for the postMessage reply (no class identity over clone).
+ * Only the engine's OWN typed errors (`WalletError` subclasses, whose messages
+ * are fixed, vetted strings) keep their message verbatim. Every foreign error is
+ * reduced to its name plus `FOREIGN_WORKER_ERROR_MESSAGE` so no uncontrolled
+ * library text is forwarded to the renderer.
+ */
 export function serializeError(e: unknown): SerializedError {
-  if (e instanceof Error) return { name: e.name, message: e.message };
-  return { name: "Error", message: String(e) };
+  if (e instanceof WalletError) return { name: e.name, message: e.message };
+  if (e instanceof Error) return { name: e.name, message: FOREIGN_WORKER_ERROR_MESSAGE };
+  return { name: "Error", message: FOREIGN_WORKER_ERROR_MESSAGE };
 }
 
 /**

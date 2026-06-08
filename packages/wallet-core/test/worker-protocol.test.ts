@@ -7,13 +7,18 @@
  * argument-taking errors.
  */
 import { describe, it, expect } from "vitest";
-import { rehydrateError, serializeError } from "../src/wdk/worker-protocol.js";
+import {
+  FOREIGN_WORKER_ERROR_MESSAGE,
+  rehydrateError,
+  serializeError,
+} from "../src/wdk/worker-protocol.js";
 import {
   InvalidSeedPhraseError,
   UnsupportedAssetError,
   UnsupportedChainError,
   VaultDecryptError,
   VaultFormatError,
+  WalletError,
 } from "../src/errors.js";
 
 /** What actually happens across the edge: throw → serialize → clone → rehydrate. */
@@ -46,15 +51,28 @@ describe("worker-protocol error round-trip", () => {
     expect(back.message).toBe("unsupported asset operation: Bitcoin has no token balances");
   });
 
-  it("keeps the original name for an unmapped error without inventing a typed class", () => {
-    const back = roundTrip(new TypeError("provider returned non-bigint"));
-    expect(back).not.toBeInstanceOf(UnsupportedChainError);
-    expect(back.name).toBe("TypeError");
-    expect(back.message).toBe("provider returned non-bigint");
+  it("preserves the verbatim message of the engine's OWN WalletError types", () => {
+    // The load-bearing distinction (Finding 13): our typed errors carry fixed,
+    // vetted strings and must survive intact; only FOREIGN text is sanitized.
+    const back = roundTrip(new WalletError("a vetted engine message"));
+    expect(back).toBeInstanceOf(WalletError);
+    expect(back.message).toBe("a vetted engine message");
   });
 
-  it("serializes a non-Error throw without losing its text", () => {
+  it("sanitizes an unmapped (foreign) error's message but keeps its name (Finding 13)", () => {
+    // A provider/WDK/runtime error is foreign: its free-form text is uncontrolled
+    // (it can embed a keyed RPC URL) and the main thread renders it, so the edge
+    // drops the message to a generic string while keeping the name for instanceof.
+    const back = roundTrip(new TypeError("provider failed at https://eth.example/v2/SECRET"));
+    expect(back).not.toBeInstanceOf(UnsupportedChainError);
+    expect(back.name).toBe("TypeError");
+    expect(back.message).toBe(FOREIGN_WORKER_ERROR_MESSAGE);
+    expect(back.message).not.toContain("SECRET");
+  });
+
+  it("sanitizes a non-Error throw to the generic worker message", () => {
     const back = rehydrateError(serializeError("raw string failure"));
-    expect(back.message).toBe("raw string failure");
+    expect(back.message).toBe(FOREIGN_WORKER_ERROR_MESSAGE);
+    expect(back.message).not.toContain("raw string failure");
   });
 });
