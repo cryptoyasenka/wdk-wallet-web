@@ -27,10 +27,16 @@
     "sol:live": "corepack pnpm --filter @wdk-web/wallet-core build && node tools/e2e/sol-live.mjs"
   },
   "pnpm": {
+    "//overrides": "Transitive security floors. postcss 8.5.14 clears CVE-2023-44270 / GHSA-7fh5-64p2-3v2j (line-return parsing, patched in 8.4.31). ws 8.20.1 clears CVE-2024-37890 / GHSA-3h5v-q93c-6h6q (DoS on requests with excess HTTP headers, patched in 8.17.1). Both are minimum floors at or above the patched release, so they can be raised freely; do not lower them below the patched version.",
     "overrides": {
       "postcss": "8.5.14",
       "ws": "8.20.1"
-    }
+    },
+    "//onlyBuiltDependencies": "Deny-by-default for dependency build scripts. pnpm 9 runs EVERY dependency's install/postinstall script on a fresh install; this allowlist restricts that to the only two packages in the tree that actually need a native build (verified by scanning node_modules for install/postinstall/preinstall/gypfile). secp256k1 = native libsecp256k1 ECDSA bindings; sharp = libvips image pipeline (Next.js production image optimization). A newly added native dependency must be appended here or a clean CI install will fail to build it — that explicit failure is the intended safety boundary against silent build-script execution.",
+    "onlyBuiltDependencies": [
+      "secp256k1",
+      "sharp"
+    ]
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
