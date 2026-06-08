@@ -39,7 +39,7 @@ import {
   loadTemplates, addTemplate, removeTemplate,
   type Contact, type PaymentTemplate,
 } from "@/lib/contacts";
-import { buildPaymentRequestUri, canBuildRequest, InvalidAmountError } from "@/lib/paymentRequest";
+import { assertValidRecipient, buildPaymentRequestUri, canBuildRequest, InvalidAddressError, InvalidAmountError } from "@/lib/paymentRequest";
 import { classifyRecipient, detectPoisoning, isOfficialToken, officialTokenContracts } from "@/lib/safety";
 import {
   WATCH_CHAINS, addWatchWallet, removeWatchWallet, loadWatchWallets,
@@ -764,6 +764,17 @@ export default function Page() {
       if (!asset) throw new Error(T("send.no_assets"));
       const to = sendTo.trim();
       if (!to) throw new Error(T("error.recipient_required"));
+      // Per-chain recipient shape check BEFORE quoting or sending. WDK would
+      // ultimately reject a malformed address, but only after a round-trip and
+      // with an opaque error — and an EVM address pasted while a non-EVM asset
+      // is selected (or vice-versa) is exactly the cross-chain mistake that can
+      // burn funds. Reuse the same validator the Receive/QR builder trusts.
+      try {
+        assertValidRecipient(to, asset.chain);
+      } catch (e) {
+        if (e instanceof InvalidAddressError) throw new Error(T("error.recipient_invalid"));
+        throw e;
+      }
       const amount = parseUnits(sendAmount, asset.decimals, T);
       const intent: TxIntent = { asset, to, amount };
       // Bitcoin is the only chain WDK lets us tier (confirmationTarget); for
