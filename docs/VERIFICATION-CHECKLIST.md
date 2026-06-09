@@ -1,88 +1,85 @@
 # Verification Checklist
 
-This file is a reviewer map: what the bounty asks for, where it is implemented,
-and how to verify it locally.
+This file maps the Template Wallet brief to what is implemented today, where it
+lives in the repo, and how to verify it.
 
-## Verification
+## Current local bar
 
 ```bash
 corepack pnpm install
-corepack pnpm verify                          # lint · typecheck · test · build (all 3 packages)
-corepack pnpm smoke                            # E2E walkthrough under the live CSP (see below)
-corepack pnpm demo                             # records docs/demo.gif
-corepack pnpm audit --audit-level moderate     # one accepted low advisory
+corepack pnpm verify
+corepack pnpm smoke
+corepack pnpm demo
+corepack pnpm audit --audit-level moderate
 ```
 
-Current local bar:
+Current checked state:
 
-- `lint`, `typecheck`, `test`, and `build` pass across `wallet-core`, `apps/next`,
-  and `apps/svelte`.
-- `corepack pnpm audit --audit-level moderate` passes. The remaining `low`
-  advisory is upstream in the pinned alpha BTC WDK dependency chain
-  (`bitcoinjs-message -> secp256k1 -> elliptic`) and has no patched range in the
-  advisory.
-- `wallet-core`: 94 unit tests (incl. resilient per-chain balance loading: one failing reader marks that chain unavailable instead of rejecting the whole portfolio).
-- `apps/next`: 133 unit tests (payment-request URI builders incl. Solana Pay transfer requests + recipient-address validation + pre-send safety heuristics + address-book/template load hardening + data-source/privacy validation + watch-only storage validation + QR-scan URI unwrapping + CSP connect-src env allow-list + unlock-provider passphrase-fallback selection + i18n locale completeness).
-- `apps/svelte`: 19 headless portability tests.
-- Next First Load JS: about 239 kB; the WDK/BTC graph stays in the worker chunk,
-  not the main First Load path.
-- `corepack pnpm demo` records `docs/demo.gif` against the production Next build
-  and the offline Electrum-WS fixture.
-- `corepack pnpm smoke` (`tools/e2e/smoke.mjs`) builds + serves the production
-  app and drives a real browser through create → seed quiz → portfolio → receive
-  copy accessible name → Recovery Check, under the live strict CSP. A passing
-  run also proves zero CSP violations.
-- A strict, per-request-nonce **Content-Security-Policy** ships from
-  `apps/next/middleware.ts`; every directive is justified in
-  `docs/SECURITY-REVIEW.md` → "CSP".
+- `lint`, `typecheck`, `test`, and `build` pass across `wallet-core`,
+  `apps/next`, and `apps/svelte`.
+- `wallet-core`: 95 unit tests.
+- `apps/next`: 139 unit tests.
+- `apps/svelte`: 19 portability tests.
+- Total test count: **253**.
+- Next First Load JS: about **240 kB**. The WDK/BTC graph stays in the worker
+  chunk, not the main first-load path.
+- `corepack pnpm demo` records `docs/demo.gif` against the production Next
+  build and the offline Electrum-WS fixture.
+- `corepack pnpm smoke` builds and serves the production app and drives a real
+  browser through the main reviewer path under the live strict CSP.
+- `corepack pnpm audit --audit-level moderate` passes with one accepted
+  upstream `low`.
 
-## Bounty Requirements
+## Submission scope
 
-| Requirement | Implementation | Verification |
+This repo should currently be read as **M1 delivered** and **M2 delivered for
+the core web template**. It does **not** claim M3 completion yet.
+
+| Milestone | Status | Notes |
 |---|---|---|
-| Web wallet built on Tether WDK | `packages/wallet-core/src/wdk/` is the only WDK containment layer; apps consume `@wdk-web/wallet-core` only. | `corepack pnpm lint` enforces no `@tetherto/*` imports outside the containment folder. |
-| Self-custodial keys | Seed vault is AES-GCM encrypted; operational signer lives behind the WDK adapter worker in browser builds. | `docs/SECURITY.md`, `docs/ARCHITECTURE.md` ADR-004, `packages/wallet-core/test/vault.test.ts`. |
-| USDt send/receive on web | USDT assets configured for Ethereum, Polygon, Arbitrum, and Plasma through the WDK EVM manager. | `packages/wallet-core/src/chains/index.ts`, send/quote tests in `packages/wallet-core/test/engine.test.ts`. |
-| BTC send/receive on web | BTC manager is bundled through browser shims and uses an injected Electrum-over-WebSocket endpoint. | `apps/next/.env.example`, `docs/RN-TO-WEB-MAP.md`, demo fixture under `tools/demo/`. |
-| Passphrase and passkey unlock | Passphrase remains the recovery slot; passkey enrollment adds a separate passkey-encrypted vault slot. | `packages/wallet-core/test/engine.test.ts` covers both slots after passkey enrollment. |
-| Multi-wallet and multi-account | Independent vaults for wallets; HD indices for accounts. | `packages/wallet-core/test/multi-wallet.test.ts`, `packages/wallet-core/test/multi-account.test.ts`. |
-| QR receive and QR scan send | QR render and QR scan are implemented in both app hosts. | `apps/next/app/page.tsx`, `apps/svelte/src/App.svelte`, `apps/svelte/test/extract-address.test.ts`. |
-| Payment requests (EIP-681 / BIP-21 / Solana Pay) | Receive has an Address/Request switch: pick asset + amount (+ memo for BTC/Solana), get a scannable payment-request URI and QR, not just a bare address. EVM → EIP-681, BTC → BIP-21, Solana USD₮/SOL → Solana Pay transfer request (`solana:<owner>?amount&spl-token`). | `apps/next/src/lib/paymentRequest.ts`, `apps/next/test/paymentRequest.test.ts`, Receive card in `apps/next/app/page.tsx`. |
-| Pre-send safety panel | Confirmation screen shows official-contract badge, recipient status (own/saved/recent/new), address-poisoning warning, gas-paid-separately note, and a recipient explorer link. | `apps/next/src/lib/safety.ts`, `apps/next/test/safety.test.ts`, confirmation block in `apps/next/app/page.tsx`. |
-| Address book v2 + payment templates | Contacts carry a note, favorite flag, and last-used stamp (favorites and recent payees sort first); reusable payment templates prefill recipient+asset+amount on Send. Persisted JSON is shape-validated on load; corrupt rows are dropped, never thrown on. | `apps/next/src/lib/contacts.ts`, `apps/next/test/contacts.test.ts`, Settings address book + Send templates row in `apps/next/app/page.tsx`. |
-| Data sources / privacy | A Settings card exposes every endpoint the wallet uses (EVM RPCs, Electrum-WS, optional indexer, CoinGecko price oracle) with privacy labels. Defaults are privacy-preserving; the price call is a disclosed opt-out toggle. Overrides are validated, stored on-device only, and rebuild the engine on save (never threaded into wallet-core). | `apps/next/src/lib/dataSources.ts`, `apps/next/test/dataSources.test.ts`, `apps/next/src/lib/engine.ts`, `apps/next/src/lib/prices.ts`, Data Sources card in `apps/next/app/page.tsx`. |
-| Watch-only mode | Onboarding offers a third path (Watch) that monitors any EVM address read-only with no seed: a seedless engine read (`getBalancesForAddress`) shows the portfolio, signing is disabled with clear copy, and no seed-quiz/passkey/recovery is shown. Watched addresses are validated and stored on-device only. | `packages/wallet-core/src/wallet/engine.ts` (`getBalancesForAddress`), `apps/next/src/lib/watchOnly.ts`, `apps/next/test/watchOnly.test.ts`, watch view in `apps/next/app/page.tsx`. |
-| Framework portability | Svelte app consumes the byte-shared core with its own host ports. | `apps/svelte/test/portability.test.ts`. |
-| Honest activity model | Local outgoing send log is default. External/public history is an optional injected provider, not hardcoded in WDK core. | `packages/wallet-core/src/wallet/engine.ts`, `docs/ARCHITECTURE.md` ADR-003, history merge/failure tests in `packages/wallet-core/test/engine.test.ts`. |
-| Production honesty | Web Worker is defense-in-depth, not an XSS boundary; BTC needs an Electrum-WS endpoint. | `docs/SECURITY.md`, `README.md`. |
+| M1: Proposal & Architecture Review | Delivered | Framework choice, architecture, security notes, and integration guidance are public in the repo. |
+| M2: Core Integration & Wallet Flows | Delivered for the core web template | WDK integration, onboarding, balances, send / receive, multi-wallet, multi-account, QR flows, and status monitoring are runnable today. |
+| M3: Final Delivery | Next milestone | Spark / Lightning, official Indexer API alignment for external history, the upstream PR into Tether's templates/examples area, and the expanded 2-5 minute reviewer demo package remain open. |
 
-## Reviewer Demo Path
+## Brief mapping
 
-1. Start `apps/next`.
-2. Create a wallet with a passphrase.
+| Brief item | Current status | Proof / notes |
+|---|---|---|
+| Web wallet built on Tether WDK | Shipped | `packages/wallet-core/src/wdk/` is the only WDK containment layer; lint prevents `@tetherto/*` imports elsewhere. |
+| Self-custodial keys | Shipped | AES-GCM vault, worker-owned signer, documented in `docs/SECURITY.md` and `docs/ARCHITECTURE.md`; covered by `packages/wallet-core/test/vault.test.ts`. |
+| Seed generation, recovery, validation | Shipped | Create, import, backup quiz, recovery check, and unlock flows are present in `apps/next/app/page.tsx` and covered by unit tests plus `corepack pnpm smoke`. |
+| Multiple wallets per user | Shipped | `packages/wallet-core/test/multi-wallet.test.ts`. |
+| Multiple accounts within each wallet | Shipped | `packages/wallet-core/test/multi-account.test.ts`. |
+| BTC, USDt, XAUt support | Shipped | Asset configuration in `packages/wallet-core/src/chains/index.ts`; send / quote coverage in `packages/wallet-core/test/engine.test.ts`. |
+| Bitcoin, Ethereum, Polygon, Arbitrum, Plasma, Solana | Shipped | Working chain registry in `packages/wallet-core/src/chains/index.ts`; Next app surfaces these in portfolio, send, and receive. |
+| Lightning / Spark | Next milestone | Not shipped in this repo. Left as a documented extension path and not claimed as done. |
+| Onboarding, balances, send / receive | Shipped | Live demo, `apps/next/app/page.tsx`, `corepack pnpm smoke`, and the engine tests. |
+| Recipient entry by typing, paste, or QR scan | Shipped | Send flow in `apps/next/app/page.tsx`, QR parsing tests in `apps/next/test/qrScan.test.ts` and related receive/send tests. |
+| Automatic address validation | Shipped | Recipient validation in `apps/next/test/recipientValidation.test.ts` and send logic in `apps/next/app/page.tsx`. |
+| Transaction status monitoring | Shipped | Local activity plus on-chain receipt refresh in `packages/wallet-core/src/wallet/engine.ts` and engine tests. |
+| Transaction history with filtering | Partial today, next milestone for the full brief | Local outgoing activity ships by default. External/public history is provider-injected today; official Indexer API alignment and fuller external-history coverage are planned next. |
+| Indexer API integration | Partial today, next milestone for the official path | History is host-injected through `apps/next/src/lib/historyProvider.ts` and wired in `apps/next/src/lib/engine.ts`. Official Tether Indexer API alignment is not claimed as complete yet. |
+| Worklet as secure execution layer | Web platform mapping, documented honestly | The secure execution layer on web is a Dedicated Web Worker. See `docs/RN-TO-WEB-MAP.md` and `docs/SECURITY.md` for the exact mapping and the stated limits. |
+| Documentation: setup, architecture, framework-specific notes | Shipped | `README.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/RN-TO-WEB-MAP.md`, `docs/PROJECT-SUMMARY.md`, `docs/REVIEW.md`. |
+| Demo video | Shipped in short form, expanded package next | `docs/walkthrough.mp4` covers the current product flow. The longer 2-5 minute final reviewer package is a next-milestone item. |
+| Upstream PR into Tether templates/examples | Next milestone | Not yet part of this repo snapshot. Planned as the final-delivery step after the remaining template-alignment work. |
+
+## Reviewer demo path
+
+1. Open the live demo or run `apps/next`.
+2. Create a wallet and set a passphrase.
 3. Back up the seed phrase and pass the seed quiz.
-4. Unlock and inspect portfolio, receive addresses, QR, send confirmation, and
-   activity.
-5. Run the Svelte portability proof to show the same core outside Next.js.
+4. Unlock and inspect portfolio, receive, QR, send confirmation, and activity.
+5. Optionally open the Svelte app to show the same core outside Next.js.
 
-## Known Honest Limits
+## Known honest limits
 
-- The browser cannot open raw Electrum TCP, so BTC requires an Electrum-over-
-  WebSocket endpoint.
+- The browser cannot open raw Electrum TCP, so BTC requires an
+  Electrum-over-WebSocket endpoint.
 - A Web Worker reduces accidental key exposure but cannot stop a compromised
   main thread from requesting signatures.
-- Inbound/external transaction history is not silently fetched by default because
-  that leaks addresses to public indexers. Hosts can add an explicit indexer
-  provider with user-facing privacy copy.
-- The `@tetherto/*` WDK packages are pinned to exact pre-1.0 betas, deliberately.
-  As of 2026-05-31 the pins are `@tetherto/wdk@1.0.0-beta.9`,
-  `@tetherto/wdk-wallet@1.0.0-beta.8`, `@tetherto/wdk-wallet-btc@1.0.0-beta.9`,
-  `@tetherto/wdk-wallet-evm@1.0.0-beta.12`, and
-  `@tetherto/wdk-wallet-solana@1.0.0-beta.8`. npm `latest` has since moved three
-  of them one beta ahead (`wdk-wallet` → beta.9, `wdk-wallet-evm` → beta.13 with
-  a `2.0.0-rc.1` major already in flight, `wdk-wallet-solana` → beta.9). These are
-  pre-1.0 packages whose API still churns between betas, so the lockfile is pinned
-  to the exact set this wallet was built and green-tested against - a reproducible
-  install, not a moving target. Upgrading is a tracked follow-up to run against a
-  funded-testnet send, not a blind bump: the headless `wallet-core` seam exists
-  precisely so a WDK version bump is an isolated, separately-verifiable change.
+- Inbound and external transaction history is not silently fetched by default,
+  because that leaks addresses to public indexers.
+- The `@tetherto/*` packages are pinned to exact pre-1.0 betas on purpose. The
+  containment seam in `packages/wallet-core/src/wdk/` exists so future WDK
+  upgrades stay isolated and separately verifiable.

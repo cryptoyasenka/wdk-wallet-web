@@ -72,6 +72,7 @@ honest "unsupported chain" error instead of failing silently.
 | Multi-wallet / multi-account | Yes. Independent BIP-39 seeds with HD accounts and zero-migration back-compat |
 | QR | Yes. Scan a BIP-21 or EIP-681 request into Send and render Receive as QR |
 | Reusable across hosts | Yes. The same headless core powers a second app in Svelte |
+
 Across supported chains, the wallet ships **four EVM networks**
 (Ethereum, Polygon, Arbitrum, Plasma, all via the WDK EVM manager), **Solana**
 (USD₮ as an SPL token via `@tetherto/wdk-wallet-solana` through the same
@@ -81,6 +82,13 @@ end-to-end; the Solana, Polygon, Arbitrum, and Plasma managers are wired,
 typed, built, and covered at the config and portfolio layers, but their
 live-RPC send / receive paths are not part of CI. **Lightning / Spark are not
 shipped**: they remain documented extension points.
+
+Against Tether's Template Wallet milestones, this repository already covers M1
+and the core M2 prototype: framework choice, architecture, runnable SDK
+integration, onboarding, balances, and send / receive on the shipped chains.
+The next milestone is the final-delivery layer: Spark / Lightning, official
+Indexer API alignment for external history, the upstream template PR, and the
+longer 2-5 minute reviewer demo package.
 
 The one honest operational dependency: a browser cannot open a raw Electrum TCP
 socket, so BTC needs a **public Electrum-WS endpoint** to point at (env-driven,
@@ -162,8 +170,11 @@ and a CI green mean the same thing. WDK is alpha; package versions are pinned
   Polygon, Arbitrum, Plasma) are wired, typed, built and config + portfolio
   unit-covered, but their live-RPC paths are not in CI.
 - **Not shipped (honest):** Lightning / Spark, same adapter shape, left as
-  documented extension points, not claimed as done. Token-detail and settings
-  screens are folded into the single page rather than separate routes.
+  documented extension points, not claimed as done. Official Indexer API
+  alignment for external history, the upstream PR into Tether's
+  templates/examples area, and the expanded final demo package all belong to
+  the next milestone, not this repo's current shipped slice. Token-detail and
+  settings screens are folded into the single page rather than separate routes.
 - **BTC operational dependency:** needs a public Electrum-WS endpoint
   (env-driven, failover-capable). Unset → the five keyless default chains (four
   EVM nets + Solana) and a typed error for BTC. Detail in
